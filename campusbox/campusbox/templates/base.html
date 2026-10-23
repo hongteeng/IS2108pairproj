@@ -1,47 +1,35 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>{% block title %}CampusBox{% endblock %}</title>
-    {# Bootstrap CSS from the CDN styles every page that extends this template
-    #}
-    <link
-      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
-      rel="stylesheet"
-    />
-  </head>
-  <body>
-    {# Navbar: shows the user's name and Log out when logged in, otherwise Log
-    in and Register #}
-    <nav class="navbar bg-body-tertiary">
-      <div class="container">
-        <a class="navbar-brand" href="{% url 'index' %}">CampusBox</a>
-        <div class="d-flex align-items-center gap-2">
-          {% if user.is_authenticated %}
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}CampusBox{% endblock %}</title>
+  {# Bootstrap CSS for every page #}
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+  {# Navbar shows the user's name when logged in, otherwise Log in and Register #}
+  <nav class="navbar bg-body-tertiary">
+    <div class="container">
+      <a class="navbar-brand" href="{% url 'index' %}">CampusBox</a>
+      <div class="d-flex align-items-center gap-2">
+        {% if user.is_authenticated %}
           <span class="navbar-text">Hi, {{ user.username }}</span>
-          {# Logout is a POST form so a plain link can't log someone out #}
+          {# POST form so a plain link can't log anyone out #}
           <form method="post" action="{% url 'accounts:logout' %}" class="m-0">
             {% csrf_token %}
-            <button type="submit" class="btn btn-outline-secondary btn-sm">
-              Log out
-            </button>
+            <button type="submit" class="btn btn-outline-secondary btn-sm">Log out</button>
           </form>
-          {% else %}
-          <a
-            class="btn btn-outline-secondary btn-sm"
-            href="{% url 'accounts:login' %}"
-            >Log in</a
-          >
-          <a class="btn btn-success btn-sm" href="{% url 'accounts:register' %}"
-            >Register</a
-          >
-          {% endif %}
-        </div>
+        {% else %}
+          <a class="btn btn-outline-secondary btn-sm" href="{% url 'accounts:login' %}">Log in</a>
+          <a class="btn btn-success btn-sm" href="{% url 'accounts:register' %}">Register</a>
+        {% endif %}
       </div>
-    </nav>
+    </div>
+  </nav>
 
-    {# Each page fills this block with its own content #}
-    <main class="container py-4">{% block content %}{% endblock %}</main>
-  </body>
+  <main class="container py-4">
+    {% block content %}{% endblock %}
+  </main>
+</body>
 </html>
