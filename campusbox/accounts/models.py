@@ -1,3 +1,4 @@
 from django.db import models
 
-# Create your models here.
+# Accounts use Django's built-in User (django.contrib.auth.models.User).
+# CustomerProfile will be added here later.
