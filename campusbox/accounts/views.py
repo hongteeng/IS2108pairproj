@@ -1,8 +1,10 @@
-from django.contrib.auth.hashers import check_password, make_password
+from django.contrib.auth import authenticate
+from django.contrib.auth import login as auth_login    # renamed so they don't clash
+from django.contrib.auth import logout as auth_logout  # with our login/logout views
+from django.contrib.auth.models import User
 from django.shortcuts import redirect, render
 
 from .forms import LoginForm, RegisterForm
-from .models import User
 
 
 def register(request):
@@ -11,13 +13,11 @@ def register(request):
     if request.method == 'POST':
         form = RegisterForm(request.POST)
         if form.is_valid():
-            user = User.objects.create(
+            user = User.objects.create_user(
                 username=form.cleaned_data['username'],
-                password=make_password(form.cleaned_data['password']), # hash before saving
+                password=form.cleaned_data['password'], # hash before saving
             )
-            request.session['user_id'] = user.id
-            request.session['username'] = user.username
-            request.session['is_staff'] = user.is_staff
+            auth_login(request, user)
             return redirect('index')
     else:
         form = RegisterForm()
@@ -31,11 +31,14 @@ def login(request):
     if request.method == 'POST':
         form = LoginForm(request.POST)
         if form.is_valid():
-            user = User.objects.filter(username=form.cleaned_data['username']).first()
-            if user and check_password(form.cleaned_data['password'], user.password):
-                request.session['user_id'] = user.id
-                request.session['username'] = user.username
-                request.session['is_staff'] = user.is_staff
+            # Returns the user if the password matches, otherwise None.
+            user = authenticate(
+                request,
+                username=form.cleaned_data['username'],
+                password=form.cleaned_data['password'],
+            )
+            if user is not None:
+                auth_login(request, user)
                 return redirect('index')
             error = 'Incorrect username or password.'
     else:
@@ -47,5 +50,5 @@ def logout(request):
     """Clear the session. POST only, so a link can't log anyone out."""
     
     if request.method == 'POST':
-        request.session.flush()
+        auth_logout(request)
     return redirect('index')
