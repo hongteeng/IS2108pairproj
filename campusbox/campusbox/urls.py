@@ -17,7 +17,8 @@ Including another URLconf
 from django.urls import path, include
 from . import views
 
-urlpatterns = [
+urlpatterns = [ #this file runs every web request, its the front desk
+    #it forwards the web request to the relevant app's urls.py
     path('', views.index, name='index'),
     path('accounts/', include('accounts.urls')),
     path('menu/', include('menu.urls')),
