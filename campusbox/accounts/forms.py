@@ -1,6 +1,8 @@
 from django import forms
 from django.contrib.auth.models import User
 
+from .models import CustomerProfile
+
 
 class RegisterForm(forms.Form):
     """Sign-up form with the password entered twice."""
@@ -33,3 +35,53 @@ class LoginForm(forms.Form):
     username = forms.CharField(max_length=50,
                                widget=forms.TextInput(attrs={'class': 'form-control'}))
     password = forms.CharField(widget=forms.PasswordInput(attrs={'class': 'form-control'}))
+
+
+class TasteQuizForm(forms.ModelForm):
+    """Collects customer preferences for meal recommendations."""
+
+    class Meta:
+        model = CustomerProfile
+        fields = [
+            "age",
+            "gender",
+            "is_on_campus",
+            "budget_per_meal",
+            "fitness_goal",
+            "spice_tolerance",
+            "diet",
+            "allergies",
+        ]
+        labels = {
+            "is_on_campus": "I live on campus",
+            "budget_per_meal": "Budget per meal ($)",
+            "spice_tolerance": "How spicy do you like it?",
+        }
+        widgets = {
+            "age": forms.NumberInput(attrs={"class": "form-control"}),
+            "gender": forms.Select(attrs={"class": "form-select"}),
+            "is_on_campus": forms.CheckboxInput(attrs={"class": "form-check-input"}),
+            "budget_per_meal": forms.NumberInput(attrs={"class": "form-control"}),
+            "fitness_goal": forms.Select(attrs={"class": "form-select"}),
+            "spice_tolerance": forms.Select(attrs={"class": "form-select"}),
+            "diet": forms.Select(attrs={"class": "form-select"}),
+            "allergies": forms.CheckboxSelectMultiple(
+                attrs={"class": "form-check-input"},
+            ),
+        }
+
+    def clean_age(self):
+        """Keep ages realistic for university students."""
+        age = self.cleaned_data["age"]
+        if not 16 <= age <= 60:
+            raise forms.ValidationError("Age must be between 16 and 60.")
+        return age
+
+    def clean_budget_per_meal(self):
+        """Keep budgets within a sensible range."""
+        budget = self.cleaned_data["budget_per_meal"]
+        if not 3 <= budget <= 30:
+            raise forms.ValidationError(
+                "Budget per meal must be between $3 and $30."
+            )
+        return budget
