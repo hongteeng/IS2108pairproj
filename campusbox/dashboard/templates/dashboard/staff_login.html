@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Staff log in · CampusBox{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-5">
+    <h1 class="h3 mb-3">Staff log in</h1>
+    {% if error %}<div class="alert alert-danger">{{ error }}</div>{% endif %}
+    <form method="post">
+      {% csrf_token %}
+      {% for field in form %}
+        <div class="mb-3">
+          <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+          {{ field }}
+        </div>
+      {% endfor %}
+      <button type="submit" class="btn btn-dark w-100">Log in</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

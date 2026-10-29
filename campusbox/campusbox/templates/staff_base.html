@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block title %}CampusBox Staff{% endblock %}
+
+{% block content %}
+<div class="row">
+  <div class="col-md-3 mb-3">
+    <div class="list-group">
+      <a class="list-group-item list-group-item-action" href="/dashboard/">Dashboard</a>
+      <a class="list-group-item list-group-item-action" href="#">Meals</a>
+      <a class="list-group-item list-group-item-action" href="#">Weekly menu</a>
+      <a class="list-group-item list-group-item-action" href="#">Pickup points</a>
+      <a class="list-group-item list-group-item-action" href="#">Orders</a>
+      <a class="list-group-item list-group-item-action" href="#">Reviews</a>
+      <a class="list-group-item list-group-item-action" href="#">Support</a>
+    </div>
+  </div>
+  <div class="col-md-9">
+    {% block staff_content %}{% endblock %}
+  </div>
+</div>
+{% endblock %}
