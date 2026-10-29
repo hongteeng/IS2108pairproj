@@ -22,7 +22,7 @@ class CustomerProfile(models.Model):
         (3, "Hot"),
     ]
     DIET_CHOICES = [
-        ("none", "None"),
+        ("none", "No Restrictions"),
         ("vegetarian", "Vegetarian"),
         ("vegan", "Vegan"),
         ("halal", "Halal"),
@@ -39,7 +39,7 @@ class CustomerProfile(models.Model):
     budget_per_meal = models.IntegerField()
     fitness_goal = models.CharField(max_length=20, choices=FITNESS_GOAL_CHOICES)
     spice_tolerance = models.IntegerField(choices=SPICE_TOLERANCE_CHOICES)
-    diet = models.CharField(max_length=20, choices=DIET_CHOICES, default="No Restrictions")
+    diet = models.CharField(max_length=20, choices=DIET_CHOICES, default="none")
     allergies = models.ManyToManyField("menu.Allergen", blank=True)
     predicted_category = models.ForeignKey(
         "menu.MealCategory",
