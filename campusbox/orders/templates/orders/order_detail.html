@@ -8,8 +8,16 @@
 
 <p>
   <strong>Status:</strong>
-  <span class="badge text-bg-success">{{ order.get_status_display }}</span>
+  <span class="badge {% if order.status == 'cancelled' %}text-bg-secondary{% else %}text-bg-success{% endif %}">{{ order.get_status_display }}</span>
 </p>
+
+{% if tracker %}
+  <ol class="list-group list-group-horizontal-md mb-4">
+    {% for step in tracker %}
+      <li class="list-group-item flex-fill {% if step.done %}list-group-item-success{% endif %}">{{ step.label }}</li>
+    {% endfor %}
+  </ol>
+{% endif %}
 
 <p>
   <strong>Pickup:</strong>
@@ -47,5 +55,15 @@
   </table>
 </div>
 
-<a href="{% url 'menu:weekly_menu' %}" class="btn btn-outline-secondary">Back to menu</a>
+<div class="d-flex gap-2">
+  <a href="{% url 'menu:weekly_menu' %}" class="btn btn-outline-secondary">Back to menu</a>
+  <a href="{% url 'orders:order_history' %}" class="btn btn-outline-secondary">My orders</a>
+  {% if can_cancel %}
+    <form method="post" action="{% url 'orders:cancel_order' order.id %}">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-outline-danger">Cancel order</button>
+    </form>
+    <small class="text-muted align-self-center">You can cancel until the order cutoff.</small>
+  {% endif %}
+</div>
 {% endblock %}

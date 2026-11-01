@@ -10,6 +10,19 @@ from menu.models import MenuItem
 from . import cart
 from .models import Order, OrderItem, PickupSlot
 
+# Tracker shows every status except "cancelled", in order.
+TRACKING_STEPS = [
+    choice for choice in Order.STATUS_CHOICES if choice[0] != "cancelled"
+]
+
+
+def can_cancel(order, items):
+    """Return whether an order can still be cancelled."""
+    return order.status == "confirmed" and all(
+        item.menu_item.weekly_menu.order_cutoff > timezone.now()
+        for item in items
+    )
+
 
 def get_open_slots():
     """Return upcoming slots at active pickup points, with spaces left."""
@@ -95,14 +108,69 @@ def order_detail(request, order_id):
         id=order_id,
         user=request.user,
     )
-    items = order.items.select_related("menu_item__meal")
+    items = order.items.select_related(
+        "menu_item__meal",
+        "menu_item__weekly_menu",
+    )
     for item in items:
         item.subtotal_dollars = f"{item.price_at_purchase_cents * item.quantity / 100:.2f}"
+    # Steps up to and including the current status are done.
+    tracker = []
+    if order.status != "cancelled":
+        current_step = next(
+            index for index, step in enumerate(TRACKING_STEPS)
+            if step[0] == order.status
+        )
+        tracker = [
+            {"label": label, "done": index <= current_step}
+            for index, (_, label) in enumerate(TRACKING_STEPS)
+        ]
     return render(request, "orders/order_detail.html", {
         "order": order,
         "items": items,
         "total_dollars": f"{order.total_cents / 100:.2f}",
+        "tracker": tracker,
+        "can_cancel": can_cancel(order, items),
     })
+
+
+@login_required
+def cancel_order(request, order_id):
+    """Cancel the logged-in user's eligible order."""
+    order = get_object_or_404(Order, id=order_id, user=request.user)
+    if request.method != "POST":
+        return redirect("orders:order_detail", order_id=order.id)
+    
+    items = order.items.select_related("menu_item__weekly_menu")
+    if not can_cancel(order, items):
+        messages.error(request, "This order can no longer be cancelled.")
+        return redirect("orders:order_detail", order_id=order.id)
+
+    with transaction.atomic():
+        order.status = "cancelled"
+        order.save(update_fields=["status"])
+        for item in items:
+            menu_item = item.menu_item
+            menu_item.quantity_sold -= item.quantity
+            menu_item.save(update_fields=["quantity_sold"])
+
+    messages.success(
+        request,
+        f"Order #{order.id} cancelled. ${order.total_cents / 100:.2f} will be refunded.",
+    )
+    return redirect("orders:order_detail", order_id=order.id)
+
+
+@login_required
+def order_history(request):
+    """Show the logged-in user's previous orders."""
+    orders = request.user.orders.select_related(
+        "pickup_slot__pickup_point",
+    ).order_by("-created_at")
+    for order in orders:
+        order.total_dollars = f"{order.total_cents / 100:.2f}"
+    return render(request, "orders/order_history.html", {"orders": orders})
+    
     
 @login_required
 def add_to_cart(request, menu_item_id):

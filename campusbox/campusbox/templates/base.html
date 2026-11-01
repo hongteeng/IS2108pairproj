@@ -16,6 +16,7 @@
       <div class="d-flex align-items-center gap-2">
         {% if user.is_authenticated %}
           <a class="btn btn-outline-success btn-sm" href="{% url 'orders:cart' %}">Cart</a>        
+          <a class="btn btn-outline-secondary btn-sm" href="{% url 'orders:order_history' %}">My orders</a>
           <span class="navbar-text">Hi, {{ user.username }}</span>
           {# POST form so a plain link can't log anyone out #}
           <form method="post" action="{% url 'accounts:logout' %}" class="m-0">
