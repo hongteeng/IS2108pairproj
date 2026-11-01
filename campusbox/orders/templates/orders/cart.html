@@ -38,8 +38,7 @@
   </table>
   <div class="d-flex justify-content-between">
     <a href="{% url 'menu:weekly_menu' %}" class="btn btn-outline-secondary">Keep browsing</a>
-    <button type="button" class="btn btn-success" disabled>Checkout (next step)</button>
-  </div>
+    <a href="{% url 'orders:checkout' %}" class="btn btn-success">Checkout</a>  </div>
 {% else %}
   <p>Your cart is empty.</p>
   <a href="{% url 'menu:weekly_menu' %}" class="btn btn-success">Browse the menu</a>

@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Order #{{ order.id }} · CampusBox{% endblock %}
+{% block content %}
+<h1>Order #{{ order.id }}</h1>
+<p class="text-muted">
+  Placed {{ order.created_at|date:"j M Y, H:i" }} · Payment ref {{ order.payment_reference }}
+</p>
+
+<p>
+  <strong>Status:</strong>
+  <span class="badge text-bg-success">{{ order.get_status_display }}</span>
+</p>
+
+<p>
+  <strong>Pickup:</strong>
+  <strong>{{ order.pickup_slot.pickup_point.name }}</strong>
+  · {{ order.pickup_slot.day|date:"D j M" }},
+  {{ order.pickup_slot.start_time|time:"H:i" }}–{{ order.pickup_slot.end_time|time:"H:i" }}
+  <br>
+  <small class="text-muted">{{ order.pickup_slot.pickup_point.location }}</small>
+</p>
+
+<div class="table-responsive">
+  <table class="table">
+    <thead>
+      <tr>
+        <th scope="col">Meal</th>
+        <th scope="col">Quantity</th>
+        <th scope="col" class="text-end">Subtotal</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in items %}
+        <tr>
+          <td>{{ item.menu_item.meal.name }}</td>
+          <td>{{ item.quantity }}</td>
+          <td class="text-end">${{ item.subtotal_dollars }}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+    <tfoot>
+      <tr>
+        <th scope="row" colspan="2">Total paid</th>
+        <th class="text-end">${{ total_dollars }}</th>
+      </tr>
+    </tfoot>
+  </table>
+</div>
+
+<a href="{% url 'menu:weekly_menu' %}" class="btn btn-outline-secondary">Back to menu</a>
+{% endblock %}

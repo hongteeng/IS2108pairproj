@@ -1,11 +1,109 @@
+import uuid
+
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
 
 from menu.models import MenuItem
 from . import cart
+from .models import Order, OrderItem, PickupSlot
 
 
+def get_open_slots():
+    """Return upcoming slots at active pickup points, with spaces left."""
+    slots = list(
+        PickupSlot.objects.filter(pickup_point__is_active=True, day__gte=timezone.localdate())
+        .select_related("pickup_point")
+        .order_by("day", "start_time")
+    )
+    for slot in slots:
+        # Cancelled orders free up their space.
+        slot.spaces_left = slot.capacity - slot.orders.exclude(status="cancelled").count()
+    return slots
+
+
+def place_order(user, slot, lines, total_cents):
+    """Create the order and its items, and take the meals out of stock."""
+    # All or nothing: if any step fails, nothing is saved.
+    with transaction.atomic():
+        order = Order.objects.create(
+            user=user,
+            pickup_slot=slot,
+            total_cents=total_cents,
+            # Payment is simulated, so we generate a reference number.
+            payment_reference="SIM-" + uuid.uuid4().hex[:8].upper(),
+        )
+        for line in lines:
+            menu_item = line["menu_item"]
+            OrderItem.objects.create(
+                order=order,
+                menu_item=menu_item,
+                quantity=line["quantity"],
+                price_at_purchase_cents=menu_item.meal.price_cents,
+            )
+            menu_item.quantity_sold += line["quantity"]
+            menu_item.save()
+    return order
+
+
+@login_required
+def checkout(request):
+    """Choose a pickup slot and pay (simulated) for the cart."""
+    lines, total_cents = cart.get_cart_lines(request)
+    if not lines:
+        messages.error(request, "Your cart is empty.")
+        return redirect("orders:cart")
+
+    slots = get_open_slots()
+
+    if request.method == "POST":
+        slot_id = request.POST.get("pickup_slot", "")
+        slot = next((s for s in slots if str(s.id) == slot_id), None)
+        problem = None
+        if slot is None:
+            problem = "Please choose a pickup slot."
+        elif slot.spaces_left <= 0:
+            problem = "That pickup slot is full. Please choose another."
+        elif any(line["menu_item"].weekly_menu.order_cutoff < timezone.now() for line in lines):
+            problem = "Ordering for this week's menu has closed."
+        elif any(line["quantity"] > line["stock_left"] for line in lines):
+            problem = "Some meals no longer have enough stock. Please update your cart."
+
+        if problem:
+            messages.error(request, problem)
+        else:
+            order = place_order(request.user, slot, lines, total_cents)
+            cart.clear_cart(request)
+            messages.success(request, f"Payment received. Order #{order.id} is confirmed.")
+            return redirect("orders:order_detail", order_id=order.id)
+
+    return render(request, "orders/checkout.html", {
+        "lines": lines,
+        "total_dollars": f"{total_cents / 100:.2f}",
+        "slots": slots,
+    })
+
+
+@login_required
+def order_detail(request, order_id):
+    """Show one of the student's own orders."""
+    # user=request.user means students can't open other people's orders.
+    order = get_object_or_404(
+        Order.objects.select_related("pickup_slot__pickup_point"),
+        id=order_id,
+        user=request.user,
+    )
+    items = order.items.select_related("menu_item__meal")
+    for item in items:
+        item.subtotal_dollars = f"{item.price_at_purchase_cents * item.quantity / 100:.2f}"
+    return render(request, "orders/order_detail.html", {
+        "order": order,
+        "items": items,
+        "total_dollars": f"{order.total_cents / 100:.2f}",
+    })
+    
 @login_required
 def add_to_cart(request, menu_item_id):
     """Add a meal to the cart from its detail page."""

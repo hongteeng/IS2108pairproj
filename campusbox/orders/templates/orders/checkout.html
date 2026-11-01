@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Checkout · CampusBox{% endblock %}
+{% block content %}
+<h1 class="mb-4">Checkout</h1>
+
+{% for message in messages %}
+  <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+{% endfor %}
+
+<div class="row g-4">
+  <div class="col-md-7">
+    <form method="post">
+      {% csrf_token %}
+      <h2 class="h4">1. Choose a pickup slot</h2>
+      {% for slot in slots %}
+        <div class="form-check mb-2">
+          <input class="form-check-input" type="radio" name="pickup_slot" value="{{ slot.id }}" id="slot-{{ slot.id }}" required {% if slot.spaces_left <= 0 %}disabled{% endif %}>
+          <label class="form-check-label" for="slot-{{ slot.id }}">
+            {{ slot.pickup_point.name }} · {{ slot.day|date:"D j M" }}, {{ slot.start_time|time:"H:i" }}–{{ slot.end_time|time:"H:i" }}
+            {% if slot.spaces_left <= 0 %}
+              <small class="text-muted">(full)</small>
+            {% else %}
+              <small class="text-muted">({{ slot.spaces_left }} spaces left)</small>
+            {% endif %}
+          </label>
+        </div>
+      {% empty %}
+        <p class="text-muted">No pickup slots are open right now.</p>
+      {% endfor %}
+
+      <h2 class="h4 mt-4">2. Pay</h2>
+      <p class="small text-muted">Payment is simulated for this project. No card is charged.</p>
+      <button type="submit" class="btn btn-success" {% if not slots %}disabled{% endif %}>Pay ${{ total_dollars }}</button>
+      <a href="{% url 'orders:cart' %}" class="btn btn-outline-secondary">Back to cart</a>
+    </form>
+  </div>
+
+  <div class="col-md-5">
+    <div class="card">
+      <div class="card-body">
+        <h2 class="h4 card-title">Order summary</h2>
+        {% for line in lines %}
+          <div class="d-flex justify-content-between">
+            <span>{{ line.quantity }} x {{ line.menu_item.meal.name }}</span>
+            <span>${{ line.subtotal_dollars }}</span>
+          </div>
+        {% endfor %}
+        <hr>
+        <div class="d-flex justify-content-between fw-bold">
+          <span>Total</span>
+          <span>${{ total_dollars }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
