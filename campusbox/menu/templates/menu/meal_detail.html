@@ -48,6 +48,15 @@
     {% if menu_item %}
       {% if menu_item.stock_left > 0 %}
         <p class="text-success">{{ menu_item.stock_left }} left this week</p>
+        {% if user.is_authenticated %}
+          <form method="post" action="{% url 'orders:add_to_cart' menu_item.id %}" class="d-flex gap-2 mb-3">
+            {% csrf_token %}
+            <input type="number" name="quantity" value="1" min="1" max="{{ menu_item.stock_left }}" class="form-control" style="width: 6rem;">
+            <button type="submit" class="btn btn-success">Add to cart</button>
+          </form>
+        {% else %}
+          <p><a href="{% url 'accounts:login' %}">Log in</a> to order this meal.</p>
+        {% endif %}
       {% else %}
         <p><span class="badge text-bg-secondary">Sold out</span></p>
       {% endif %}

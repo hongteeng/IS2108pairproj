@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Your cart · CampusBox{% endblock %}
+{% block content %}
+<h1 class="mb-4">Your cart</h1>
+
+{% if lines %}
+  <div class="row g-4">
+    <div class="col-lg-8">
+      <div class="table-responsive">
+        <table class="table align-middle">
+          <thead>
+            <tr><th>Meal</th><th>Price</th><th>Quantity</th><th class="text-end">Subtotal</th><th></th></tr>
+          </thead>
+          <tbody>
+            {% for line in lines %}
+              <tr>
+                <td><a href="{% url 'menu:meal_detail' line.menu_item.meal.id %}">{{ line.menu_item.meal.name }}</a></td>
+                <td>${{ line.price_dollars }}</td>
+                <td>
+                  <form method="post" action="{% url 'orders:update_cart' line.menu_item.id %}" class="d-flex gap-2">
+                    {% csrf_token %}
+                    <input type="number" name="quantity" value="{{ line.quantity }}" min="1" max="{{ line.stock_left }}" class="form-control form-control-sm" style="width: 5rem;">
+                    <button type="submit" class="btn btn-outline-secondary btn-sm">Update</button>
+                  </form>
+                </td>
+                <td class="text-end">${{ line.subtotal_dollars }}</td>
+                <td class="text-end">
+                  {# Remove = set quantity to 0 #}
+                  <form method="post" action="{% url 'orders:update_cart' line.menu_item.id %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="quantity" value="0">
+                    <button type="submit" class="btn btn-link btn-sm text-danger text-decoration-none p-0">Remove</button>
+                  </form>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="col-lg-4">
+      <div class="card">
+        <div class="card-body">
+          <h2 class="h5">Order summary</h2>
+          <p class="d-flex justify-content-between mb-1"><span>Meals</span><span>{{ lines|length }} item{{ lines|length|pluralize }}</span></p>
+          <p class="d-flex justify-content-between fw-bold"><span>Total</span><span>${{ total_dollars }}</span></p>
+          <a href="{% url 'orders:checkout' %}" class="btn btn-success w-100 mb-2">Checkout</a>
+          <a href="{% url 'menu:weekly_menu' %}" class="btn btn-outline-secondary w-100">Keep browsing</a>
+        </div>
+      </div>
+    </div>
+  </div>
+{% else %}
+  <p>Your cart is empty.</p>
+  <a href="{% url 'menu:weekly_menu' %}" class="btn btn-success">Browse the menu</a>
+{% endif %}
+{% endblock %}
