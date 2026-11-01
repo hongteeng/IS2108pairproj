@@ -1,3 +1,5 @@
+import math
+
 from django.http import HttpResponse
 from django.shortcuts import render
 from .models import MealCategory, DietaryTag, Allergen, Meal, WeeklyMenu, MenuItem
@@ -94,12 +96,51 @@ def weekly_menu(request):
     """Display the latest weekly menu and its active meals."""
 
     menu = WeeklyMenu.objects.order_by('-week_start').first()
+    categories = MealCategory.objects.order_by('name')
+    tags = DietaryTag.objects.order_by('name')
+    allergens = Allergen.objects.order_by('name')
+    category_id = request.GET.get('category', '')
+    diet_id = request.GET.get('diet', '')
+    avoid = request.GET.getlist('avoid')
+    max_price = request.GET.get('max_price', '')
+    max_calories = request.GET.get('max_calories', '')
+    total_count = 0
+    price_min = price_max = '0.00'
+    price_max_limit = 0
+    calories_min = calories_max = 0
+
     if menu is None:
         items = []
     else:
-        items = menu.items.filter(
+        active_items = menu.items.filter(
             meal__is_active=True,
         ).select_related('meal', 'meal__category')
+        active_item_list = list(active_items)
+        total_count = len(active_item_list)
+        if active_item_list:
+            prices = [item.meal.price_cents / 100 for item in active_item_list]
+            calories = [item.meal.calories for item in active_item_list]
+            price_min = f"{min(prices):.2f}"
+            price_max = f"{max(prices):.2f}"
+            price_max_limit = math.ceil(max(prices))
+            calories_min = min(calories)
+            calories_max = max(calories)
+
+        items = active_items
+        # Ignore anything that isn't a number, so edited URLs can't crash the page.
+        if category_id.isdigit():
+            items = items.filter(meal__category_id=category_id)
+        if diet_id.isdigit():
+            items = items.filter(meal__dietary_tags__id=diet_id).distinct()
+        avoid_ids = [a for a in avoid if a.isdigit()]
+        if avoid_ids:
+            items = items.exclude(meal__allergens__id__in=avoid_ids)
+        if max_price.isdigit():
+            items = items.filter(meal__price_cents__lte=int(max_price) * 100)
+        if max_calories.isdigit():
+            items = items.filter(meal__calories__lte=int(max_calories))
+        items = items.order_by('meal__category__name', 'meal__name')
+
         for item in items:
             item.price_dollars = f"{item.meal.price_cents / 100:.2f}"
             item.stock_left = item.quantity_available - item.quantity_sold
@@ -107,4 +148,18 @@ def weekly_menu(request):
     return render(request, 'menu/weekly_menu.html', {
         'menu': menu,
         'items': items,
+        'categories': categories,
+        'tags': tags,
+        'allergens': allergens,
+        'selected_category': category_id,
+        'selected_diet': diet_id,
+        'selected_avoid': avoid,
+        'max_price': max_price,
+        'max_calories': max_calories,
+        'total_count': total_count,
+        'price_min': price_min,
+        'price_max': price_max,
+        'price_max_limit': price_max_limit,
+        'calories_min': calories_min,
+        'calories_max': calories_max,
     })
