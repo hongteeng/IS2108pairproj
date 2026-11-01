@@ -1,4 +1,5 @@
 from django.http import HttpResponse
+from django.shortcuts import render
 from .models import MealCategory, DietaryTag, Allergen, Meal, WeeklyMenu, MenuItem
 from orders.models import PickupPoint, PickupSlot
 
@@ -87,3 +88,23 @@ def seed(request): #seed is a batch of starting data for empty database,
         slot.save()
 
     return HttpResponse("Seeded " + str(Meal.objects.count()) + " meals")
+
+
+def weekly_menu(request):
+    """Display the latest weekly menu and its active meals."""
+
+    menu = WeeklyMenu.objects.order_by('-week_start').first()
+    if menu is None:
+        items = []
+    else:
+        items = menu.items.filter(
+            meal__is_active=True,
+        ).select_related('meal', 'meal__category')
+        for item in items:
+            item.price_dollars = f"{item.meal.price_cents / 100:.2f}"
+            item.stock_left = item.quantity_available - item.quantity_sold
+
+    return render(request, 'menu/weekly_menu.html', {
+        'menu': menu,
+        'items': items,
+    })

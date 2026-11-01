@@ -5,4 +5,5 @@ app_name = 'menu'
 
 urlpatterns = [ #list of functions to run depending on web address
     path('seed/', views.seed, name='seed'),
+    path('', views.weekly_menu, name='weekly_menu'),
 ] #'seed' is address visiting it will point at functions views.seed. name is nickname

@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Weekly menu · CampusBox{% endblock %}
+{% block content %}
+<h1 class="mb-4">
+  {% if menu %}
+    Menu for the week of {{ menu.week_start }}
+  {% else %}
+    Weekly menu
+  {% endif %}
+</h1>
+
+{% if items %}
+  <div class="row row-cols-1 row-cols-md-3 g-4">
+    {% for item in items %}
+      <div class="col">
+        <div class="card h-100">
+          <img src="{{ item.meal.image_url }}" class="card-img-top img-fluid" alt="{{ item.meal.name }}">
+          <div class="card-body d-flex flex-column">
+            <h2 class="h5 card-title">{{ item.meal.name }}</h2>
+            <p class="card-text text-muted">{{ item.meal.category.name }}</p>
+            <p class="card-text mb-1">${{ item.price_dollars }}</p>
+            <p class="card-text mb-3">{{ item.meal.calories }} calories · {{ item.meal.protein_g }}g protein</p>
+            {% if item.stock_left <= 0 %}
+              <span class="badge text-bg-secondary align-self-start mb-3">Sold out</span>
+            {% endif %}
+            <a href="#" class="btn btn-success mt-auto">View</a>
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+{% else %}
+  <p>No meals are available on the weekly menu yet. Please check back soon.</p>
+{% endif %}
+{% endblock %}
