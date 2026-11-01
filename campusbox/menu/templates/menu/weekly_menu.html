@@ -91,7 +91,7 @@
               {% if item.stock_left <= 0 %}
                 <span class="badge text-bg-secondary align-self-start mb-3">Sold out</span>
               {% endif %}
-              <a href="#" class="btn btn-success mt-auto">View</a>
+              <a href="{% url 'menu:meal_detail' item.meal.id %}" class="btn btn-success mt-auto">View</a>
             </div>
           </div>
         </div>

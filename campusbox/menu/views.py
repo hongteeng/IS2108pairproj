@@ -1,7 +1,7 @@
 import math
 
 from django.http import HttpResponse
-from django.shortcuts import render
+from django.shortcuts import get_object_or_404, render
 from accounts.models import CustomerProfile
 from .models import MealCategory, DietaryTag, Allergen, Meal, WeeklyMenu, MenuItem
 from orders.models import PickupPoint, PickupSlot
@@ -171,4 +171,40 @@ def weekly_menu(request):
         'calories_min': calories_min,
         'calories_max': calories_max,
         'hide_profile_allergens': hide_profile_allergens,
+    })
+
+
+def meal_detail(request, meal_id):
+    """Display details and availability for one active meal."""
+
+    # 404 instead of a crash if the id doesn't exist or the meal is hidden.
+    meal = get_object_or_404(
+        Meal.objects.select_related('category'),
+        id=meal_id,
+        is_active=True,
+    )
+    menu = WeeklyMenu.objects.order_by('-week_start').first()
+    menu_item = None
+    if menu:
+        menu_item = menu.items.filter(meal=meal).first()
+        if menu_item:
+            menu_item.stock_left = menu_item.quantity_available - menu_item.quantity_sold
+
+    warning_allergens = Allergen.objects.none()
+    if request.user.is_authenticated:
+        profile = CustomerProfile.objects.filter(user=request.user).first()
+        if profile:
+            # Only the allergens this student told us about in the quiz.
+            warning_allergens = meal.allergens.filter(
+                id__in=profile.allergies.values('id'),
+            )
+
+    return render(request, 'menu/meal_detail.html', {
+        'meal': meal,
+        'price_dollars': f"{meal.price_cents / 100:.2f}",
+        'category': meal.category,
+        'dietary_tags': meal.dietary_tags.all(),
+        'allergens': meal.allergens.all(),
+        'menu_item': menu_item,
+        'warning_allergens': warning_allergens,
     })
