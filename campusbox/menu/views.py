@@ -2,6 +2,7 @@ import math
 
 from django.http import HttpResponse
 from django.shortcuts import render
+from accounts.models import CustomerProfile
 from .models import MealCategory, DietaryTag, Allergen, Meal, WeeklyMenu, MenuItem
 from orders.models import PickupPoint, PickupSlot
 
@@ -102,6 +103,13 @@ def weekly_menu(request):
     category_id = request.GET.get('category', '')
     diet_id = request.GET.get('diet', '')
     avoid = request.GET.getlist('avoid')
+    hide_profile_allergens = False
+    # Pre-hide the student's allergens until they submit the filter form themselves.
+    if request.user.is_authenticated and 'filtered' not in request.GET:
+        profile = CustomerProfile.objects.filter(user=request.user).first()
+        if profile:
+            avoid = [str(allergen_id) for allergen_id in profile.allergies.values_list('id', flat=True)]
+            hide_profile_allergens = bool(avoid)  # only show the note if they have allergies
     max_price = request.GET.get('max_price', '')
     max_calories = request.GET.get('max_calories', '')
     total_count = 0
@@ -162,4 +170,5 @@ def weekly_menu(request):
         'price_max_limit': price_max_limit,
         'calories_min': calories_min,
         'calories_max': calories_max,
+        'hide_profile_allergens': hide_profile_allergens,
     })
