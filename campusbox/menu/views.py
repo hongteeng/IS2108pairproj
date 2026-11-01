@@ -1,4 +1,8 @@
+import math
+
 from django.http import HttpResponse
+from django.shortcuts import get_object_or_404, render
+from accounts.models import CustomerProfile
 from .models import MealCategory, DietaryTag, Allergen, Meal, WeeklyMenu, MenuItem
 from orders.models import PickupPoint, PickupSlot
 
@@ -87,3 +91,120 @@ def seed(request): #seed is a batch of starting data for empty database,
         slot.save()
 
     return HttpResponse("Seeded " + str(Meal.objects.count()) + " meals")
+
+
+def weekly_menu(request):
+    """Display the latest weekly menu and its active meals."""
+
+    menu = WeeklyMenu.objects.order_by('-week_start').first()
+    categories = MealCategory.objects.order_by('name')
+    tags = DietaryTag.objects.order_by('name')
+    allergens = Allergen.objects.order_by('name')
+    category_id = request.GET.get('category', '')
+    diet_id = request.GET.get('diet', '')
+    avoid = request.GET.getlist('avoid')
+    hide_profile_allergens = False
+    # Pre-hide the student's allergens until they submit the filter form themselves.
+    if request.user.is_authenticated and 'filtered' not in request.GET:
+        profile = CustomerProfile.objects.filter(user=request.user).first()
+        if profile:
+            avoid = [str(allergen_id) for allergen_id in profile.allergies.values_list('id', flat=True)]
+            hide_profile_allergens = bool(avoid)  # only show the note if they have allergies
+    max_price = request.GET.get('max_price', '')
+    max_calories = request.GET.get('max_calories', '')
+    total_count = 0
+    price_min = price_max = '0.00'
+    price_max_limit = 0
+    calories_min = calories_max = 0
+
+    if menu is None:
+        items = []
+    else:
+        active_items = menu.items.filter(
+            meal__is_active=True,
+        ).select_related('meal', 'meal__category')
+        active_item_list = list(active_items)
+        total_count = len(active_item_list)
+        if active_item_list:
+            prices = [item.meal.price_cents / 100 for item in active_item_list]
+            calories = [item.meal.calories for item in active_item_list]
+            price_min = f"{min(prices):.2f}"
+            price_max = f"{max(prices):.2f}"
+            price_max_limit = math.ceil(max(prices))
+            calories_min = min(calories)
+            calories_max = max(calories)
+
+        items = active_items
+        # Ignore anything that isn't a number, so edited URLs can't crash the page.
+        if category_id.isdigit():
+            items = items.filter(meal__category_id=category_id)
+        if diet_id.isdigit():
+            items = items.filter(meal__dietary_tags__id=diet_id).distinct()
+        avoid_ids = [a for a in avoid if a.isdigit()]
+        if avoid_ids:
+            items = items.exclude(meal__allergens__id__in=avoid_ids)
+        if max_price.isdigit():
+            items = items.filter(meal__price_cents__lte=int(max_price) * 100)
+        if max_calories.isdigit():
+            items = items.filter(meal__calories__lte=int(max_calories))
+        items = items.order_by('meal__category__name', 'meal__name')
+
+        for item in items:
+            item.price_dollars = f"{item.meal.price_cents / 100:.2f}"
+            item.stock_left = item.quantity_available - item.quantity_sold
+
+    return render(request, 'menu/weekly_menu.html', {
+        'menu': menu,
+        'items': items,
+        'categories': categories,
+        'tags': tags,
+        'allergens': allergens,
+        'selected_category': category_id,
+        'selected_diet': diet_id,
+        'selected_avoid': avoid,
+        'max_price': max_price,
+        'max_calories': max_calories,
+        'total_count': total_count,
+        'price_min': price_min,
+        'price_max': price_max,
+        'price_max_limit': price_max_limit,
+        'calories_min': calories_min,
+        'calories_max': calories_max,
+        'hide_profile_allergens': hide_profile_allergens,
+    })
+
+
+def meal_detail(request, meal_id):
+    """Display details and availability for one active meal."""
+
+    # 404 instead of a crash if the id doesn't exist or the meal is hidden.
+    meal = get_object_or_404(
+        Meal.objects.select_related('category'),
+        id=meal_id,
+        is_active=True,
+    )
+    menu = WeeklyMenu.objects.order_by('-week_start').first()
+    menu_item = None
+    if menu:
+        menu_item = menu.items.filter(meal=meal).first()
+        if menu_item:
+            menu_item.stock_left = menu_item.quantity_available - menu_item.quantity_sold
+
+    warning_allergens = Allergen.objects.none()
+    if request.user.is_authenticated:
+        profile = CustomerProfile.objects.filter(user=request.user).first()
+        if profile:
+            # Only the allergens this student told us about in the quiz.
+            warning_allergens = meal.allergens.filter(
+                id__in=profile.allergies.values('id'),
+            )
+
+    return render(request, 'menu/meal_detail.html', {
+        'meal': meal,
+        'price_dollars': f"{meal.price_cents / 100:.2f}",
+        'category': meal.category,
+        'dietary_tags': meal.dietary_tags.all(),
+        'allergens': meal.allergens.all(),
+        'menu_item': menu_item,
+        'warning_allergens': warning_allergens,
+    })
