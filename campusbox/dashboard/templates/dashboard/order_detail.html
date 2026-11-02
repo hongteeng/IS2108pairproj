@@ -1,0 +1,38 @@
+{% extends "staff_base.html" %}
+
+{% block staff_content %}
+  <h1 class="h3 mb-1">Order #{{ order.id }}</h1>
+  <p class="text-muted">
+    {{ order.user.username }} · {{ order.pickup_slot.pickup_point.name }},
+    {{ order.pickup_slot.day }} {{ order.pickup_slot.start_time }} to {{ order.pickup_slot.end_time }}
+  </p>
+  <p>Status: <strong>{{ order.get_status_display }}</strong></p>
+
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Meal</th>
+        <th>Quantity</th>
+        <th>Price each (cents)</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in items %}
+        <tr>
+          <td>{{ item.menu_item.meal.name }}</td>
+          <td>{{ item.quantity }}</td>
+          <td>{{ item.price_at_purchase_cents }}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p>Total: {{ order.total_cents }} cents</p>
+
+  {% if next_label %}
+    <form method="post" class="mb-3">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-dark">{{ next_label }}</button>
+    </form>
+  {% endif %}
+  <a href="{% url 'dashboard:order_list' %}" class="btn btn-outline-secondary">Back to orders</a>
+{% endblock %}

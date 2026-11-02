@@ -5,7 +5,7 @@ from menu.models import Meal
 from .forms import MealForm
 from django.db.models import ProtectedError
 from menu.models import Meal, WeeklyMenu, MenuItem
-from orders.models import PickupPoint, PickupSlot
+from orders.models import Order, PickupPoint, PickupSlot
 from .forms import MealForm, WeeklyMenuForm, MenuItemForm, PickupPointForm, PickupSlotForm
 
 def staff_login(request): #function to authenticate user, runs when visiting /dashboard/login
@@ -200,3 +200,66 @@ def pickup_detail(request, point_id):
     slots = point.slots.all()
     return render(request, 'dashboard/pickup_detail.html',
                   {'point': point, 'slots': slots, 'form': form, 'error': error})
+
+def order_list(request):
+    orders = Order.objects.all()
+    return render(request, 'dashboard/order_list.html', {'orders': orders})
+
+
+def order_detail(request, order_id):
+    order = Order.objects.get(pk=order_id)
+
+    next_status = None
+    next_label = None
+    if order.status == 'confirmed':
+        next_status = 'preparing'
+        next_label = 'Mark as preparing'
+    elif order.status == 'preparing':
+        next_status = 'ready'
+        next_label = 'Mark as ready for pickup'
+    elif order.status == 'ready':
+        next_status = 'collected'
+        next_label = 'Mark as collected'
+
+    if request.method == 'POST' and next_status is not None:
+        order.status = next_status
+        order.save()
+        return redirect('dashboard:order_detail', order_id=order.id)
+
+    items = order.items.all()
+    return render(request, 'dashboard/order_detail.html',
+                  {'order': order, 'items': items, 'next_label': next_label})
+
+def inventory(request):
+    error = None
+
+    if request.method == 'POST':
+        item = MenuItem.objects.get(pk=request.POST['item_id'])
+        new_quantity = request.POST['quantity']
+        if new_quantity.isdigit() and int(new_quantity) >= item.quantity_sold:
+            item.quantity_available = int(new_quantity)
+            item.save()
+        else:
+            error = 'Enter a whole number that is at least the number already sold.'
+
+    rows = []
+    sold_out_count = 0
+    low_count = 0
+    for item in MenuItem.objects.all():
+        left = item.quantity_available - item.quantity_sold
+        if left <= 0:
+            status = 'Sold out'
+            sold_out_count = sold_out_count + 1
+        elif left <= 5:
+            status = 'Low stock'
+            low_count = low_count + 1
+        else:
+            status = 'OK'
+        rows.append({'item': item, 'left': left, 'status': status})
+
+    return render(request, 'dashboard/inventory.html', {
+        'rows': rows,
+        'error': error,
+        'sold_out_count': sold_out_count,
+        'low_count': low_count,
+    })
