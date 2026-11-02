@@ -1,0 +1,33 @@
+{% extends "staff_base.html" %}
+
+{% block staff_content %}
+  <h1 class="h3 mb-3">Meals</h1>
+  <a class="btn btn-dark mb-3" href="{% url 'dashboard:meal_add' %}">Add meal</a>
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Category</th>
+        <th>Price (cents)</th>
+        <th>Calories</th>
+        <th>Active</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for meal in meals %}
+        <tr>
+          <td>{{ meal.name }}</td>
+          <td>{{ meal.category.name }}</td>
+          <td>{{ meal.price_cents }}</td>
+          <td>{{ meal.calories }}</td>
+          <td>{{ meal.is_active }}</td>
+          <td>
+            <a href="{% url 'dashboard:meal_edit' meal.id %}">Edit</a>
+            <a href="{% url 'dashboard:meal_delete' meal.id %}">Delete</a>
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% endblock %}
