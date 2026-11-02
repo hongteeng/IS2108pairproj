@@ -4,6 +4,10 @@ from accounts.forms import LoginForm
 from menu.models import Meal
 from .forms import MealForm
 from django.db.models import ProtectedError
+from menu.models import Meal, WeeklyMenu
+from .forms import MealForm, WeeklyMenuForm
+from menu.models import Meal, WeeklyMenu, MenuItem
+from .forms import MealForm, WeeklyMenuForm, MenuItemForm
 
 def staff_login(request): #function to authenticate user, runs when visiting /dashboard/login
     error = None
@@ -89,3 +93,55 @@ def meal_delete(request, meal_id):
         except ProtectedError:
             error = 'This meal has orders, so it cannot be deleted. Edit it and untick Active instead.'
     return render(request, 'dashboard/meal_confirm_delete.html', {'meal': meal, 'error': error})
+
+
+def menu_list(request):
+    menus = WeeklyMenu.objects.all()
+    return render(request, 'dashboard/menu_list.html', {'menus': menus})
+
+
+def menu_add(request):
+    if request.method == 'POST':
+        form = WeeklyMenuForm(request.POST)
+        if form.is_valid():
+            menu = WeeklyMenu(
+                week_start=form.cleaned_data['week_start'],
+                order_cutoff=form.cleaned_data['order_cutoff'],
+            )
+            menu.save()
+            return redirect('dashboard:menu_list')
+    else:
+        form = WeeklyMenuForm()
+    return render(request, 'dashboard/menu_form.html', {'form': form, 'title': 'New weekly menu'})
+
+def menu_detail(request, menu_id):
+    menu = WeeklyMenu.objects.get(pk=menu_id)
+    error = None
+    form = MenuItemForm()
+
+    if request.method == 'POST':
+        if 'remove_id' in request.POST:
+            item = MenuItem.objects.get(pk=request.POST['remove_id'])
+            try:
+                item.delete()
+            except ProtectedError:
+                error = 'This meal already has orders, so it cannot be removed.'
+        else:
+            form = MenuItemForm(request.POST)
+            if form.is_valid():
+                meal = form.cleaned_data['meal']
+                if MenuItem.objects.filter(weekly_menu=menu, meal=meal).exists():
+                    error = 'That meal is already on this menu.'
+                else:
+                    item = MenuItem(
+                        weekly_menu=menu,
+                        meal=meal,
+                        quantity_available=form.cleaned_data['quantity_available'],
+                        quantity_sold=0,
+                    )
+                    item.save()
+                    form = MenuItemForm()
+
+    items = menu.items.all()
+    return render(request, 'dashboard/menu_detail.html',
+                  {'menu': menu, 'items': items, 'form': form, 'error': error})

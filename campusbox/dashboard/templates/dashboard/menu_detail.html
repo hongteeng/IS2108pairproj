@@ -1,0 +1,49 @@
+{% extends "staff_base.html" %}
+
+{% block staff_content %}
+  <h1 class="h3 mb-1">Menu for the week of {{ menu.week_start }}</h1>
+  <p class="text-muted">Orders close {{ menu.order_cutoff }}</p>
+
+  {% if error %}<div class="alert alert-danger">{{ error }}</div>{% endif %}
+
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Meal</th>
+        <th>Available</th>
+        <th>Sold</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in items %}
+        <tr>
+          <td>{{ item.meal.name }}</td>
+          <td>{{ item.quantity_available }}</td>
+          <td>{{ item.quantity_sold }}</td>
+          <td>
+            <form method="post" class="m-0">
+              {% csrf_token %}
+              <input type="hidden" name="remove_id" value="{{ item.id }}">
+              <button type="submit" class="btn btn-sm btn-outline-danger">Remove</button>
+            </form>
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <h2 class="h5 mt-4">Add a meal</h2>
+  <form method="post">
+    {% csrf_token %}
+    {% for field in form %}
+      <div class="mb-3">
+        <label class="form-label">{{ field.label }}</label>
+        {{ field }}
+        {% if field.errors %}<div class="text-danger">{{ field.errors }}</div>{% endif %}
+      </div>
+    {% endfor %}
+    <button type="submit" class="btn btn-dark">Add to menu</button>
+  </form>
+  <a href="{% url 'dashboard:menu_list' %}" class="btn btn-outline-secondary mt-3">Back to menus</a>
+{% endblock %}
