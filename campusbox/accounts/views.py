@@ -2,9 +2,12 @@ from django.contrib.auth import authenticate
 from django.contrib.auth import login as auth_login    # renamed so they don't clash
 from django.contrib.auth import logout as auth_logout  # with our login/logout views
 from django.contrib.auth.models import User
+from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect, render
 
-from .forms import LoginForm, RegisterForm
+from .forms import LoginForm, RegisterForm, TasteQuizForm
+from .models import CustomerProfile
+from .services import predict_preferred_category
 
 
 def register(request):
@@ -18,7 +21,7 @@ def register(request):
                 password=form.cleaned_data['password'], # hash before saving
             )
             auth_login(request, user)
-            return redirect('index')
+            return redirect('accounts:quiz')
     else:
         form = RegisterForm()
     return render(request, 'accounts/register.html', {'form': form})
@@ -52,3 +55,21 @@ def logout(request):
     if request.method == 'POST':
         auth_logout(request)
     return redirect('index')
+
+@login_required
+def quiz(request):
+    """Show or save the logged-in user's taste preferences."""
+
+    profile = CustomerProfile.objects.filter(user=request.user).first()
+    if request.method == 'POST':
+        form = TasteQuizForm(request.POST, instance=profile)
+        if form.is_valid():
+            profile = form.save(commit=False) # not saved yet: user and category still missing
+            profile.user = request.user
+            profile.predicted_category = predict_preferred_category(profile)
+            profile.save()
+            form.save_m2m() # allergies can only be saved once the profile exists
+            return redirect('index')
+    else:
+        form = TasteQuizForm(instance=profile)
+    return render(request, 'accounts/quiz.html', {'form': form})

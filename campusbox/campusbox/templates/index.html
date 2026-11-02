@@ -2,4 +2,17 @@
 {% block content %}
   <h1>CampusBox</h1>
   <p>Healthy meals for students, picked up on campus.</p>
+  {% if user.is_authenticated %}
+    {% if user.profile.predicted_category %}
+      <div class="alert alert-success">
+        Recommended for you: <strong>{{ user.profile.predicted_category.name }}</strong> ·
+        <a href="{% url 'accounts:quiz' %}" class="alert-link">Update your answers</a>
+      </div>
+    {% else %}
+      <div class="alert alert-info">
+        Tell us your preferences to get a meal recommendation.
+        <a href="{% url 'accounts:quiz' %}" class="alert-link">Take the taste quiz</a>
+      </div>
+    {% endif %}
+  {% endif %}
 {% endblock %}

@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}{{ meal.name }} · CampusBox{% endblock %}
+{% block content %}
+<div class="row g-4">
+  <div class="col-md-6">
+    <img src="{{ meal.image_url }}" class="img-fluid rounded" alt="{{ meal.name }}">
+  </div>
+  <div class="col-md-6">
+    <p class="text-muted mb-1">{{ category.name }}</p>
+    <h1>{{ meal.name }}</h1>
+    <p>{{ meal.description }}</p>
+    <p class="h4">${{ price_dollars }}</p>
+
+    {# Shown only to logged-in students whose allergies match this meal #}
+    {% if warning_allergens %}
+      <div class="alert alert-danger">
+        <strong>Allergy warning:</strong> this meal contains
+        {% for allergen in warning_allergens %}{{ allergen.name|title }}{% if not forloop.last %}, {% endif %}{% endfor %}.
+      </div>
+    {% endif %}
+
+    <table class="table table-sm">
+      <tbody>
+        <tr><th scope="row">Calories</th><td>{{ meal.calories }} kcal</td></tr>
+        <tr><th scope="row">Protein</th><td>{{ meal.protein_g }} g</td></tr>
+        <tr><th scope="row">Carbohydrates</th><td>{{ meal.carbs_g }} g</td></tr>
+        <tr><th scope="row">Fat</th><td>{{ meal.fat_g }} g</td></tr>
+      </tbody>
+    </table>
+
+    <div class="mb-2">
+      <span class="small text-muted me-1">Suitable for:</span>
+      {% for tag in dietary_tags %}
+        <span class="badge text-bg-success">{{ tag.name|title }}</span>
+      {% empty %}
+        <span class="small text-muted">No dietary tags</span>
+      {% endfor %}
+    </div>
+    <div class="mb-3">
+      <span class="small text-muted me-1">Contains:</span>
+      {% for allergen in allergens %}
+        <span class="badge text-bg-warning">{{ allergen.name|title }}</span>
+      {% empty %}
+        <span class="small text-muted">No common allergens</span>
+      {% endfor %}
+    </div>
+
+    {% if menu_item %}
+      {% if menu_item.stock_left > 0 %}
+        <p class="text-success">{{ menu_item.stock_left }} left this week</p>
+        {% if user.is_authenticated %}
+          <form method="post" action="{% url 'orders:add_to_cart' menu_item.id %}" class="d-flex gap-2 mb-3">
+            {% csrf_token %}
+            <input type="number" name="quantity" value="1" min="1" max="{{ menu_item.stock_left }}" class="form-control" style="width: 6rem;">
+            <button type="submit" class="btn btn-success">Add to cart</button>
+          </form>
+        {% else %}
+          <p><a href="{% url 'accounts:login' %}">Log in</a> to order this meal.</p>
+        {% endif %}
+      {% else %}
+        <p><span class="badge text-bg-secondary">Sold out</span></p>
+      {% endif %}
+    {% else %}
+      <p class="text-muted">Not on this week's menu</p>
+    {% endif %}
+
+    <a href="{% url 'menu:weekly_menu' %}" class="btn btn-outline-secondary">Back to menu</a>
+  </div>
+</div>
+
+{# Placeholder until reviews (S11) are built #}
+<section class="mt-5">
+  <h2 class="h4">Reviews</h2>
+  <p class="text-muted">Reviews coming soon.</p>
+</section>
+{% endblock %}

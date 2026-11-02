@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}My orders · CampusBox{% endblock %}
+{% block content %}
+<h1 class="mb-4">My orders</h1>
+
+{% if orders %}
+  <div class="table-responsive">
+    <table class="table align-middle">
+      <thead>
+        <tr>
+          <th scope="col">Order</th>
+          <th scope="col">Placed</th>
+          <th scope="col">Pickup</th>
+          <th scope="col">Total</th>
+          <th scope="col">Status</th>
+          <th scope="col"><span class="visually-hidden">Actions</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for order in orders %}
+          <tr>
+            <th scope="row">#{{ order.id }}</th>
+            <td>{{ order.created_at|date:"j M Y" }}</td>
+            <td>
+              {{ order.pickup_slot.pickup_point.name }},
+              {{ order.pickup_slot.day|date:"D j M" }}
+              {{ order.pickup_slot.start_time|time:"H:i" }}
+            </td>
+            <td>${{ order.total_dollars }}</td>
+            <td>
+              <span class="badge {% if order.status == 'cancelled' %}text-bg-secondary{% else %}text-bg-success{% endif %}">
+                {{ order.get_status_display }}
+              </span>
+            </td>
+            <td class="text-end">
+              <a href="{% url 'orders:order_detail' order.id %}" class="btn btn-outline-secondary btn-sm">View</a>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% else %}
+  <p>You haven’t ordered anything yet.</p>
+  <a href="{% url 'menu:weekly_menu' %}" class="btn btn-success">Browse the menu</a>
+{% endif %}
+{% endblock %}

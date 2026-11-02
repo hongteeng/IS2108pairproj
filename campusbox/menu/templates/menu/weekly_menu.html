@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block title %}Weekly menu · CampusBox{% endblock %}
+{% block content %}
+<h1 class="mb-4">
+  {% if menu %}
+    Menu for the week of {{ menu.week_start }}
+  {% else %}
+    Weekly menu
+  {% endif %}
+</h1>
+
+<div class="card mb-4">
+  <div class="card-body">
+    <h2 class="h5">Filter menu</h2>
+    <form method="get" action="{% url 'menu:weekly_menu' %}">
+      <input type="hidden" name="filtered" value="1">
+      <div class="row g-3">
+        <div class="col-md-3">
+          <label class="form-label" for="category">Category</label>
+          <select class="form-select" name="category" id="category">
+            <option value="">All categories</option>
+            {% for category in categories %}
+              <option value="{{ category.id }}" {% if selected_category == category.id|stringformat:"s" %}selected{% endif %}>{{ category.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label" for="diet">Diet</label>
+          <select class="form-select" name="diet" id="diet">
+            <option value="">All diets</option>
+            {% for tag in tags %}
+              <option value="{{ tag.id }}" {% if selected_diet == tag.id|stringformat:"s" %}selected{% endif %}>{{ tag.name|title }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label" for="max_price">Maximum price</label>
+          <div class="input-group">
+            <span class="input-group-text">$</span>
+            <input type="number" class="form-control" name="max_price" id="max_price" value="{{ max_price }}" placeholder="Any (${{ price_min }} &ndash; ${{ price_max }})" min="0" max="{{ price_max_limit }}">
+          </div>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label" for="max_calories">Maximum calories</label>
+          <div class="input-group">
+            <input type="number" class="form-control" name="max_calories" id="max_calories" value="{{ max_calories }}" placeholder="Any ({{ calories_min }} &ndash; {{ calories_max }} kcal)" min="0" max="{{ calories_max }}">
+            <span class="input-group-text">kcal</span>
+          </div>
+        </div>
+        <div class="col-12">
+          <span class="form-label d-block">Hide meals containing</span>
+          <div class="d-flex flex-wrap gap-2">
+            {% for allergen in allergens %}
+              <input type="checkbox" class="btn-check" name="avoid" value="{{ allergen.id }}" id="avoid-{{ allergen.id }}" {% if allergen.id|stringformat:"s" in selected_avoid %}checked{% endif %}>
+              <label class="btn btn-outline-danger btn-sm rounded-pill" for="avoid-{{ allergen.id }}">{{ allergen.name|title }}</label>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+      <div class="mt-3 d-flex justify-content-end gap-2">
+        <button type="submit" class="btn btn-success">Filter</button>
+        <a href="{% url 'menu:weekly_menu' %}" class="btn btn-outline-secondary">Clear</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<p class="mb-3">Showing {{ items|length }} of {{ total_count }} meals</p>
+
+{% if hide_profile_allergens %}
+  <p class="small text-muted">
+    Hiding meals with your allergens ·
+    <a href="{% url 'menu:weekly_menu' %}?filtered=1">Show all meals</a> ·
+    <a href="{% url 'accounts:quiz' %}">Update your allergies</a>
+  </p>
+{% endif %}
+
+{% if items %}
+  {% regroup items by meal.category.name as category_groups %}
+  {% for category_group in category_groups %}
+    <h2 class="h4 mt-4">{{ category_group.grouper }} <small class="text-muted">({{ category_group.list|length }} meals)</small></h2>
+    <div class="row row-cols-1 row-cols-md-3 g-4">
+      {% for item in category_group.list %}
+        <div class="col">
+          <div class="card h-100">
+            <img src="{{ item.meal.image_url }}" class="card-img-top img-fluid" alt="{{ item.meal.name }}">
+            <div class="card-body d-flex flex-column">
+              <h3 class="h5 card-title">{{ item.meal.name }}</h3>
+              <p class="card-text mb-1">${{ item.price_dollars }}</p>
+              <p class="card-text mb-3">{{ item.meal.calories }} calories · {{ item.meal.protein_g }}g protein</p>
+              {% if item.stock_left <= 0 %}
+                <span class="badge text-bg-secondary align-self-start mb-3">Sold out</span>
+              {% endif %}
+              <a href="{% url 'menu:meal_detail' item.meal.id %}" class="btn btn-success mt-auto">View</a>
+            </div>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% endfor %}
+{% else %}
+  <p>No meals are available on the weekly menu yet. Please check back soon.</p>
+{% endif %}
+{% endblock %}
