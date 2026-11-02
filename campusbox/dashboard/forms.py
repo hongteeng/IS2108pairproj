@@ -1,5 +1,6 @@
 from django import forms
 from menu.models import Meal, WeeklyMenu, MenuItem
+from orders.models import PickupPoint, PickupSlot
 
 class MealForm(forms.ModelForm):
     class Meta:
@@ -36,4 +37,25 @@ class MenuItemForm(forms.ModelForm):
         widgets = {
             'meal': forms.Select(attrs={'class': 'form-select'}),
             'quantity_available': forms.NumberInput(attrs={'class': 'form-control'}),
+        }
+
+class PickupPointForm(forms.ModelForm):
+    class Meta:
+        model = PickupPoint
+        fields = ['name', 'location', 'is_active']
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'form-control'}),
+            'location': forms.TextInput(attrs={'class': 'form-control'}),
+        }
+
+
+class PickupSlotForm(forms.ModelForm):
+    class Meta:
+        model = PickupSlot
+        fields = ['day', 'start_time', 'end_time', 'capacity']
+        widgets = {
+            'day': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
+            'start_time': forms.TimeInput(attrs={'type': 'time', 'class': 'form-control'}),
+            'end_time': forms.TimeInput(attrs={'type': 'time', 'class': 'form-control'}),
+            'capacity': forms.NumberInput(attrs={'class': 'form-control'}),
         }

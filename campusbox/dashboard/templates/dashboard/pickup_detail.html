@@ -1,0 +1,61 @@
+{% extends "staff_base.html" %}
+
+{% block staff_content %}
+  <h1 class="h3 mb-1">{{ point.name }}</h1>
+  <p class="text-muted">{{ point.location }}</p>
+
+  <form method="post" class="mb-3">
+    {% csrf_token %}
+    <input type="hidden" name="toggle" value="1">
+    {% if point.is_active %}
+      <button type="submit" class="btn btn-sm btn-outline-secondary">Deactivate</button>
+    {% else %}
+      <button type="submit" class="btn btn-sm btn-outline-success">Activate</button>
+    {% endif %}
+  </form>
+
+  {% if error %}<div class="alert alert-danger">{{ error }}</div>{% endif %}
+
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Day</th>
+        <th>Start</th>
+        <th>End</th>
+        <th>Capacity</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for slot in slots %}
+        <tr>
+          <td>{{ slot.day }}</td>
+          <td>{{ slot.start_time }}</td>
+          <td>{{ slot.end_time }}</td>
+          <td>{{ slot.capacity }}</td>
+          <td>
+            <form method="post" class="m-0">
+              {% csrf_token %}
+              <input type="hidden" name="remove_id" value="{{ slot.id }}">
+              <button type="submit" class="btn btn-sm btn-outline-danger">Remove</button>
+            </form>
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <h2 class="h5 mt-4">Add a slot</h2>
+  <form method="post">
+    {% csrf_token %}
+    {% for field in form %}
+      <div class="mb-3">
+        <label class="form-label">{{ field.label }}</label>
+        {{ field }}
+        {% if field.errors %}<div class="text-danger">{{ field.errors }}</div>{% endif %}
+      </div>
+    {% endfor %}
+    <button type="submit" class="btn btn-dark">Add slot</button>
+  </form>
+  <a href="{% url 'dashboard:pickup_list' %}" class="btn btn-outline-secondary mt-3">Back to pickup points</a>
+{% endblock %}

@@ -4,10 +4,9 @@ from accounts.forms import LoginForm
 from menu.models import Meal
 from .forms import MealForm
 from django.db.models import ProtectedError
-from menu.models import Meal, WeeklyMenu
-from .forms import MealForm, WeeklyMenuForm
 from menu.models import Meal, WeeklyMenu, MenuItem
-from .forms import MealForm, WeeklyMenuForm, MenuItemForm
+from orders.models import PickupPoint, PickupSlot
+from .forms import MealForm, WeeklyMenuForm, MenuItemForm, PickupPointForm, PickupSlotForm
 
 def staff_login(request): #function to authenticate user, runs when visiting /dashboard/login
     error = None
@@ -145,3 +144,59 @@ def menu_detail(request, menu_id):
     items = menu.items.all()
     return render(request, 'dashboard/menu_detail.html',
                   {'menu': menu, 'items': items, 'form': form, 'error': error})
+
+def pickup_list(request):
+    points = PickupPoint.objects.all()
+    return render(request, 'dashboard/pickup_list.html', {'points': points})
+
+
+def pickup_add(request):
+    if request.method == 'POST':
+        form = PickupPointForm(request.POST)
+        if form.is_valid():
+            point = PickupPoint(
+                name=form.cleaned_data['name'],
+                location=form.cleaned_data['location'],
+                is_active=form.cleaned_data['is_active'],
+            )
+            point.save()
+            return redirect('dashboard:pickup_detail', point_id=point.id)
+    else:
+        form = PickupPointForm()
+    return render(request, 'dashboard/pickup_form.html', {'form': form, 'title': 'New pickup point'})
+
+
+def pickup_detail(request, point_id):
+    point = PickupPoint.objects.get(pk=point_id)
+    error = None
+    form = PickupSlotForm()
+
+    if request.method == 'POST':
+        if 'toggle' in request.POST:
+            point.is_active = not point.is_active
+            point.save()
+        elif 'remove_id' in request.POST:
+            slot = PickupSlot.objects.get(pk=request.POST['remove_id'])
+            try:
+                slot.delete()
+            except ProtectedError:
+                error = 'This slot already has orders, so it cannot be removed.'
+        else:
+            form = PickupSlotForm(request.POST)
+            if form.is_valid():
+                if form.cleaned_data['end_time'] <= form.cleaned_data['start_time']:
+                    error = 'The end time must be after the start time.'
+                else:
+                    slot = PickupSlot(
+                        pickup_point=point,
+                        day=form.cleaned_data['day'],
+                        start_time=form.cleaned_data['start_time'],
+                        end_time=form.cleaned_data['end_time'],
+                        capacity=form.cleaned_data['capacity'],
+                    )
+                    slot.save()
+                    form = PickupSlotForm()
+
+    slots = point.slots.all()
+    return render(request, 'dashboard/pickup_detail.html',
+                  {'point': point, 'slots': slots, 'form': form, 'error': error})
