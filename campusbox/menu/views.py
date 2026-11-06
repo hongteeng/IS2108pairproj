@@ -4,17 +4,21 @@ from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, render
 from accounts.models import CustomerProfile
 from .models import MealCategory, DietaryTag, Allergen, Meal, WeeklyMenu, MenuItem
-from orders.models import PickupPoint, PickupSlot
+from datetime import date, timedelta
+from orders.models import Order, OrderItem, PickupPoint, PickupSlot
 
 #views.py holds functions that run when someone vists an address
 def seed(request): #seed is a batch of starting data for empty database, 
     #for demo n testing. fake starting data
+    OrderItem.objects.all().delete()
+    Order.objects.all().delete()
     MenuItem.objects.all().delete()
     WeeklyMenu.objects.all().delete()
     Meal.objects.all().delete()
+    MealCategory.objects.all().delete()
     DietaryTag.objects.all().delete()
     Allergen.objects.all().delete()
-    PickupSlot.objects.all().delete() #clear data 
+    PickupSlot.objects.all().delete()
     PickupPoint.objects.all().delete()
 
     for name in ["High-Protein", "Asian Rice Bowls", "Vegetarian", "Low-Carb", "Western", "Comfort"]:
@@ -72,19 +76,20 @@ def seed(request): #seed is a batch of starting data for empty database,
             meal.allergens.add(Allergen.objects.get(name=allergen_name))
 
   # One weekly menu that contains every meal
-    week = WeeklyMenu(week_start="2026-11-02", order_cutoff="2026-11-01 23:59")
+    next_monday = date.today() + timedelta(days=7 - date.today().weekday())
+    cutoff_day = next_monday - timedelta(days=1)
+    week = WeeklyMenu(week_start=next_monday, order_cutoff=str(cutoff_day) + " 23:59")
     week.save()
     for meal in Meal.objects.all():
         item = MenuItem(weekly_menu=week, meal=meal, quantity_available=30, quantity_sold=0)
         item.save()
-
     # One pickup point with three slots
     point = PickupPoint(name="Sheares Hall Lobby", location="Ground floor, near the mailboxes", is_active=True)
     point.save()
     slots = [
-        ["2026-11-03", "12:00", "13:00"],
-        ["2026-11-03", "18:00", "19:00"],
-        ["2026-11-04", "12:00", "13:00"],
+        [next_monday + timedelta(days=1), "12:00", "13:00"],
+        [next_monday + timedelta(days=1), "18:00", "19:00"],
+        [next_monday + timedelta(days=2), "12:00", "13:00"],
     ]
     for s in slots:
         slot = PickupSlot(pickup_point=point, day=s[0], start_time=s[1], end_time=s[2], capacity=20)
