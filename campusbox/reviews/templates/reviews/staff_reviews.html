@@ -1,0 +1,50 @@
+{% extends "staff_base.html" %}
+
+{% block staff_content %}
+  <h1 class="h3 mb-3">Reviews</h1>
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Meal</th>
+        <th>Student</th>
+        <th>Rating</th>
+        <th>Comment</th>
+        <th>Date</th>
+        <th>Status</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for review in reviews %}
+        <tr>
+          <td>{{ review.meal.name }}</td>
+          <td>{{ review.user.username }}</td>
+          <td>{% for star in "12345"|make_list %}{% if forloop.counter <= review.rating %}★{% endif %}{% endfor %}</td>
+          <td>{{ review.comment }}</td>
+          <td>{{ review.created_at|date:"j M Y" }}</td>
+          <td>
+            {% if review.is_hidden %}
+              <span class="badge text-bg-secondary">Hidden</span>
+            {% else %}
+              <span class="badge text-bg-success">Visible</span>
+            {% endif %}
+          </td>
+          <td>
+            <form method="post" action="{% url 'reviews:staff_toggle_review' review.id %}">
+              {% csrf_token %}
+              {% if review.is_hidden %}
+                <button type="submit" class="btn btn-outline-secondary btn-sm">Show</button>
+              {% else %}
+                <button type="submit" class="btn btn-outline-danger btn-sm">Hide</button>
+              {% endif %}
+            </form>
+          </td>
+        </tr>
+      {% empty %}
+        <tr>
+          <td colspan="7">No reviews yet.</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% endblock %}
