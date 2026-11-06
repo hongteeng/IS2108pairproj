@@ -73,7 +73,7 @@
   {% if avg_rating is None %}
     <p class="text-muted">No reviews yet.</p>
   {% else %}
-    <p>★ {{ avg_rating }} ({{ review_count }} reviews)</p>
+    <p>★ {{ avg_rating }} ({{ review_count }} review{{ review_count|pluralize }})</p>
   {% endif %}
   {% if can_review %}
     <a href="{% url 'reviews:add_review' meal.id %}" class="btn btn-success btn-sm">Write a review</a>
