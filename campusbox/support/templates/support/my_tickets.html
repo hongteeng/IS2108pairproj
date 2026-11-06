@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block title %}My reports · CampusBox{% endblock %}
+
+{% block content %}
+<h1 class="h3 mb-3">My reports</h1>
+<div class="list-group">
+  {% for ticket in tickets %}
+    <div class="list-group-item">
+      <div class="d-flex justify-content-between align-items-start">
+        <div>
+          <a href="{% url 'orders:order_detail' ticket.order.id %}">Order #{{ ticket.order.id }}</a>
+          <span class="ms-2">{{ ticket.get_issue_type_display }}</span>
+          <small class="text-muted ms-2">{{ ticket.created_at|date:"j M Y" }}</small>
+        </div>
+        {% if ticket.status == "open" %}
+          <span class="badge text-bg-warning">{{ ticket.get_status_display }}</span>
+        {% elif ticket.status == "resolved" %}
+          <span class="badge text-bg-success">{{ ticket.get_status_display }}</span>
+        {% else %}
+          <span class="badge text-bg-secondary">{{ ticket.get_status_display }}</span>
+        {% endif %}
+      </div>
+      <p class="mb-0 mt-3">{{ ticket.message }}</p>
+      {% if ticket.staff_reply %}
+        <p class="text-muted mb-0 mt-3">Reply from CampusBox: {{ ticket.staff_reply }}</p>
+      {% endif %}
+      {% if ticket.refund_amount_cents > 0 %}
+        <p class="text-success mb-0 mt-2">Refund: ${{ ticket.refund_dollars }}</p>
+      {% endif %}
+    </div>
+  {% empty %}
+    <div class="list-group-item">You haven’t reported any problems.</div>
+  {% endfor %}
+</div>
+{% endblock %}
