@@ -13,6 +13,7 @@ class ReviewForm(forms.ModelForm):
             "rating": forms.Select(attrs={"class": "form-select"}),
             "comment": forms.Textarea(
                 attrs={
+                    "class": "form-control",
                     "rows": 3,
                     "placeholder": "What did you think?",
                 }
