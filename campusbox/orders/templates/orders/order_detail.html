@@ -65,6 +65,9 @@
 <div class="d-flex gap-2">
   <a href="{% url 'menu:weekly_menu' %}" class="btn btn-outline-secondary">Back to menu</a>
   <a href="{% url 'orders:order_history' %}" class="btn btn-outline-secondary">My orders</a>
+  {% if order.status == "ready" or order.status == "collected" %}
+    <a href="{% url 'support:report_problem' order.id %}" class="btn btn-outline-warning">Report a problem</a>
+  {% endif %}
   {% if can_cancel %}
     <form method="post" action="{% url 'orders:cancel_order' order.id %}">
       {% csrf_token %}

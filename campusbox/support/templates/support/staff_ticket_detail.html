@@ -1,0 +1,37 @@
+{% extends "staff_base.html" %}
+
+{% block staff_content %}
+  <h1 class="h3 mb-3">Ticket #{{ ticket.id }}</h1>
+  <div class="card mb-4">
+    <div class="card-body">
+      <p><strong>Student:</strong> {{ ticket.user.username }}</p>
+      <p><strong>Order:</strong> #{{ ticket.order.id }} (${{ order_total_dollars }})</p>
+      <p><strong>Issue:</strong> {{ ticket.get_issue_type_display }}</p>
+      <p><strong>Date:</strong> {{ ticket.created_at|date:"j M Y" }}</p>
+      <p class="mb-0"><strong>Message:</strong> {{ ticket.message }}</p>
+    </div>
+  </div>
+
+  <form method="post">
+    {% csrf_token %}
+    {% for field in form %}
+      <div class="mb-3">
+        <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {% if field.name == "refund_dollars" %}
+          <div class="input-group">
+            <span class="input-group-text">$</span>
+            {{ field }}
+          </div>
+        {% else %}
+          {{ field }}
+        {% endif %}
+        {% for error in field.errors %}<div class="text-danger">{{ error }}</div>{% endfor %}
+        {% if field.name == "refund_dollars" %}
+          <div class="form-text text-muted">Refund in dollars, up to the order total (${{ order_total_dollars }}).</div>
+        {% endif %}
+      </div>
+    {% endfor %}
+    <button type="submit" class="btn btn-success">Save</button>
+    <a href="{% url 'support:staff_tickets' %}" class="btn btn-outline-secondary">Back</a>
+  </form>
+{% endblock %}

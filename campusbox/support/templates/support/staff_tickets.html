@@ -1,0 +1,45 @@
+{% extends "staff_base.html" %}
+
+{% block staff_content %}
+  <h1 class="h3 mb-3">Support tickets</h1>
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Ticket</th>
+        <th>Order</th>
+        <th>Student</th>
+        <th>Issue</th>
+        <th>Date</th>
+        <th>Status</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for ticket in tickets %}
+        <tr>
+          <td>#{{ ticket.id }}</td>
+          <td>#{{ ticket.order.id }}</td>
+          <td>{{ ticket.user.username }}</td>
+          <td>{{ ticket.get_issue_type_display }}</td>
+          <td>{{ ticket.created_at|date:"j M Y" }}</td>
+          <td>
+            {% if ticket.status == "open" %}
+              <span class="badge text-bg-warning">{{ ticket.get_status_display }}</span>
+            {% elif ticket.status == "resolved" %}
+              <span class="badge text-bg-success">{{ ticket.get_status_display }}</span>
+            {% else %}
+              <span class="badge text-bg-secondary">{{ ticket.get_status_display }}</span>
+            {% endif %}
+          </td>
+          <td>
+            <a href="{% url 'support:staff_ticket_detail' ticket.id %}" class="btn btn-outline-secondary btn-sm">Open</a>
+          </td>
+        </tr>
+      {% empty %}
+        <tr>
+          <td colspan="7">No tickets yet.</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% endblock %}
