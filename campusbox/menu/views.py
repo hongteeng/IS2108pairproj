@@ -1,5 +1,6 @@
 import math
 
+from django.db.models import Avg
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, render
 from accounts.models import CustomerProfile
@@ -204,6 +205,16 @@ def meal_detail(request, meal_id):
                 id__in=profile.allergies.values('id'),
             )
 
+    reviews = meal.reviews.filter(is_hidden=False).select_related('user')
+    review_count = reviews.count()
+    average = reviews.aggregate(avg_rating=Avg('rating'))['avg_rating']
+    avg_rating = round(average, 1) if average is not None else None
+    can_review = request.user.is_authenticated and OrderItem.objects.filter(
+        order__user=request.user,
+        order__status='collected',
+        menu_item__meal=meal,
+    ).exists()
+
     return render(request, 'menu/meal_detail.html', {
         'meal': meal,
         'price_dollars': f"{meal.price_cents / 100:.2f}",
@@ -212,4 +223,8 @@ def meal_detail(request, meal_id):
         'allergens': meal.allergens.all(),
         'menu_item': menu_item,
         'warning_allergens': warning_allergens,
+        'reviews': reviews,
+        'avg_rating': avg_rating,
+        'review_count': review_count,
+        'can_review': can_review,
     })

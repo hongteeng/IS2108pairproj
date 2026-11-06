@@ -35,6 +35,7 @@
         <th scope="col">Meal</th>
         <th scope="col">Quantity</th>
         <th scope="col" class="text-end">Subtotal</th>
+        <th scope="col"></th>
       </tr>
     </thead>
     <tbody>
@@ -43,6 +44,11 @@
           <td>{{ item.menu_item.meal.name }}</td>
           <td>{{ item.quantity }}</td>
           <td class="text-end">${{ item.subtotal_dollars }}</td>
+          <td>
+            {% if order.status == "collected" %}
+              <a href="{% url 'reviews:add_review' item.menu_item.meal.id %}" class="btn btn-outline-success btn-sm">Review</a>
+            {% endif %}
+          </td>
         </tr>
       {% endfor %}
     </tbody>
@@ -50,6 +56,7 @@
       <tr>
         <th scope="row" colspan="2">Total paid</th>
         <th class="text-end">${{ total_dollars }}</th>
+        <th></th>
       </tr>
     </tfoot>
   </table>
