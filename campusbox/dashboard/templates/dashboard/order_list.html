@@ -1,0 +1,29 @@
+{% extends "staff_base.html" %}
+
+{% block staff_content %}
+  <h1 class="h3 mb-3">Orders</h1>
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Order</th>
+        <th>Customer</th>
+        <th>Pickup</th>
+        <th>Total (cents)</th>
+        <th>Status</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for order in orders %}
+        <tr>
+          <td>#{{ order.id }}</td>
+          <td>{{ order.user.username }}</td>
+          <td>{{ order.pickup_slot.day }} {{ order.pickup_slot.start_time }}</td>
+          <td>{{ order.total_cents }}</td>
+          <td>{{ order.get_status_display }}</td>
+          <td><a href="{% url 'dashboard:order_detail' order.id %}">Open</a></td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% endblock %}

@@ -1,0 +1,26 @@
+{% extends "staff_base.html" %}
+
+{% block staff_content %}
+  <h1 class="h3 mb-3">Weekly menus</h1>
+  <a class="btn btn-dark mb-3" href="{% url 'dashboard:menu_add' %}">New weekly menu</a>
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Week starting</th>
+        <th>Order cutoff</th>
+        <th>Meals</th>
+                <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for menu in menus %}
+        <tr>
+          <td>{{ menu.week_start }}</td>
+          <td>{{ menu.order_cutoff }}</td>
+          <td>{{ menu.items.count }}</td>
+                    <td><a href="{% url 'dashboard:menu_detail' menu.id %}">Manage</a></td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% endblock %}

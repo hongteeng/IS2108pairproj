@@ -1,0 +1,40 @@
+{% extends "staff_base.html" %}
+
+{% block staff_content %}
+  <h1 class="h3 mb-3">Inventory</h1>
+  <p>{{ sold_out_count }} sold out, {{ low_count }} low on stock.</p>
+
+  {% if error %}<div class="alert alert-danger">{{ error }}</div>{% endif %}
+
+  <table class="table align-middle">
+    <thead>
+      <tr>
+        <th>Week</th>
+        <th>Meal</th>
+        <th>Sold</th>
+        <th>Left</th>
+        <th>Status</th>
+        <th>Set quantity</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+        <tr>
+          <td>{{ row.item.weekly_menu.week_start }}</td>
+          <td>{{ row.item.meal.name }}</td>
+          <td>{{ row.item.quantity_sold }}</td>
+          <td>{{ row.left }}</td>
+          <td>{{ row.status }}</td>
+          <td>
+            <form method="post" class="d-flex gap-2 m-0">
+              {% csrf_token %}
+              <input type="hidden" name="item_id" value="{{ row.item.id }}">
+              <input type="number" name="quantity" value="{{ row.item.quantity_available }}" class="form-control form-control-sm" style="width: 6rem;">
+              <button type="submit" class="btn btn-sm btn-outline-dark">Save</button>
+            </form>
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% endblock %}

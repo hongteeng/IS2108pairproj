@@ -1,0 +1,28 @@
+{% extends "staff_base.html" %}
+
+{% block staff_content %}
+  <h1 class="h3 mb-3">Pickup points</h1>
+  <a class="btn btn-dark mb-3" href="{% url 'dashboard:pickup_add' %}">New pickup point</a>
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Location</th>
+        <th>Slots</th>
+        <th>Active</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for point in points %}
+        <tr>
+          <td>{{ point.name }}</td>
+          <td>{{ point.location }}</td>
+          <td>{{ point.slots.count }}</td>
+          <td>{{ point.is_active }}</td>
+          <td><a href="{% url 'dashboard:pickup_detail' point.id %}">Manage</a></td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% endblock %}
