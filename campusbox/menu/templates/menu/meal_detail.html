@@ -68,9 +68,29 @@
   </div>
 </div>
 
-{# Placeholder until reviews (S11) are built #}
 <section class="mt-5">
   <h2 class="h4">Reviews</h2>
-  <p class="text-muted">Reviews coming soon.</p>
+  {% if avg_rating is None %}
+    <p class="text-muted">No reviews yet.</p>
+  {% else %}
+    <p>★ {{ avg_rating }} ({{ review_count }} review{{ review_count|pluralize }})</p>
+  {% endif %}
+  {% if can_review %}
+    <a href="{% url 'reviews:add_review' meal.id %}" class="btn btn-success btn-sm">Write a review</a>
+  {% endif %}
+  <div class="list-group mt-3">
+    {% for review in reviews %}
+      <div class="list-group-item">
+        <div>
+          <span>
+            <span class="text-warning">{% for star in "12345"|make_list %}{% if forloop.counter <= review.rating %}★{% else %}☆{% endif %}{% endfor %}</span>
+          </span>
+          <strong>{{ review.user.username }}</strong>
+          <small class="text-muted">{{ review.created_at|date:"j M Y" }}</small>
+        </div>
+        <p class="mb-0 mt-2">{{ review.comment }}</p>
+      </div>
+    {% endfor %}
+  </div>
 </section>
 {% endblock %}
