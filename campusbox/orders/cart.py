@@ -48,4 +48,11 @@ def get_cart_lines(request):
         })
         total_cents += subtotal_cents
 
+    stale_ids = set(cart) - set(items_by_id)
+    if stale_ids:
+        cleaned_cart = cart.copy()
+        for menu_item_id in stale_ids:
+            cleaned_cart.pop(menu_item_id)
+        request.session["cart"] = cleaned_cart
+
     return lines, total_cents
