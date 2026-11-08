@@ -1,6 +1,6 @@
 import math
 
-from django.db.models import Avg
+from django.db.models import Avg, Case, When
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, render
 from accounts.models import CustomerProfile
@@ -110,6 +110,16 @@ def weekly_menu(request):
     diet_id = request.GET.get('diet', '')
     avoid = request.GET.getlist('avoid')
     hide_profile_allergens = False
+    recommended_category_id = None
+    recommended_category_name = None
+    if request.user.is_authenticated:
+        recommendation_profile = CustomerProfile.objects.filter(
+            user=request.user,
+            predicted_category__isnull=False,
+        ).select_related('predicted_category').first()
+        if recommendation_profile:
+            recommended_category_id = recommendation_profile.predicted_category_id
+            recommended_category_name = recommendation_profile.predicted_category.name
     # Pre-hide the student's allergens until they submit the filter form themselves.
     if request.user.is_authenticated and 'filtered' not in request.GET:
         profile = CustomerProfile.objects.filter(user=request.user).first()
@@ -153,7 +163,17 @@ def weekly_menu(request):
             items = items.filter(meal__price_cents__lte=int(max_price) * 100)
         if max_calories.isdigit():
             items = items.filter(meal__calories__lte=int(max_calories))
-        items = items.order_by('meal__category__name', 'meal__name')
+        if recommended_category_id is not None:
+            items = items.order_by(
+                Case(
+                    When(meal__category_id=recommended_category_id, then=0),
+                    default=1,
+                ),
+                'meal__category__name',
+                'meal__name',
+            )
+        else:
+            items = items.order_by('meal__category__name', 'meal__name')
 
         for item in items:
             item.price_dollars = f"{item.meal.price_cents / 100:.2f}"
@@ -177,6 +197,8 @@ def weekly_menu(request):
         'calories_min': calories_min,
         'calories_max': calories_max,
         'hide_profile_allergens': hide_profile_allergens,
+        'recommended_category_id': recommended_category_id,
+        'recommended_category_name': recommended_category_name,
     })
 
 
