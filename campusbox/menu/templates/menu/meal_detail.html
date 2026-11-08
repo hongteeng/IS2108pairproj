@@ -68,6 +68,25 @@
   </div>
 </div>
 
+{% if suggestions %}
+<section class="mt-5">
+  <h2 class="h4">Students who bought this also bought</h2>
+  <div class="row g-3">
+    {% for item in suggestions %}
+      <div class="col-6 col-md-4">
+        <div class="card h-100">
+          <div class="card-body">
+            <h3 class="h6 card-title">{{ item.meal.name }}</h3>
+            <p class="card-text">${{ item.meal.price_dollars }}</p>
+            <a href="{% url 'menu:meal_detail' item.meal.id %}" class="small text-success">View</a>
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
 <section class="mt-5">
   <h2 class="h4">Reviews</h2>
   {% if avg_rating is None %}
