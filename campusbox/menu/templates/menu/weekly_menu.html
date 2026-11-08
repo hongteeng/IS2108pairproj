@@ -75,6 +75,13 @@
   </p>
 {% endif %}
 
+{% if recommended_category_name %}
+  <p class="small text-success">
+    Showing {{ recommended_category_name }} first, based on your taste quiz ·
+    <a href="{% url 'accounts:quiz' %}" class="text-success">Update your answers</a>
+  </p>
+{% endif %}
+
 {% if items %}
   {% regroup items by meal.category.name as category_groups %}
   {% for category_group in category_groups %}
@@ -86,6 +93,9 @@
             <img src="{{ item.meal.image_url }}" class="card-img-top img-fluid" alt="{{ item.meal.name }}">
             <div class="card-body d-flex flex-column">
               <h3 class="h5 card-title">{{ item.meal.name }}</h3>
+              {% if item.meal.category_id == recommended_category_id %}
+                <span class="badge text-bg-success align-self-start mb-2">Recommended</span>
+              {% endif %}
               <p class="card-text mb-1">${{ item.price_dollars }}</p>
               <p class="card-text mb-3">{{ item.meal.calories }} calories · {{ item.meal.protein_g }}g protein</p>
               {% if item.stock_left <= 0 %}
