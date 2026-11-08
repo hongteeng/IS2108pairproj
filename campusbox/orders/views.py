@@ -6,6 +6,7 @@ from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
+from ml.services.suggestions import suggest_for_meals
 from menu.models import MenuItem
 from . import cart
 from .models import Order, OrderItem, PickupSlot
@@ -188,6 +189,8 @@ def add_to_cart(request, menu_item_id):
         else:
             cart.set_quantity(request, menu_item.id, in_cart + quantity)
             messages.success(request, f"Added {quantity} x {menu_item.meal.name} to your cart.")
+    if request.POST.get("next") == "cart":
+        return redirect("orders:cart")
     return redirect("menu:meal_detail", meal_id=menu_item.meal.id)
 
 
@@ -195,9 +198,14 @@ def add_to_cart(request, menu_item_id):
 def cart_detail(request):
     """Show the cart with prices and the total."""
     lines, total_cents = cart.get_cart_lines(request)
+    names = [line["menu_item"].meal.name for line in lines]
+    suggestions = suggest_for_meals(names, exclude_names=names)
+    for item in suggestions:
+        item.meal.price_dollars = f"{item.meal.price_cents / 100:.2f}"
     return render(request, "orders/cart.html", {
         "lines": lines,
         "total_dollars": f"{total_cents / 100:.2f}",
+        "suggestions": suggestions,
     })
 
 

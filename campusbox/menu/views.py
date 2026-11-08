@@ -4,6 +4,7 @@ from django.db.models import Avg, Case, When
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, render
 from accounts.models import CustomerProfile
+from ml.services.suggestions import suggest_for_meals
 from .models import MealCategory, DietaryTag, Allergen, Meal, WeeklyMenu, MenuItem
 from datetime import date, timedelta
 from orders.models import Order, OrderItem, PickupPoint, PickupSlot
@@ -236,6 +237,9 @@ def meal_detail(request, meal_id):
         order__status='collected',
         menu_item__meal=meal,
     ).exists()
+    suggestions = suggest_for_meals([meal.name])
+    for item in suggestions:
+        item.meal.price_dollars = f"{item.meal.price_cents / 100:.2f}"
 
     return render(request, 'menu/meal_detail.html', {
         'meal': meal,
@@ -249,4 +253,5 @@ def meal_detail(request, meal_id):
         'avg_rating': avg_rating,
         'review_count': review_count,
         'can_review': can_review,
+        'suggestions': suggestions,
     })
