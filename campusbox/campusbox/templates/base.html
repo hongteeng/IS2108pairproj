@@ -48,7 +48,10 @@
       <ul class="navbar-nav me-auto">
         {% if user.is_staff %}
           <li class="nav-item">
-            <a class="nav-link {% if request.path|slice:':11' == '/dashboard/' or '/staff/' in request.path %}active{% endif %}" href="{% url 'dashboard:home' %}">Staff panel</a>
+            <a class="nav-link {% if request.resolver_match.app_name == 'dashboard' %}active{% endif %}" href="{% url 'dashboard:home' %}"{% if request.resolver_match.app_name == 'dashboard' %} aria-current="page"{% endif %}>Staff panel</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link {% if request.resolver_match.app_name == 'menu' %}active{% endif %}" href="{% url 'menu:weekly_menu' %}"{% if request.resolver_match.app_name == 'menu' %} aria-current="page"{% endif %}>Storefront</a>
           </li>
         {% else %}
           <li class="nav-item">
