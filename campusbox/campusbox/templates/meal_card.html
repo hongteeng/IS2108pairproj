@@ -1,0 +1,12 @@
+<div class="col-12 col-sm-6 col-md-4">
+  <div class="card h-100">
+    <div class="ratio ratio-4x3">
+      <img src="{{ item.meal.image_url }}" alt="{{ item.meal.name }}" class="card-img-top object-fit-cover">
+    </div>
+    <div class="card-body d-flex flex-column">
+      <h3 class="h6">{{ item.meal.name }}</h3>
+      <p class="small text-muted">${{ item.price_dollars }} · {{ item.meal.calories }} kcal</p>
+      <a href="{% url 'menu:meal_detail' item.meal.id %}" class="btn btn-success btn-sm mt-auto align-self-start">View</a>
+    </div>
+  </div>
+</div>
