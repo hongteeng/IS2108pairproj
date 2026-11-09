@@ -125,7 +125,7 @@ def weekly_menu(request):
             # Re-run the model if the category was cleared (e.g. after re-seeding).
             recommendation_profile.predicted_category = predict_preferred_category(recommendation_profile)
             recommendation_profile.save(update_fields=['predicted_category'])
-        if recommendation_profile:
+        if recommendation_profile and recommendation_profile.predicted_category:
             recommended_category_id = recommendation_profile.predicted_category_id
             recommended_category_name = recommendation_profile.predicted_category.name
     # Pre-hide the student's allergens until they submit the filter form themselves.

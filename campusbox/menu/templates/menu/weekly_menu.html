@@ -110,7 +110,7 @@
   {% regroup items by meal.category.name as category_groups %}
   {% for category_group in category_groups %}
     <h2 class="h4 mt-4">{{ category_group.grouper }} <small class="text-muted">({{ category_group.list|length }} meals)</small></h2>
-    <div class="row row-cols-1 row-cols-md-3 g-4">
+    <div class="row g-4">
       {% for item in category_group.list %}
         {% include "menu/meal_card.html" %}
       {% endfor %}
