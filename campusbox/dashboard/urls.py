@@ -1,5 +1,6 @@
 from django.urls import path
 from accounts import views as account_views
+from menu import views as menu_views
 from reviews import views as review_views
 from support import views as support_views
 from . import views
@@ -22,6 +23,7 @@ urlpatterns = [
     path('orders/', views.order_list, name='order_list'),
     path('orders/<int:order_id>/', views.order_detail, name='order_detail'),
     path('inventory/', views.inventory, name='inventory'),
+    path('seed/', menu_views.seed, name='seed'),
     path('customers/', account_views.staff_customers, name='customers'),
     path('customers/<int:user_id>/', account_views.staff_customer_detail, name='customer_detail'),
     path('reviews/', review_views.staff_reviews, name='reviews'),
