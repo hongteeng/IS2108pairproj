@@ -1,8 +1,34 @@
 {% extends "base.html" %}
 {% block content %}
-  <h1>CampusBox</h1>
-  <p>Healthy meals for students, picked up on campus.</p>
   {% if user.is_authenticated %}
+    <h1 class="mb-4">Hi, {{ user.username }}</h1>
+
+    {% if next_order %}
+      <div class="card mb-4">
+        <div class="card-body">
+          <h2 class="h5">Your next order</h2>
+          <p class="mb-2">Order #{{ next_order.id }}</p>
+          <p class="mb-2"><span class="badge text-bg-success">{{ next_order.get_status_display }}</span></p>
+          <p class="mb-3">
+            {{ next_order.pickup_slot.pickup_point.name }} ·
+            {{ next_order.pickup_slot.day|date:"D j M" }} ·
+            {{ next_order.pickup_slot.start_time|time:"H:i" }}
+          </p>
+          <a href="{% url 'orders:order_detail' next_order.id %}" class="btn btn-success">View order</a>
+        </div>
+      </div>
+    {% else %}
+      <div class="card mb-4">
+        <div class="card-body">
+          <h2 class="h5">No upcoming orders</h2>
+          {% if order_cutoff %}
+            <p class="text-muted">This week’s menu closes {{ order_cutoff|date:"D j M, g:i a" }}.</p>
+          {% endif %}
+          <a href="{% url 'menu:weekly_menu' %}" class="btn btn-success">Start an order</a>
+        </div>
+      </div>
+    {% endif %}
+
     {% if user.profile.predicted_category %}
       <div class="alert alert-success">
         Recommended for you: <strong>{{ user.profile.predicted_category.name }}</strong> ·
@@ -13,6 +39,73 @@
         Tell us your preferences to get a meal recommendation.
         <a href="{% url 'accounts:quiz' %}" class="alert-link">Take the taste quiz</a>
       </div>
+    {% endif %}
+
+    {% if picked_for_you %}
+      <section class="mt-4">
+        <h2 class="h4">Picked for you</h2>
+        <div class="row g-4">
+          {% for item in picked_for_you %}
+            {% include "meal_card.html" %}
+          {% endfor %}
+        </div>
+      </section>
+    {% endif %}
+
+    {% if popular_meals %}
+      <section class="mt-4">
+        <h2 class="h4">Popular this week</h2>
+        <div class="row g-4">
+          {% for item in popular_meals %}
+            {% include "meal_card.html" %}
+          {% endfor %}
+        </div>
+      </section>
+    {% endif %}
+  {% else %}
+    <section class="rounded bg-success-subtle p-5 mb-4">
+      <h1>Healthy meal boxes, picked up on campus</h1>
+      <p class="lead">Pre-order your week’s meals by Sunday night and collect them at your hall.</p>
+      <a href="{% url 'menu:weekly_menu' %}" class="btn btn-success me-2">Browse this week’s menu</a>
+      <a href="{% url 'accounts:register' %}" class="btn btn-outline-success">Sign up</a>
+    </section>
+
+    <div class="row g-4">
+      <div class="col-md-4">
+        <div class="card h-100">
+          <div class="card-body">
+            <h2 class="h5">1. Order by Sunday</h2>
+            <p class="mb-0">Choose your meals before the weekly cutoff.</p>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="card h-100">
+          <div class="card-body">
+            <h2 class="h5">2. Pick up on campus</h2>
+            <p class="mb-0">Collect your order at your selected hall.</p>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="card h-100">
+          <div class="card-body">
+            <h2 class="h5">3. Eat well all week</h2>
+            <p class="mb-0">Enjoy convenient meals throughout the week.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {% if popular_meals %}
+      <section class="mt-4">
+        <h2 class="h4">Popular this week</h2>
+        <div class="row g-4">
+          {% for item in popular_meals %}
+            {% include "meal_card.html" %}
+          {% endfor %}
+        </div>
+      </section>
     {% endif %}
   {% endif %}
 {% endblock %}

@@ -73,12 +73,15 @@
   <h2 class="h4">Students who bought this also bought</h2>
   <div class="row g-3">
     {% for item in suggestions %}
-      <div class="col-6 col-md-4">
+      <div class="col-12 col-sm-6 col-md-4">
         <div class="card h-100">
-          <div class="card-body">
-            <h3 class="h6 card-title">{{ item.meal.name }}</h3>
-            <p class="card-text">${{ item.meal.price_dollars }}</p>
-            <a href="{% url 'menu:meal_detail' item.meal.id %}" class="small text-success">View</a>
+          <div class="ratio ratio-4x3">
+            <img src="{{ item.meal.image_url }}" alt="{{ item.meal.name }}" class="card-img-top object-fit-cover">
+          </div>
+          <div class="card-body d-flex flex-column">
+            <h3 class="h6">{{ item.meal.name }}</h3>
+            <p class="small text-muted">${{ item.meal.price_dollars }} · {{ item.meal.calories }} kcal</p>
+            <a href="{% url 'menu:meal_detail' item.meal.id %}" class="btn btn-success btn-sm mt-auto align-self-start">View</a>
           </div>
         </div>
       </div>
