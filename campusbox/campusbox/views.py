@@ -4,11 +4,13 @@ from django.shortcuts import render
 from accounts.models import CustomerProfile
 from accounts.services import predict_preferred_category
 from menu.models import MenuItem, WeeklyMenu
+from menu.utils import menu_labels
 from orders.models import Order
 
 
 def index(request):
     menu = WeeklyMenu.objects.order_by("-week_start").first()
+    menu_dates, order_deadline = menu_labels(menu)
     popular_meals = []
     if menu:
         popular_meals = list(
@@ -20,10 +22,15 @@ def index(request):
         )
         for item in popular_meals:
             item.price_dollars = f"{item.meal.price_cents / 100:.2f}"
+            item.stock_left = item.quantity_available - item.quantity_sold
 
     context = {
         "order_cutoff": menu.order_cutoff if menu else None,
+        "menu_week_start": menu.week_start if menu else None,
+        "menu_dates": menu_dates,
+        "order_deadline": order_deadline,
         "popular_meals": popular_meals,
+        "recommended_category_id": None,
     }
     if request.user.is_authenticated and not request.user.is_staff:
         next_order = Order.objects.filter(
@@ -49,8 +56,10 @@ def index(request):
             )
             for item in picked_for_you:
                 item.price_dollars = f"{item.meal.price_cents / 100:.2f}"
+                item.stock_left = item.quantity_available - item.quantity_sold
         context.update({
             "next_order": next_order,
             "picked_for_you": picked_for_you,
+            "recommended_category_id": profile.predicted_category_id if profile else None,
         })
     return render(request, 'index.html', context)

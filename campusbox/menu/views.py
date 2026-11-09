@@ -7,6 +7,7 @@ from accounts.models import CustomerProfile
 from accounts.services import predict_preferred_category
 from ml.services.suggestions import suggest_for_meals
 from .models import MealCategory, DietaryTag, Allergen, Meal, WeeklyMenu, MenuItem
+from .utils import menu_labels
 from datetime import date, timedelta
 from orders.models import Order, OrderItem, PickupPoint, PickupSlot
 
@@ -105,6 +106,7 @@ def weekly_menu(request):
     """Display the latest weekly menu and its active meals."""
 
     menu = WeeklyMenu.objects.order_by('-week_start').first()
+    menu_dates, order_deadline = menu_labels(menu)
     categories = MealCategory.objects.order_by('name')
     tags = DietaryTag.objects.order_by('name')
     allergens = Allergen.objects.order_by('name')
@@ -199,6 +201,8 @@ def weekly_menu(request):
 
     return render(request, 'menu/weekly_menu.html', {
         'menu': menu,
+        'menu_dates': menu_dates,
+        'order_deadline': order_deadline,
         'items': items,
         'categories': categories,
         'tags': tags,
@@ -260,7 +264,8 @@ def meal_detail(request, meal_id):
     ).exists()
     suggestions = suggest_for_meals([meal.name])
     for item in suggestions:
-        item.meal.price_dollars = f"{item.meal.price_cents / 100:.2f}"
+        item.price_dollars = f"{item.meal.price_cents / 100:.2f}"
+        item.stock_left = item.quantity_available - item.quantity_sold
 
     return render(request, 'menu/meal_detail.html', {
         'meal': meal,
