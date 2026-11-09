@@ -10,6 +10,7 @@ from menu.models import Meal
 from .forms import MealForm
 from django.db.models import ProtectedError
 from menu.models import Meal, WeeklyMenu, MenuItem
+from menu.utils import current_menu
 from orders.models import Order, OrderItem, PickupPoint, PickupSlot
 from support.models import SupportTicket
 from .forms import MealForm, WeeklyMenuForm, MenuItemForm, PickupPointForm, PickupSlotForm
@@ -35,7 +36,7 @@ def staff_login(request): #function to authenticate user, runs when visiting /da
     return render(request, 'dashboard/staff_login.html', {'form': form, 'error': error})
 
 def home(request):
-    latest_menu = WeeklyMenu.objects.order_by("-week_start").first()
+    latest_menu = current_menu()
     to_prepare = Order.objects.filter(
         status__in=["confirmed", "preparing"],
     ).count()

@@ -7,6 +7,7 @@ from accounts.models import CustomerProfile
 from accounts.services import predict_preferred_category
 from ml.services.suggestions import suggest_for_meals
 from .models import MealCategory, DietaryTag, Allergen, Meal, WeeklyMenu, MenuItem
+from .utils import current_menu
 from .utils import menu_labels
 from datetime import date, timedelta
 from orders.models import Order, OrderItem, PickupPoint, PickupSlot
@@ -105,7 +106,7 @@ def seed(request): #seed is a batch of starting data for empty database,
 def weekly_menu(request):
     """Display the latest weekly menu and its active meals."""
 
-    menu = WeeklyMenu.objects.order_by('-week_start').first()
+    menu = current_menu()
     menu_dates, order_deadline = menu_labels(menu)
     categories = MealCategory.objects.order_by('name')
     tags = DietaryTag.objects.order_by('name')
@@ -237,7 +238,7 @@ def meal_detail(request, meal_id):
         id=meal_id,
         is_active=True,
     )
-    menu = WeeklyMenu.objects.order_by('-week_start').first()
+    menu = current_menu()
     menu_item = None
     if menu:
         menu_item = menu.items.filter(meal=meal).first()

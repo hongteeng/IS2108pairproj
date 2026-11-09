@@ -3,8 +3,8 @@ from django.shortcuts import redirect, render
 
 from accounts.models import CustomerProfile
 from accounts.services import predict_preferred_category
-from menu.models import MenuItem, WeeklyMenu
-from menu.utils import menu_labels
+from menu.models import MenuItem
+from menu.utils import current_menu, menu_labels
 from orders.models import Order
 
 
@@ -12,7 +12,7 @@ def index(request):
     # Staff don’t use the storefront home page.
     if request.user.is_authenticated and request.user.is_staff:
         return redirect("dashboard:home")
-    menu = WeeklyMenu.objects.order_by("-week_start").first()
+    menu = current_menu()
     menu_dates, order_deadline = menu_labels(menu)
     popular_meals = []
     if menu:
