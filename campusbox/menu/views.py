@@ -4,8 +4,10 @@ from django.db.models import Avg, Case, Q, When
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, render
 from accounts.models import CustomerProfile
+from accounts.services import predict_preferred_category
 from ml.services.suggestions import suggest_for_meals
 from .models import MealCategory, DietaryTag, Allergen, Meal, WeeklyMenu, MenuItem
+from .utils import menu_labels
 from datetime import date, timedelta
 from orders.models import Order, OrderItem, PickupPoint, PickupSlot
 
@@ -104,6 +106,7 @@ def weekly_menu(request):
     """Display the latest weekly menu and its active meals."""
 
     menu = WeeklyMenu.objects.order_by('-week_start').first()
+    menu_dates, order_deadline = menu_labels(menu)
     categories = MealCategory.objects.order_by('name')
     tags = DietaryTag.objects.order_by('name')
     allergens = Allergen.objects.order_by('name')
@@ -117,9 +120,12 @@ def weekly_menu(request):
     if request.user.is_authenticated:
         recommendation_profile = CustomerProfile.objects.filter(
             user=request.user,
-            predicted_category__isnull=False,
         ).select_related('predicted_category').first()
-        if recommendation_profile:
+        if recommendation_profile and recommendation_profile.predicted_category is None:
+            # Re-run the model if the category was cleared (e.g. after re-seeding).
+            recommendation_profile.predicted_category = predict_preferred_category(recommendation_profile)
+            recommendation_profile.save(update_fields=['predicted_category'])
+        if recommendation_profile and recommendation_profile.predicted_category:
             recommended_category_id = recommendation_profile.predicted_category_id
             recommended_category_name = recommendation_profile.predicted_category.name
     # Pre-hide the student's allergens until they submit the filter form themselves.
@@ -195,6 +201,8 @@ def weekly_menu(request):
 
     return render(request, 'menu/weekly_menu.html', {
         'menu': menu,
+        'menu_dates': menu_dates,
+        'order_deadline': order_deadline,
         'items': items,
         'categories': categories,
         'tags': tags,
@@ -256,7 +264,8 @@ def meal_detail(request, meal_id):
     ).exists()
     suggestions = suggest_for_meals([meal.name])
     for item in suggestions:
-        item.meal.price_dollars = f"{item.meal.price_cents / 100:.2f}"
+        item.price_dollars = f"{item.meal.price_cents / 100:.2f}"
+        item.stock_left = item.quantity_available - item.quantity_sold
 
     return render(request, 'menu/meal_detail.html', {
         'meal': meal,

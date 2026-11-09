@@ -41,16 +41,19 @@
         <h2 class="h5 mt-4">You might also like</h2>
         <div class="list-group">
           {% for item in suggestions %}
-            <div class="list-group-item d-flex justify-content-between align-items-center">
-              <div>
-                <a href="{% url 'menu:meal_detail' item.meal.id %}">{{ item.meal.name }}</a>
-                <span class="text-muted">${{ item.meal.price_dollars }}</span>
+            <div class="list-group-item py-3 d-flex justify-content-between align-items-center">
+              <div class="d-flex align-items-center">
+                <img src="{{ item.meal.image_url }}" alt="{{ item.meal.name }}" class="rounded object-fit-cover me-3" width="64" height="48">
+                <div>
+                  <a href="{% url 'menu:meal_detail' item.meal.id %}">{{ item.meal.name }}</a>
+                  <div class="small text-muted">${{ item.price_dollars }} · {{ item.meal.calories }} kcal</div>
+                </div>
               </div>
               <form method="post" action="{% url 'orders:add_to_cart' item.id %}">
                 {% csrf_token %}
                 <input type="hidden" name="quantity" value="1">
                 <input type="hidden" name="next" value="cart">
-                <button type="submit" class="btn btn-outline-success btn-sm">Add</button>
+                <button type="submit" class="btn btn-success btn-sm">Add</button>
               </form>
             </div>
           {% endfor %}

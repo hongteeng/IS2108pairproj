@@ -1,0 +1,19 @@
+<div class="{{ col_class|default:"col-12 col-sm-6 col-md-4 col-lg-3" }}">
+  <div class="card h-100">
+    <div class="ratio ratio-4x3">
+      <img src="{{ item.meal.image_url }}" class="card-img-top object-fit-cover" alt="{{ item.meal.name }}">
+    </div>
+    <div class="card-body d-flex flex-column">
+      <h3 class="h5 card-title">{{ item.meal.name }}</h3>
+      {% if item.meal.category_id == recommended_category_id %}
+        <span class="badge text-bg-success align-self-start mb-2">Recommended</span>
+      {% endif %}
+      <p class="card-text mb-1">${{ item.price_dollars }}</p>
+      <p class="card-text mb-3">{{ item.meal.calories }} calories · {{ item.meal.protein_g }}g protein</p>
+      {% if item.stock_left <= 0 %}
+        <span class="badge text-bg-secondary align-self-start mb-3">Sold out</span>
+      {% endif %}
+      <a href="{% url 'menu:meal_detail' item.meal.id %}" class="btn btn-success mt-auto">View</a>
+    </div>
+  </div>
+</div>

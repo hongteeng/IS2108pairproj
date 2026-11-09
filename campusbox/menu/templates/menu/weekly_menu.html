@@ -3,11 +3,14 @@
 {% block content %}
 <h1 class="mb-4">
   {% if menu %}
-    Menu for the week of {{ menu.week_start }}
+    Menu for {{ menu_dates }}
   {% else %}
     Weekly menu
   {% endif %}
 </h1>
+{% if menu %}
+  <p class="small text-muted">Order by <strong>{{ order_deadline }}</strong></p>
+{% endif %}
 
 <div class="card mb-4">
   <div class="card-body">
@@ -107,27 +110,9 @@
   {% regroup items by meal.category.name as category_groups %}
   {% for category_group in category_groups %}
     <h2 class="h4 mt-4">{{ category_group.grouper }} <small class="text-muted">({{ category_group.list|length }} meals)</small></h2>
-    <div class="row row-cols-1 row-cols-md-3 g-4">
+    <div class="row g-4">
       {% for item in category_group.list %}
-        <div class="col-12 col-sm-6 col-md-4 col-lg-3">
-          <div class="card h-100">
-            <div class="ratio ratio-4x3">
-              <img src="{{ item.meal.image_url }}" class="card-img-top object-fit-cover" alt="{{ item.meal.name }}">
-            </div>
-            <div class="card-body d-flex flex-column">
-              <h3 class="h5 card-title">{{ item.meal.name }}</h3>
-              {% if item.meal.category_id == recommended_category_id %}
-                <span class="badge text-bg-success align-self-start mb-2">Recommended</span>
-              {% endif %}
-              <p class="card-text mb-1">${{ item.price_dollars }}</p>
-              <p class="card-text mb-3">{{ item.meal.calories }} calories · {{ item.meal.protein_g }}g protein</p>
-              {% if item.stock_left <= 0 %}
-                <span class="badge text-bg-secondary align-self-start mb-3">Sold out</span>
-              {% endif %}
-              <a href="{% url 'menu:meal_detail' item.meal.id %}" class="btn btn-success mt-auto">View</a>
-            </div>
-          </div>
-        </div>
+        {% include "menu/meal_card.html" %}
       {% endfor %}
     </div>
   {% endfor %}

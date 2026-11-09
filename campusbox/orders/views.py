@@ -201,7 +201,8 @@ def cart_detail(request):
     names = [line["menu_item"].meal.name for line in lines]
     suggestions = suggest_for_meals(names, exclude_names=names)
     for item in suggestions:
-        item.meal.price_dollars = f"{item.meal.price_cents / 100:.2f}"
+        item.price_dollars = f"{item.meal.price_cents / 100:.2f}"
+        item.stock_left = item.quantity_available - item.quantity_sold
     return render(request, "orders/cart.html", {
         "lines": lines,
         "total_dollars": f"{total_cents / 100:.2f}",
