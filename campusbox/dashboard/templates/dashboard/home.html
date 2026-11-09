@@ -6,38 +6,39 @@
 
   <div class="row g-3 mb-4">
     <div class="col-6 col-lg-3">
-      <div class="card h-100">
-        <div class="card-body position-relative">
+      <div class="card card-link h-100">
+        <div class="card-body position-relative d-flex flex-column">
           <div class="small text-muted">To prepare</div>
           <h2 class="mb-0">{{ to_prepare }}</h2>
-          <a href="{% url 'dashboard:order_list' %}" class="stretched-link">View orders</a>
+          <a href="{% url 'dashboard:order_list' %}" class="stretched-link mt-auto"><span class="small fw-semibold text-success">View orders →</span></a>
         </div>
       </div>
     </div>
     <div class="col-6 col-lg-3">
-      <div class="card h-100">
-        <div class="card-body position-relative">
+      <div class="card card-link h-100">
+        <div class="card-body position-relative d-flex flex-column">
           <div class="small text-muted">Ready for pickup</div>
           <h2 class="mb-0">{{ ready_count }}</h2>
-          <a href="{% url 'dashboard:order_list' %}" class="stretched-link">View orders</a>
+          <a href="{% url 'dashboard:order_list' %}" class="stretched-link mt-auto"><span class="small fw-semibold text-success">View orders →</span></a>
         </div>
       </div>
     </div>
     <div class="col-6 col-lg-3">
-      <div class="card h-100">
-        <div class="card-body position-relative">
+      <div class="card card-link h-100">
+        <div class="card-body position-relative d-flex flex-column">
           <div class="small text-muted">Open tickets</div>
           <h2 class="mb-0">{{ open_tickets }}</h2>
-          <a href="{% url 'dashboard:tickets' %}" class="stretched-link">View tickets</a>
+          <a href="{% url 'dashboard:tickets' %}" class="stretched-link mt-auto"><span class="small fw-semibold text-success">View tickets →</span></a>
         </div>
       </div>
     </div>
     <div class="col-6 col-lg-3">
-      <div class="card h-100 {% if sold_out or low_stock > 0 %}text-bg-warning-subtle{% endif %}">
-        <div class="card-body position-relative">
-          <div class="small text-muted">Stock alerts</div>
-          <h2 class="mb-0">{{ low_stock }} low · {{ sold_out }} sold out</h2>
-          <a href="{% url 'dashboard:inventory' %}" class="stretched-link">View inventory</a>
+      <div class="card card-link h-100 {% if sold_out or low_stock > 0 %}bg-warning-subtle{% endif %}">
+        <div class="card-body position-relative d-flex flex-column">
+          <div class="small text-muted">Sold out</div>
+          <h2 class="mb-0">{{ sold_out }}</h2>
+          <div class="small text-muted">{{ low_stock }} low on stock</div>
+          <a href="{% url 'dashboard:inventory' %}" class="stretched-link mt-auto"><span class="small fw-semibold text-success">View inventory →</span></a>
         </div>
       </div>
     </div>
