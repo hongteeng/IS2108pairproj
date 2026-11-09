@@ -1,6 +1,6 @@
 import math
 
-from django.db.models import Avg, Case, When
+from django.db.models import Avg, Case, Q, When
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, render
 from accounts.models import CustomerProfile
@@ -109,6 +109,7 @@ def weekly_menu(request):
     allergens = Allergen.objects.order_by('name')
     category_id = request.GET.get('category', '')
     diet_id = request.GET.get('diet', '')
+    q = request.GET.get('q', '').strip()
     avoid = request.GET.getlist('avoid')
     hide_profile_allergens = False
     recommended_category_id = None
@@ -152,6 +153,11 @@ def weekly_menu(request):
             calories_max = max(calories)
 
         items = active_items
+        if q:
+            items = items.filter(
+                Q(meal__name__icontains=q) |
+                Q(meal__description__icontains=q)
+            )
         # Ignore anything that isn't a number, so edited URLs can't crash the page.
         if category_id.isdigit():
             items = items.filter(meal__category_id=category_id)
@@ -188,6 +194,7 @@ def weekly_menu(request):
         'allergens': allergens,
         'selected_category': category_id,
         'selected_diet': diet_id,
+        'selected_q': q,
         'selected_avoid': avoid,
         'max_price': max_price,
         'max_calories': max_calories,
