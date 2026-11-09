@@ -80,11 +80,14 @@
               Cart{% if cart_count %} <span class="badge text-bg-light">{{ cart_count }}</span>{% endif %}
             </a>
           {% endif %}
-          <span class="navbar-text d-none d-md-inline">Hi, {{ user.username }}</span>
+          <span class="rounded-circle d-inline-flex align-items-center justify-content-center fw-bold text-white bg-success" style="width: 32px; height: 32px;">{{ user.username|first|upper }}</span>
+          <span class="fw-semibold d-none d-md-inline">{{ user.username }}</span>
+          {% if user.is_staff %}<span class="badge text-bg-light border">Staff</span>{% endif %}
+          <span class="vr"></span>
           {# POST form so a plain link can't log anyone out #}
           <form method="post" action="{% url 'accounts:logout' %}" class="m-0">
             {% csrf_token %}
-            <button type="submit" class="btn btn-link btn-sm text-secondary p-0 text-decoration-none">Log out</button>
+            <button type="submit" class="btn btn-outline-secondary btn-sm">Log out</button>
           </form>
         {% else %}
           <a class="btn btn-outline-secondary btn-sm" href="{% url 'accounts:login' %}">Log in</a>
