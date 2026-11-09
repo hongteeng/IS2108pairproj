@@ -1,0 +1,98 @@
+{% extends "staff_base.html" %}
+{% block title %}{{ customer.username }} · CampusBox{% endblock %}
+{% block staff_content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h3 mb-0">{{ customer.username }}</h1>
+  <a href="{% url 'accounts:staff_customers' %}">Back to customers</a>
+</div>
+
+<div class="card mb-4">
+  <div class="card-body">
+    <h2 class="h5">Profile</h2>
+    {% if profile %}
+      <div class="row g-2">
+        <div class="col-md-6"><strong>Email:</strong> {{ customer.email }}</div>
+        <div class="col-md-6"><strong>Date joined:</strong> {{ customer.date_joined|date:"j M Y" }}</div>
+        <div class="col-md-6"><strong>Age:</strong> {{ profile.age }}</div>
+        <div class="col-md-6"><strong>Gender:</strong> {{ profile.get_gender_display }}</div>
+        <div class="col-md-6"><strong>On campus:</strong> {% if profile.is_on_campus %}Yes{% else %}No{% endif %}</div>
+        <div class="col-md-6"><strong>Budget per meal:</strong> ${{ profile.budget_per_meal }}</div>
+        <div class="col-md-6"><strong>Fitness goal:</strong> {{ profile.get_fitness_goal_display }}</div>
+        <div class="col-md-6"><strong>Spice tolerance:</strong> {{ profile.get_spice_tolerance_display }}</div>
+        <div class="col-md-6"><strong>Diet:</strong> {{ profile.get_diet_display }}</div>
+        <div class="col-md-6"><strong>Predicted category:</strong> {% if profile.predicted_category %}{{ profile.predicted_category.name }}{% else %}Hasn’t taken the taste quiz{% endif %}</div>
+        <div class="col-12">
+          <strong>Allergies:</strong>
+          {% for allergy in profile.allergies.all %}{{ allergy.name }}{% if not forloop.last %}, {% endif %}{% empty %}None{% endfor %}
+        </div>
+      </div>
+    {% else %}
+      <p class="mb-0">Email: {{ customer.email }} · Date joined: {{ customer.date_joined|date:"j M Y" }}</p>
+      <p class="mb-0">Hasn’t taken the taste quiz</p>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card mb-4">
+  <div class="card-body">
+    <h2 class="h5">Orders</h2>
+    <div class="table-responsive">
+      <table class="table align-middle">
+        <thead><tr><th>#</th><th>Placed</th><th>Pickup</th><th>Total</th><th>Status</th></tr></thead>
+        <tbody>
+          {% for order in orders %}
+            <tr>
+              <td><a href="{% url 'dashboard:order_detail' order.id %}">#{{ order.id }}</a></td>
+              <td>{{ order.created_at|date:"j M Y" }}</td>
+              <td>{{ order.pickup_slot.pickup_point.name }}</td>
+              <td>${{ order.total_dollars }}</td>
+              <td><span class="badge text-bg-secondary">{{ order.get_status_display }}</span></td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="5">None yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="card mb-4">
+  <div class="card-body">
+    <h2 class="h5">Reviews</h2>
+    {% for review in reviews %}
+      <div class="border-bottom py-2">
+        <strong>{{ review.meal.name }}</strong> · ★ {{ review.rating }} out of 5
+        <span class="badge {% if review.is_hidden %}text-bg-secondary{% else %}text-bg-success{% endif %}">{% if review.is_hidden %}Hidden{% else %}Visible{% endif %}</span>
+        <p class="mb-0">{{ review.comment }}</p>
+      </div>
+    {% empty %}
+      <p class="mb-0">None yet.</p>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="card mb-4">
+  <div class="card-body">
+    <h2 class="h5">Support tickets</h2>
+    <div class="table-responsive">
+      <table class="table align-middle">
+        <thead><tr><th>#</th><th>Order</th><th>Issue</th><th>Status</th><th>Refund</th></tr></thead>
+        <tbody>
+          {% for ticket in tickets %}
+            <tr>
+              <td>#{{ ticket.id }}</td>
+              <td>#{{ ticket.order.id }}</td>
+              <td>{{ ticket.get_issue_type_display }}</td>
+              <td><span class="badge text-bg-secondary">{{ ticket.get_status_display }}</span></td>
+              <td>{% if ticket.refund_amount_cents %}${{ ticket.refund_amount_cents|floatformat:2 }}{% else %}—{% endif %}</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="5">None yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
