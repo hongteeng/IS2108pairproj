@@ -102,7 +102,7 @@ def home(request):
     })
 
 def meal_list(request):
-    meals = Meal.objects.all()
+    meals = Meal.objects.select_related('category').order_by('category__name', 'name')
     return render(request, 'dashboard/meal_list.html', {'meals': meals})
 
 def meal_add(request):
@@ -167,7 +167,7 @@ def meal_delete(request, meal_id):
 
 
 def menu_list(request):
-    menus = WeeklyMenu.objects.all()
+    menus = WeeklyMenu.objects.order_by('-week_start')
     return render(request, 'dashboard/menu_list.html', {'menus': menus})
 
 
@@ -274,7 +274,10 @@ def pickup_detail(request, point_id):
                   {'point': point, 'slots': slots, 'form': form, 'error': error})
 
 def order_list(request):
-    orders = Order.objects.all()
+    orders = Order.objects.select_related(
+        'user',
+        'pickup_slot__pickup_point',
+    ).order_by('-created_at')
     return render(request, 'dashboard/order_list.html', {'orders': orders})
 
 
@@ -314,10 +317,20 @@ def inventory(request):
         else:
             error = 'Enter a whole number that is at least the number already sold.'
 
+    current = current_menu()
+    items = MenuItem.objects.none()
+    if current:
+        items = MenuItem.objects.filter(
+            weekly_menu=current,
+        ).select_related(
+            'meal',
+            'weekly_menu',
+        ).order_by('meal__name')
+
     rows = []
     sold_out_count = 0
     low_count = 0
-    for item in MenuItem.objects.all():
+    for item in items:
         left = item.quantity_available - item.quantity_sold
         if left <= 0:
             status = 'Sold out'
