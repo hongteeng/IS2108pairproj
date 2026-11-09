@@ -1,9 +1,11 @@
 {% extends "base.html" %}
 {% block title %}Staff log in · CampusBox{% endblock %}
 {% block content %}
-<div class="row justify-content-center">
+<div class="row justify-content-center mt-4">
   <div class="col-md-5">
+    <div class="card"><div class="card-body p-4">
     <h1 class="h3 mb-3">Staff log in</h1>
+    <p class="small text-muted">For CampusBox staff only.</p>
     {% if error %}<div class="alert alert-danger">{{ error }}</div>{% endif %}
     <form method="post">
       {% csrf_token %}
@@ -13,8 +15,10 @@
           {{ field }}
         </div>
       {% endfor %}
-      <button type="submit" class="btn btn-dark w-100">Log in</button>
+      <button type="submit" class="btn btn-success w-100">Log in</button>
     </form>
+    <p class="mt-3 mb-0 small">Not staff? <a href="{% url 'accounts:login' %}">Customer log in</a></p>
+    </div></div>
   </div>
 </div>
 {% endblock %}

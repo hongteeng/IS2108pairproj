@@ -18,10 +18,12 @@ def staff_login(request): #function to authenticate user, runs when visiting /da
                 username=form.cleaned_data['username'],
                 password=form.cleaned_data['password'],
             )
-            if user is not None and user.is_staff:
+            # Same message for every failure so the page doesn’t reveal which accounts exist.
+            if user is None or not user.is_staff:
+                error = 'Incorrect username or password.'
+            else:
                 auth_login(request, user)
                 return redirect('dashboard:home') #send them to the dashboard
-            error = 'This login is for staff only.'
     else:
         form = LoginForm()
     return render(request, 'dashboard/staff_login.html', {'form': form, 'error': error})
