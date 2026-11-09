@@ -1,7 +1,7 @@
 from django.contrib.auth import authenticate, login as auth_login
 from django.db.models import Count, F, Q, Sum, Value
 from django.db.models.functions import Coalesce
-from django.shortcuts import redirect, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from datetime import timedelta
 from accounts.models import CustomerProfile
@@ -131,7 +131,7 @@ def meal_add(request):
 
 
 def meal_edit(request, meal_id):
-    meal = Meal.objects.get(pk=meal_id)
+    meal = get_object_or_404(Meal, pk=meal_id)
     if request.method == 'POST':
         form = MealForm(request.POST, instance=meal)
         if form.is_valid():
@@ -155,7 +155,7 @@ def meal_edit(request, meal_id):
 
 
 def meal_delete(request, meal_id):
-    meal = Meal.objects.get(pk=meal_id)
+    meal = get_object_or_404(Meal, pk=meal_id)
     error = None
     if request.method == 'POST':
         try:
@@ -186,13 +186,13 @@ def menu_add(request):
     return render(request, 'dashboard/menu_form.html', {'form': form, 'title': 'New weekly menu'})
 
 def menu_detail(request, menu_id):
-    menu = WeeklyMenu.objects.get(pk=menu_id)
+    menu = get_object_or_404(WeeklyMenu, pk=menu_id)
     error = None
     form = MenuItemForm()
 
     if request.method == 'POST':
         if 'remove_id' in request.POST:
-            item = MenuItem.objects.get(pk=request.POST['remove_id'])
+            item = get_object_or_404(MenuItem, pk=request.POST.get('remove_id', ''))
             try:
                 item.delete()
             except ProtectedError:
@@ -239,7 +239,7 @@ def pickup_add(request):
 
 
 def pickup_detail(request, point_id):
-    point = PickupPoint.objects.get(pk=point_id)
+    point = get_object_or_404(PickupPoint, pk=point_id)
     error = None
     form = PickupSlotForm()
 
@@ -248,7 +248,7 @@ def pickup_detail(request, point_id):
             point.is_active = not point.is_active
             point.save()
         elif 'remove_id' in request.POST:
-            slot = PickupSlot.objects.get(pk=request.POST['remove_id'])
+            slot = get_object_or_404(PickupSlot, pk=request.POST.get('remove_id', ''))
             try:
                 slot.delete()
             except ProtectedError:
@@ -279,7 +279,7 @@ def order_list(request):
 
 
 def order_detail(request, order_id):
-    order = Order.objects.get(pk=order_id)
+    order = get_object_or_404(Order, pk=order_id)
 
     next_status = None
     next_label = None
@@ -306,8 +306,8 @@ def inventory(request):
     error = None
 
     if request.method == 'POST':
-        item = MenuItem.objects.get(pk=request.POST['item_id'])
-        new_quantity = request.POST['quantity']
+        item = get_object_or_404(MenuItem, pk=request.POST.get('item_id', ''))
+        new_quantity = request.POST.get('quantity', '')
         if new_quantity.isdigit() and int(new_quantity) >= item.quantity_sold:
             item.quantity_available = int(new_quantity)
             item.save()
