@@ -36,7 +36,7 @@
             {% endif %}
           </td>
           <td>
-            <a href="{% url 'support:staff_ticket_detail' ticket.id %}" class="btn btn-outline-secondary btn-sm">Open</a>
+            <a href="{% url 'dashboard:ticket_detail' ticket.id %}" class="btn btn-outline-secondary btn-sm">Open</a>
           </td>
         </tr>
       {% empty %}

@@ -12,7 +12,7 @@
   </div>
   <div class="col-auto">
     <button type="submit" class="btn btn-success">Search</button>
-    <a href="{% url 'accounts:staff_customers' %}" class="btn btn-outline-secondary">Clear</a>
+    <a href="{% url 'dashboard:customers' %}" class="btn btn-outline-secondary">Clear</a>
   </div>
 </form>
 </div></div>
@@ -42,7 +42,7 @@
           <td>{% if customer.profile.predicted_category %}{{ customer.profile.predicted_category.name }}{% else %}—{% endif %}</td>
           <td>{{ customer.order_count }}</td>
           <td>{{ customer.total_spent_cents|dollars }}</td>
-          <td><div class="d-flex gap-2"><a href="{% url 'accounts:staff_customer_detail' customer.id %}" class="btn btn-sm btn-outline-secondary">View</a></div></td>
+          <td><div class="d-flex gap-2"><a href="{% url 'dashboard:customer_detail' customer.id %}" class="btn btn-sm btn-outline-secondary">View</a></div></td>
         </tr>
       {% empty %}
         <tr><td colspan="9">No customers found.</td></tr>

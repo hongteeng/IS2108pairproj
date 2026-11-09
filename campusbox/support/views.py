@@ -71,7 +71,7 @@ def staff_ticket_detail(request, ticket_id):
     if request.method == "POST" and form.is_valid():
         form.save()
         messages.success(request, "Ticket updated.")
-        return redirect("support:staff_tickets")
+        return redirect("dashboard:tickets")
     return render(request, "support/staff_ticket_detail.html", {
         "ticket": ticket,
         "form": form,

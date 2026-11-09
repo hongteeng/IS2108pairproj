@@ -34,7 +34,7 @@
             {% endif %}
           </td>
           <td>
-            <form method="post" action="{% url 'reviews:staff_toggle_review' review.id %}">
+            <form method="post" action="{% url 'dashboard:review_toggle' review.id %}">
               {% csrf_token %}
               {% if review.is_hidden %}
                 <button type="submit" class="btn btn-outline-secondary btn-sm">Show</button>

@@ -58,4 +58,4 @@ def staff_toggle_review(request, review_id):
     review.save()
     message = "Review hidden." if review.is_hidden else "Review shown again."
     messages.success(request, message)
-    return redirect("reviews:staff_reviews")
+    return redirect("dashboard:reviews")
