@@ -5,6 +5,7 @@
 
 <div class="row g-4">
   <div class="col-md-7">
+    <div class="card"><div class="card-body">
     <form method="post">
       {% csrf_token %}
       <h2 class="h4">1. Choose a pickup slot</h2>
@@ -29,6 +30,7 @@
       <button type="submit" class="btn btn-success" {% if not slots %}disabled{% endif %}>Pay ${{ total_dollars }}</button>
       <a href="{% url 'orders:cart' %}" class="btn btn-outline-secondary">Back to cart</a>
     </form>
+    </div></div>
   </div>
 
   <div class="col-md-5">

@@ -5,16 +5,18 @@
 {% block content %}
 <div class="row">
   <div class="col-md-3 mb-3">
-    <div class="list-group">
-      <a class="list-group-item list-group-item-action" href="/dashboard/">Dashboard</a>
-      <a class="list-group-item list-group-item-action" href="{% url 'dashboard:meal_list' %}">Meals</a>
-      <a class="list-group-item list-group-item-action" href="{% url 'dashboard:menu_list' %}">Weekly menu</a>
-      <a class="list-group-item list-group-item-action" href="{% url 'dashboard:inventory' %}">Inventory</a>
-      <a class="list-group-item list-group-item-action" href="{% url 'dashboard:pickup_list' %}">Pickup points</a>
-      <a class="list-group-item list-group-item-action" href="{% url 'dashboard:order_list' %}">Orders</a>
-      <a class="list-group-item list-group-item-action" href="{% url 'accounts:staff_customers' %}">Customers</a>
-      <a class="list-group-item list-group-item-action" href="{% url 'reviews:staff_reviews' %}">Reviews</a>
-      <a class="list-group-item list-group-item-action" href="{% url 'support:staff_tickets' %}">Support</a>
+    <div class="card">
+      <div class="list-group list-group-flush">
+        <a class="list-group-item list-group-item-action {% if request.resolver_match.url_name == 'home' %}active{% endif %}" href="/dashboard/">Dashboard</a>
+        <a class="list-group-item list-group-item-action {% if request.resolver_match.url_name == 'meal_list' or request.resolver_match.url_name == 'meal_add' or request.resolver_match.url_name == 'meal_edit' or request.resolver_match.url_name == 'meal_delete' %}active{% endif %}" href="{% url 'dashboard:meal_list' %}">Meals</a>
+        <a class="list-group-item list-group-item-action {% if request.resolver_match.url_name == 'menu_list' or request.resolver_match.url_name == 'menu_add' or request.resolver_match.url_name == 'menu_detail' %}active{% endif %}" href="{% url 'dashboard:menu_list' %}">Weekly menu</a>
+        <a class="list-group-item list-group-item-action {% if request.resolver_match.url_name == 'inventory' %}active{% endif %}" href="{% url 'dashboard:inventory' %}">Inventory</a>
+        <a class="list-group-item list-group-item-action {% if request.resolver_match.url_name == 'pickup_list' or request.resolver_match.url_name == 'pickup_add' or request.resolver_match.url_name == 'pickup_detail' %}active{% endif %}" href="{% url 'dashboard:pickup_list' %}">Pickup points</a>
+        <a class="list-group-item list-group-item-action {% if request.resolver_match.url_name == 'order_list' or request.resolver_match.url_name == 'order_detail' %}active{% endif %}" href="{% url 'dashboard:order_list' %}">Orders</a>
+        <a class="list-group-item list-group-item-action {% if request.resolver_match.url_name == 'customers' or request.resolver_match.url_name == 'customer_detail' %}active{% endif %}" href="{% url 'dashboard:customers' %}">Customers</a>
+        <a class="list-group-item list-group-item-action {% if request.resolver_match.url_name == 'reviews' %}active{% endif %}" href="{% url 'dashboard:reviews' %}">Reviews</a>
+        <a class="list-group-item list-group-item-action {% if request.resolver_match.url_name == 'tickets' or request.resolver_match.url_name == 'ticket_detail' %}active{% endif %}" href="{% url 'dashboard:tickets' %}">Support</a>
+      </div>
     </div>
   </div>
   <div class="col-md-9">

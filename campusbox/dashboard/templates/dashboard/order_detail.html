@@ -1,19 +1,25 @@
 {% extends "staff_base.html" %}
+{% load money %}
 
 {% block staff_content %}
-  <h1 class="h3 mb-1">Order #{{ order.id }}</h1>
-  <p class="text-muted">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h3 mb-0">Order #{{ order.id }}</h1>
+  </div>
+  <div class="card mb-3"><div class="card-body">
+  <p class="text-muted mb-2">
     {{ order.user.username }} · {{ order.pickup_slot.pickup_point.name }},
-    {{ order.pickup_slot.day }} {{ order.pickup_slot.start_time }} to {{ order.pickup_slot.end_time }}
+    {{ order.pickup_slot.day|date:"D j M" }} {{ order.pickup_slot.start_time|time:"H:i" }} to {{ order.pickup_slot.end_time|time:"H:i" }}
   </p>
-  <p>Status: <strong>{{ order.get_status_display }}</strong></p>
+  <p class="mb-0">Status: <span class="badge {% if order.status == 'cancelled' %}text-bg-secondary{% else %}text-bg-success{% endif %}">{{ order.get_status_display }}</span></p>
+  </div></div>
 
-  <table class="table">
+  <div class="card"><div class="card-body p-0"><div class="table-responsive">
+  <table class="table align-middle mb-0">
     <thead>
       <tr>
         <th>Meal</th>
         <th>Quantity</th>
-        <th>Price each (cents)</th>
+        <th>Price each</th>
       </tr>
     </thead>
     <tbody>
@@ -21,17 +27,18 @@
         <tr>
           <td>{{ item.menu_item.meal.name }}</td>
           <td>{{ item.quantity }}</td>
-          <td>{{ item.price_at_purchase_cents }}</td>
+          <td>{{ item.price_at_purchase_cents|dollars }}</td>
         </tr>
       {% endfor %}
     </tbody>
   </table>
-  <p>Total: {{ order.total_cents }} cents</p>
+  </div></div></div>
+  <div class="card mt-3"><div class="card-body"><p class="mb-0">Total: {{ order.total_cents|dollars }}</p></div></div>
 
   {% if next_label %}
     <form method="post" class="mb-3">
       {% csrf_token %}
-      <button type="submit" class="btn btn-dark">{{ next_label }}</button>
+      <button type="submit" class="btn btn-success">{{ next_label }}</button>
     </form>
   {% endif %}
   <a href="{% url 'dashboard:order_list' %}" class="btn btn-outline-secondary">Back to orders</a>

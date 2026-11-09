@@ -1,14 +1,18 @@
 {% extends "staff_base.html" %}
+{% load money %}
 
 {% block staff_content %}
-  <h1 class="h3 mb-3">Meals</h1>
-  <a class="btn btn-dark mb-3" href="{% url 'dashboard:meal_add' %}">Add meal</a>
-  <table class="table">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h3 mb-0">Meals</h1>
+    <a class="btn btn-success" href="{% url 'dashboard:meal_add' %}">Add meal</a>
+  </div>
+  <div class="card"><div class="card-body p-0"><div class="table-responsive">
+  <table class="table align-middle mb-0">
     <thead>
       <tr>
         <th>Name</th>
         <th>Category</th>
-        <th>Price (cents)</th>
+        <th>Price</th>
         <th>Calories</th>
         <th>Active</th>
         <th></th>
@@ -19,15 +23,18 @@
         <tr>
           <td>{{ meal.name }}</td>
           <td>{{ meal.category.name }}</td>
-          <td>{{ meal.price_cents }}</td>
+          <td>{{ meal.price_cents|dollars }}</td>
           <td>{{ meal.calories }}</td>
-          <td>{{ meal.is_active }}</td>
+          <td>{% if meal.is_active %}<span class="badge text-bg-success">Active</span>{% else %}<span class="badge text-bg-secondary">Inactive</span>{% endif %}</td>
           <td>
-            <a href="{% url 'dashboard:meal_edit' meal.id %}">Edit</a>
-            <a href="{% url 'dashboard:meal_delete' meal.id %}">Delete</a>
+            <div class="d-flex gap-2">
+              <a href="{% url 'dashboard:meal_edit' meal.id %}" class="btn btn-sm btn-outline-secondary">Edit</a>
+              <a href="{% url 'dashboard:meal_delete' meal.id %}" class="btn btn-sm btn-outline-danger">Delete</a>
+            </div>
           </td>
         </tr>
       {% endfor %}
     </tbody>
   </table>
+  </div></div></div>
 {% endblock %}

@@ -1,5 +1,5 @@
 from django.db.models import F
-from django.shortcuts import render
+from django.shortcuts import redirect, render
 
 from accounts.models import CustomerProfile
 from accounts.services import predict_preferred_category
@@ -9,6 +9,9 @@ from orders.models import Order
 
 
 def index(request):
+    # Staff don’t use the storefront home page.
+    if request.user.is_authenticated and request.user.is_staff:
+        return redirect("dashboard:home")
     menu = WeeklyMenu.objects.order_by("-week_start").first()
     menu_dates, order_deadline = menu_labels(menu)
     popular_meals = []
@@ -32,7 +35,7 @@ def index(request):
         "popular_meals": popular_meals,
         "recommended_category_id": None,
     }
-    if request.user.is_authenticated and not request.user.is_staff:
+    if request.user.is_authenticated:
         next_order = Order.objects.filter(
             user=request.user,
             status__in=["confirmed", "preparing", "ready"],

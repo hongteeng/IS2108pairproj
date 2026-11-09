@@ -46,10 +46,12 @@ def login(request):
                 username=form.cleaned_data['username'],
                 password=form.cleaned_data['password'],
             )
-            if user is not None:
+            # Same message for every failure so the page doesn’t reveal which accounts exist.
+            if user is None or user.is_staff:
+                error = 'Incorrect username or password.'
+            else:
                 auth_login(request, user)
                 return redirect('index')
-            error = 'Incorrect username or password.'
     else:
         form = LoginForm()
     return render(request, 'accounts/login.html', {'form': form, 'error': error})
@@ -58,9 +60,10 @@ def login(request):
 def logout(request):
     """Clear the session. POST only, so a link can't log anyone out."""
     
+    is_staff = request.user.is_staff
     if request.method == 'POST':
         auth_logout(request)
-    return redirect('index')
+    return redirect('dashboard:staff_login' if is_staff else 'index')
 
 @login_required
 def quiz(request):

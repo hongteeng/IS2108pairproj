@@ -1,7 +1,84 @@
 {% extends "staff_base.html" %}
+{% load money %}
 
 {% block staff_content %}
-  <h1>Staff dashboard</h1>
-  <p>Sales and ML pages will go here.</p>
-{% endblock %}
+  <h1 class="h3 mb-3">Staff dashboard</h1>
 
+  <div class="row g-3 mb-4">
+    <div class="col-6 col-lg-3">
+      <div class="card card-link h-100">
+        <div class="card-body position-relative d-flex flex-column">
+          <div class="small text-muted">To prepare</div>
+          <h2 class="mb-0">{{ to_prepare }}</h2>
+          <a href="{% url 'dashboard:order_list' %}" class="stretched-link mt-auto"><span class="small fw-semibold text-success">View orders →</span></a>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-lg-3">
+      <div class="card card-link h-100">
+        <div class="card-body position-relative d-flex flex-column">
+          <div class="small text-muted">Ready for pickup</div>
+          <h2 class="mb-0">{{ ready_count }}</h2>
+          <a href="{% url 'dashboard:order_list' %}" class="stretched-link mt-auto"><span class="small fw-semibold text-success">View orders →</span></a>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-lg-3">
+      <div class="card card-link h-100">
+        <div class="card-body position-relative d-flex flex-column">
+          <div class="small text-muted">Open tickets</div>
+          <h2 class="mb-0">{{ open_tickets }}</h2>
+          <a href="{% url 'dashboard:tickets' %}" class="stretched-link mt-auto"><span class="small fw-semibold text-success">View tickets →</span></a>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-lg-3">
+      <div class="card card-link h-100 {% if sold_out or low_stock > 0 %}bg-warning-subtle{% endif %}">
+        <div class="card-body position-relative d-flex flex-column">
+          <div class="small text-muted">Sold out</div>
+          <h2 class="mb-0">{{ sold_out }}</h2>
+          <div class="small text-muted">{{ low_stock }} low on stock</div>
+          <a href="{% url 'dashboard:inventory' %}" class="stretched-link mt-auto"><span class="small fw-semibold text-success">View inventory →</span></a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-3">
+    <div class="col-lg-5">
+      <div class="card h-100">
+        <div class="card-body">
+          <h2 class="h5">Last 7 days</h2>
+          <p>{{ week_orders }} orders · {{ week_revenue_cents|dollars }}</p>
+          <ol class="mb-0">
+            {% for item in top_meals %}
+              <li>{{ item.menu_item__meal__name }} × {{ item.total }}</li>
+            {% empty %}
+              <li class="list-unstyled">No orders yet.</li>
+            {% endfor %}
+          </ol>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-7">
+      <div class="card h-100">
+        <div class="card-body">
+          <h2 class="h5">Predicted demand (ML)</h2>
+          <p class="small text-muted">Share of students by predicted favourite category — use it to plan next week’s menu.</p>
+          {% for item in demand %}
+            <div class="d-flex justify-content-between">
+              <span>{{ item.name }}</span>
+              <span>{{ item.count }} ({{ item.percent }}%)</span>
+            </div>
+            <div class="progress mb-3" role="progressbar" aria-valuenow="{{ item.percent }}" aria-valuemin="0" aria-valuemax="100">
+              <div class="progress-bar bg-success" style="width: {{ item.percent }}%;"></div>
+            </div>
+          {% empty %}
+            <p class="text-muted">No quiz results yet.</p>
+          {% endfor %}
+          <p class="small text-muted mb-0">Based on {{ demand_total }} students’ taste quizzes.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}

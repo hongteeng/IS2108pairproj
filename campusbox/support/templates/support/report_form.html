@@ -5,11 +5,11 @@
 {% block content %}
 <div class="row justify-content-center">
   <div class="col-md-7 col-lg-6">
-    <h1 class="h3 mb-3">Report a problem with order #{{ order.id }}</h1>
+    <h1 class="mb-4">Report a problem with order #{{ order.id }}</h1>
     <div class="card">
       <div class="card-body">
         {% if form.non_field_errors %}
-          <div class="text-danger mb-3">{{ form.non_field_errors }}</div>
+          <div class="small text-danger mb-3">{{ form.non_field_errors }}</div>
         {% endif %}
         <form method="post">
           {% csrf_token %}
@@ -17,7 +17,7 @@
             <div class="mb-3">
               <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
               {{ field }}
-              {% for error in field.errors %}<div class="text-danger">{{ error }}</div>{% endfor %}
+              {% for error in field.errors %}<div class="small text-danger">{{ error }}</div>{% endfor %}
             </div>
           {% endfor %}
           <button type="submit" class="btn btn-success">Send report</button>

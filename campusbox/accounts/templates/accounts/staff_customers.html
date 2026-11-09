@@ -1,18 +1,23 @@
 {% extends "staff_base.html" %}
+{% load money %}
 {% block title %}Customers · CampusBox{% endblock %}
 {% block staff_content %}
-<h1 class="h3 mb-3">Customers</h1>
-<form method="get" class="row g-2 mb-4">
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h3 mb-0">Customers</h1>
+</div>
+<div class="card mb-3"><div class="card-body">
+<form method="get" class="row g-2">
   <div class="col">
     <input type="search" name="q" value="{{ q }}" class="form-control" placeholder="Search username or email">
   </div>
   <div class="col-auto">
     <button type="submit" class="btn btn-success">Search</button>
-    <a href="{% url 'accounts:staff_customers' %}" class="btn btn-outline-secondary">Clear</a>
+    <a href="{% url 'dashboard:customers' %}" class="btn btn-outline-secondary">Clear</a>
   </div>
 </form>
-<div class="table-responsive">
-  <table class="table align-middle">
+</div></div>
+<div class="card"><div class="card-body p-0"><div class="table-responsive">
+  <table class="table align-middle mb-0">
     <thead>
       <tr>
         <th>Username</th>
@@ -36,8 +41,8 @@
           <td>{% if customer.profile %}{{ customer.profile.get_fitness_goal_display }}{% else %}—{% endif %}</td>
           <td>{% if customer.profile.predicted_category %}{{ customer.profile.predicted_category.name }}{% else %}—{% endif %}</td>
           <td>{{ customer.order_count }}</td>
-          <td>{{ customer.total_spent_dollars }}</td>
-          <td><a href="{% url 'accounts:staff_customer_detail' customer.id %}" class="btn btn-outline-success btn-sm">View</a></td>
+          <td>{{ customer.total_spent_cents|dollars }}</td>
+          <td><div class="d-flex gap-2"><a href="{% url 'dashboard:customer_detail' customer.id %}" class="btn btn-sm btn-outline-secondary">View</a></div></td>
         </tr>
       {% empty %}
         <tr><td colspan="9">No customers found.</td></tr>
@@ -45,4 +50,5 @@
     </tbody>
   </table>
 </div>
+</div></div>
 {% endblock %}

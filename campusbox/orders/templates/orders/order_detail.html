@@ -1,35 +1,36 @@
 {% extends "base.html" %}
 {% block title %}Order #{{ order.id }} · CampusBox{% endblock %}
 {% block content %}
-<h1>Order #{{ order.id }}</h1>
-<p class="text-muted">
-  Placed {{ order.created_at|date:"j M Y, H:i" }} · Payment ref {{ order.payment_reference }}
-</p>
-
-<p>
-  <strong>Status:</strong>
-  <span class="badge {% if order.status == 'cancelled' %}text-bg-secondary{% else %}text-bg-success{% endif %}">{{ order.get_status_display }}</span>
-</p>
+<h1 class="mb-4">Order #{{ order.id }}</h1>
+<div class="card mb-4"><div class="card-body">
+  <p class="text-muted">Placed {{ order.created_at|date:"D j M, H:i" }} · Payment ref {{ order.payment_reference }}</p>
+  <p class="mb-0">
+    <strong>Status:</strong>
+    <span class="badge {% if order.status == 'cancelled' %}text-bg-secondary{% else %}text-bg-success{% endif %}">{{ order.get_status_display }}</span>
+  </p>
+</div></div>
 
 {% if tracker %}
-  <ol class="list-group list-group-horizontal-md mb-4">
+  <div class="card mb-4"><ol class="list-group list-group-horizontal-md list-group-flush">
     {% for step in tracker %}
       <li class="list-group-item flex-fill {% if step.done %}list-group-item-success{% endif %}">{{ step.label }}</li>
     {% endfor %}
-  </ol>
+  </ol></div>
 {% endif %}
 
-<p>
-  <strong>Pickup:</strong>
-  <strong>{{ order.pickup_slot.pickup_point.name }}</strong>
-  · {{ order.pickup_slot.day|date:"D j M" }},
-  {{ order.pickup_slot.start_time|time:"H:i" }}–{{ order.pickup_slot.end_time|time:"H:i" }}
-  <br>
-  <small class="text-muted">{{ order.pickup_slot.pickup_point.location }}</small>
-</p>
+<div class="card mb-4"><div class="card-body">
+  <p class="mb-0">
+    <strong>Pickup:</strong>
+    <strong>{{ order.pickup_slot.pickup_point.name }}</strong>
+    · {{ order.pickup_slot.day|date:"D j M" }},
+    {{ order.pickup_slot.start_time|time:"H:i" }}–{{ order.pickup_slot.end_time|time:"H:i" }}
+    <br>
+    <small class="text-muted">{{ order.pickup_slot.pickup_point.location }}</small>
+  </p>
+</div></div>
 
-<div class="table-responsive">
-  <table class="table">
+<div class="card mb-4"><div class="card-body p-0"><div class="table-responsive">
+  <table class="table align-middle mb-0">
     <thead>
       <tr>
         <th scope="col">Meal</th>
@@ -61,6 +62,7 @@
     </tfoot>
   </table>
 </div>
+</div></div>
 
 <div class="d-flex gap-2">
   <a href="{% url 'menu:weekly_menu' %}" class="btn btn-outline-secondary">Back to menu</a>

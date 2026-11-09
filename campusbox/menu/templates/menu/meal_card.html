@@ -1,5 +1,5 @@
 <div class="{{ col_class|default:"col-12 col-sm-6 col-md-4 col-lg-3" }}">
-  <div class="card h-100">
+  <div class="card card-link h-100">
     <div class="ratio ratio-4x3">
       <img src="{{ item.meal.image_url }}" class="card-img-top object-fit-cover" alt="{{ item.meal.name }}">
     </div>
@@ -13,7 +13,7 @@
       {% if item.stock_left <= 0 %}
         <span class="badge text-bg-secondary align-self-start mb-3">Sold out</span>
       {% endif %}
-      <a href="{% url 'menu:meal_detail' item.meal.id %}" class="btn btn-success mt-auto">View</a>
+      <a href="{% url 'menu:meal_detail' item.meal.id %}" class="btn btn-success mt-auto stretched-link">View</a>
     </div>
   </div>
 </div>

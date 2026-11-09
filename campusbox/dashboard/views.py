@@ -1,11 +1,17 @@
 from django.contrib.auth import authenticate, login as auth_login
+from django.db.models import Count, F, Q, Sum, Value
+from django.db.models.functions import Coalesce
 from django.shortcuts import redirect, render
+from django.utils import timezone
+from datetime import timedelta
+from accounts.models import CustomerProfile
 from accounts.forms import LoginForm
 from menu.models import Meal
 from .forms import MealForm
 from django.db.models import ProtectedError
 from menu.models import Meal, WeeklyMenu, MenuItem
-from orders.models import Order, PickupPoint, PickupSlot
+from orders.models import Order, OrderItem, PickupPoint, PickupSlot
+from support.models import SupportTicket
 from .forms import MealForm, WeeklyMenuForm, MenuItemForm, PickupPointForm, PickupSlotForm
 
 def staff_login(request): #function to authenticate user, runs when visiting /dashboard/login
@@ -18,16 +24,81 @@ def staff_login(request): #function to authenticate user, runs when visiting /da
                 username=form.cleaned_data['username'],
                 password=form.cleaned_data['password'],
             )
-            if user is not None and user.is_staff:
+            # Same message for every failure so the page doesn’t reveal which accounts exist.
+            if user is None or not user.is_staff:
+                error = 'Incorrect username or password.'
+            else:
                 auth_login(request, user)
                 return redirect('dashboard:home') #send them to the dashboard
-            error = 'This login is for staff only.'
     else:
         form = LoginForm()
     return render(request, 'dashboard/staff_login.html', {'form': form, 'error': error})
 
 def home(request):
-    return render(request, 'dashboard/home.html')
+    latest_menu = WeeklyMenu.objects.order_by("-week_start").first()
+    to_prepare = Order.objects.filter(
+        status__in=["confirmed", "preparing"],
+    ).count()
+    ready_count = Order.objects.filter(status="ready").count()
+    open_tickets = SupportTicket.objects.filter(status="open").count()
+    sold_out = 0
+    low_stock = 0
+    if latest_menu:
+        stock_items = MenuItem.objects.filter(weekly_menu=latest_menu).annotate(
+            stock_remaining=F("quantity_available") - F("quantity_sold"),
+        )
+        sold_out = stock_items.filter(stock_remaining__lte=0).count()
+        low_stock = stock_items.filter(
+            stock_remaining__gte=1,
+            stock_remaining__lte=5,
+        ).count()
+
+    week_start = timezone.now() - timedelta(days=7)
+    week_orders = Order.objects.filter(
+        created_at__gte=week_start,
+    ).exclude(status="cancelled")
+    week_summary = week_orders.aggregate(
+        count=Count("id"),
+        revenue=Coalesce(Sum("total_cents"), Value(0)),
+    )
+    top_meals = OrderItem.objects.filter(
+        order__in=week_orders,
+    ).values(
+        "menu_item__meal__name",
+    ).annotate(
+        total=Sum("quantity"),
+    ).order_by("-total")[:3]
+
+    # Taste-quiz predictions from the ML model, used to plan next week’s menu.
+    predicted_profiles = CustomerProfile.objects.filter(
+        predicted_category__isnull=False,
+    ).values(
+        name=F("predicted_category__name"),
+    ).annotate(
+        count=Count("id"),
+    ).order_by("-count")
+    demand_total = sum(group["count"] for group in predicted_profiles)
+    demand = [
+        {
+            "name": group["name"],
+            "count": group["count"],
+            "percent": round(group["count"] * 100 / demand_total) if demand_total else 0,
+        }
+        for group in predicted_profiles
+    ]
+
+    return render(request, "dashboard/home.html", {
+        "to_prepare": to_prepare,
+        "ready_count": ready_count,
+        "open_tickets": open_tickets,
+        "sold_out": sold_out,
+        "low_stock": low_stock,
+        "week_orders": week_summary["count"],
+        "week_revenue_cents": week_summary["revenue"],
+        "top_meals": top_meals,
+        "demand": demand,
+        "demand_total": demand_total,
+    })
 
 def meal_list(request):
     meals = Meal.objects.all()

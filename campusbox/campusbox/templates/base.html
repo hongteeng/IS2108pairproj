@@ -30,6 +30,7 @@
       font-weight: 500;
     }
     h1, h2, h3, h4, h5, h6, .navbar-brand { font-weight: 700; }
+    html { scrollbar-gutter: stable; }
     :root {
       --bs-link-color-rgb: 33, 37, 41;
       --bs-link-hover-color-rgb: 20, 108, 67;
@@ -37,17 +38,23 @@
     a { text-decoration: none; }
     a:hover { text-decoration: none; }
     a:not(.btn):not(.nav-link):not(.navbar-brand) { font-weight: 600; }
+    .card-link { transition: transform .15s, box-shadow .15s; }
+    .card-link:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,0,0,.10); }
+    .list-group-item.active { background-color: #198754; border-color: #198754; }
   </style>
 </head>
 <body>
   {# Navbar: page links on the left, cart and account on the right #}
   <nav class="navbar navbar-expand bg-body-tertiary border-bottom">
     <div class="container">
-      <a class="navbar-brand fw-bold text-success" href="{% url 'index' %}">CampusBox</a>
+      <a class="navbar-brand fw-bold text-success" href="{% if user.is_staff %}{% url 'dashboard:home' %}{% else %}{% url 'index' %}{% endif %}">CampusBox</a>
       <ul class="navbar-nav me-auto">
         {% if user.is_staff %}
           <li class="nav-item">
-            <a class="nav-link {% if request.path|slice:':11' == '/dashboard/' or '/staff/' in request.path %}active{% endif %}" href="{% url 'dashboard:home' %}">Staff panel</a>
+            <a class="nav-link {% if request.resolver_match.app_name == 'dashboard' %}active{% endif %}" href="{% url 'dashboard:home' %}"{% if request.resolver_match.app_name == 'dashboard' %} aria-current="page"{% endif %}>Staff panel</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link {% if request.resolver_match.app_name == 'menu' %}active{% endif %}" href="{% url 'menu:weekly_menu' %}"{% if request.resolver_match.app_name == 'menu' %} aria-current="page"{% endif %}>Storefront</a>
           </li>
         {% else %}
           <li class="nav-item">
@@ -73,11 +80,14 @@
               Cart{% if cart_count %} <span class="badge text-bg-light">{{ cart_count }}</span>{% endif %}
             </a>
           {% endif %}
-          <span class="navbar-text d-none d-md-inline">Hi, {{ user.username }}</span>
+          <span class="rounded-circle d-inline-flex align-items-center justify-content-center fw-bold text-white bg-success" style="width: 32px; height: 32px;">{{ user.username|first|upper }}</span>
+          <span class="fw-semibold d-none d-md-inline">{{ user.username }}</span>
+          {% if user.is_staff %}<span class="badge text-bg-light border">Staff</span>{% endif %}
+          <span class="vr"></span>
           {# POST form so a plain link can't log anyone out #}
           <form method="post" action="{% url 'accounts:logout' %}" class="m-0">
             {% csrf_token %}
-            <button type="submit" class="btn btn-link btn-sm text-secondary p-0 text-decoration-none">Log out</button>
+            <button type="submit" class="btn btn-outline-secondary btn-sm">Log out</button>
           </form>
         {% else %}
           <a class="btn btn-outline-secondary btn-sm" href="{% url 'accounts:login' %}">Log in</a>
