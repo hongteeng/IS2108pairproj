@@ -44,7 +44,7 @@
   {# Navbar: page links on the left, cart and account on the right #}
   <nav class="navbar navbar-expand bg-body-tertiary border-bottom">
     <div class="container">
-      <a class="navbar-brand fw-bold text-success" href="{% url 'index' %}">CampusBox</a>
+      <a class="navbar-brand fw-bold text-success" href="{% if user.is_staff %}{% url 'dashboard:home' %}{% else %}{% url 'index' %}{% endif %}">CampusBox</a>
       <ul class="navbar-nav me-auto">
         {% if user.is_staff %}
           <li class="nav-item">
