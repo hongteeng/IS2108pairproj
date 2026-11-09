@@ -3,7 +3,7 @@
 
 {% block staff_content %}
   <div class="d-flex justify-content-between align-items-center mb-3">
-    <h1 class="h3 mb-0">Inventory</h1>
+    <h1 class="h3 mb-0">Inventory{% if menu_dates %} for {{ menu_dates }}{% endif %}</h1>
   </div>
   <div class="card mb-3"><div class="card-body"><p class="mb-0">{{ sold_out_count }} sold out, {{ low_count }} low on stock.</p></div></div>
 
@@ -13,7 +13,6 @@
   <table class="table align-middle mb-0">
     <thead>
       <tr>
-        <th>Week</th>
         <th>Meal</th>
         <th>Sold</th>
         <th>Left</th>
@@ -24,11 +23,10 @@
     <tbody>
       {% for row in rows %}
         <tr>
-          <td>{{ row.item.weekly_menu.week_start|date:"D j M" }}</td>
           <td>{{ row.item.meal.name }}</td>
           <td>{{ row.item.quantity_sold }}</td>
           <td>{{ row.left }}</td>
-          <td><span class="badge {% if row.status == 'Sold out' %}text-bg-secondary{% else %}text-bg-success{% endif %}">{{ row.status }}</span></td>
+          <td><span class="badge {% if row.status == 'Sold out' %}text-bg-danger{% elif row.status == 'Low stock' %}text-bg-warning{% else %}text-bg-success{% endif %}">{{ row.status }}</span></td>
           <td>
             <form method="post" class="d-flex gap-2 m-0">
               {% csrf_token %}
@@ -38,6 +36,8 @@
             </form>
           </td>
         </tr>
+              {% empty %}
+        <tr><td colspan="5" class="text-center text-muted py-4">No meals on the current menu.</td></tr>
       {% endfor %}
     </tbody>
   </table>

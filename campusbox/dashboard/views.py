@@ -10,7 +10,7 @@ from menu.models import Meal
 from .forms import MealForm
 from django.db.models import ProtectedError
 from menu.models import Meal, WeeklyMenu, MenuItem
-from menu.utils import current_menu
+from menu.utils import current_menu, menu_labels
 from orders.models import Order, OrderItem, PickupPoint, PickupSlot
 from support.models import SupportTicket
 from .forms import MealForm, WeeklyMenuForm, MenuItemForm, PickupPointForm, PickupSlotForm
@@ -347,4 +347,5 @@ def inventory(request):
         'error': error,
         'sold_out_count': sold_out_count,
         'low_count': low_count,
+        'menu_dates': menu_labels(current)[0],
     })

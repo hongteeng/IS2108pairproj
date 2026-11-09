@@ -26,6 +26,9 @@
           <td>{% if point.is_active %}<span class="badge text-bg-success">Active</span>{% else %}<span class="badge text-bg-secondary">Inactive</span>{% endif %}</td>
           <td><div class="d-flex gap-2"><a href="{% url 'dashboard:pickup_detail' point.id %}" class="btn btn-sm btn-outline-success">Manage</a></div></td>
         </tr>
+        </tr>
+      {% empty %}
+        <tr><td colspan="5" class="text-center text-muted py-4">No pickup points yet.</td></tr>
       {% endfor %}
     </tbody>
   </table>

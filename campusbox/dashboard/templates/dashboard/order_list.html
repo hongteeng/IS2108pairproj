@@ -27,6 +27,9 @@
           <td><span class="badge {% if order.status == 'cancelled' %}text-bg-secondary{% else %}text-bg-success{% endif %}">{{ order.get_status_display }}</span></td>
           <td><div class="d-flex gap-2"><a href="{% url 'dashboard:order_detail' order.id %}" class="btn btn-sm btn-outline-success">Open</a></div></td>
         </tr>
+        </tr>
+      {% empty %}
+        <tr><td colspan="6" class="text-center text-muted py-4">No orders yet.</td></tr>
       {% endfor %}
     </tbody>
   </table>

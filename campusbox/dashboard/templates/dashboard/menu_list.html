@@ -24,6 +24,9 @@
           <td>{{ menu.items.count }}</td>
                     <td><div class="d-flex gap-2"><a href="{% url 'dashboard:menu_detail' menu.id %}" class="btn btn-sm btn-outline-success">Manage</a></div></td>
         </tr>
+        </tr>
+      {% empty %}
+        <tr><td colspan="4" class="text-center text-muted py-4">No weekly menus yet.</td></tr>
       {% endfor %}
     </tbody>
   </table>
