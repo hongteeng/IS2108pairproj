@@ -22,7 +22,7 @@
           <td>{{ menu.week_start|date:"D j M" }}</td>
           <td>{{ menu.order_cutoff|date:"D j M, H:i" }}</td>
           <td>{{ menu.items.count }}</td>
-                    <td><div class="d-flex gap-2"><a href="{% url 'dashboard:menu_detail' menu.id %}" class="btn btn-sm btn-outline-secondary">Manage</a></div></td>
+                    <td><div class="d-flex gap-2"><a href="{% url 'dashboard:menu_detail' menu.id %}" class="btn btn-sm btn-outline-success">Manage</a></div></td>
         </tr>
       {% endfor %}
     </tbody>

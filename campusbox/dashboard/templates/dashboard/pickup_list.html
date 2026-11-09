@@ -24,7 +24,7 @@
           <td>{{ point.location }}</td>
           <td>{{ point.slots.count }}</td>
           <td>{% if point.is_active %}<span class="badge text-bg-success">Active</span>{% else %}<span class="badge text-bg-secondary">Inactive</span>{% endif %}</td>
-          <td><div class="d-flex gap-2"><a href="{% url 'dashboard:pickup_detail' point.id %}" class="btn btn-sm btn-outline-secondary">Manage</a></div></td>
+          <td><div class="d-flex gap-2"><a href="{% url 'dashboard:pickup_detail' point.id %}" class="btn btn-sm btn-outline-success">Manage</a></div></td>
         </tr>
       {% endfor %}
     </tbody>
