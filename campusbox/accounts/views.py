@@ -63,7 +63,10 @@ def logout(request):
     is_staff = request.user.is_staff
     if request.method == 'POST':
         auth_logout(request)
-    return redirect('dashboard:staff_login' if is_staff else 'index')
+    response = redirect('dashboard:staff_login' if is_staff else 'index')
+    # Tells the browser to drop cached copies of this site’s pages on logout.
+    response["Clear-Site-Data"] = '"cache"'
+    return response
 
 @login_required
 def quiz(request):

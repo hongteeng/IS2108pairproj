@@ -25,7 +25,7 @@
           <td>{{ order.pickup_slot.day|date:"D j M" }} {{ order.pickup_slot.start_time|time:"H:i" }}</td>
           <td>{{ order.total_cents|dollars }}</td>
           <td><span class="badge {% if order.status == 'cancelled' %}text-bg-secondary{% else %}text-bg-success{% endif %}">{{ order.get_status_display }}</span></td>
-          <td><div class="d-flex gap-2"><a href="{% url 'dashboard:order_detail' order.id %}" class="btn btn-sm btn-outline-secondary">Open</a></div></td>
+          <td><div class="d-flex gap-2"><a href="{% url 'dashboard:order_detail' order.id %}" class="btn btn-sm btn-outline-success">Open</a></div></td>
         </tr>
       {% endfor %}
     </tbody>

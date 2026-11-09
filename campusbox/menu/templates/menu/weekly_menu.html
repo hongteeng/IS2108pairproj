@@ -14,11 +14,10 @@
 
 <div class="card mb-4">
   <div class="card-body">
-    <h2 class="h5">Filter menu</h2>
     <form method="get" action="{% url 'menu:weekly_menu' %}">
       <input type="hidden" name="filtered" value="1">
-      <div class="row g-3">
-        <div class="col-md-6">
+      <div class="row g-2 align-items-end">
+        <div class="col-md-5">
           <label class="form-label" for="q">Search</label>
           <input type="text" name="q" id="q" value="{{ selected_q }}" placeholder="Search meals, e.g. chicken" class="form-control">
         </div>
@@ -31,7 +30,7 @@
             {% endfor %}
           </select>
         </div>
-        <div class="col-md-3">
+        <div class="col-md-2">
           <label class="form-label" for="diet">Diet</label>
           <select class="form-select" name="diet" id="diet">
             <option value="">All diets</option>
@@ -40,35 +39,44 @@
             {% endfor %}
           </select>
         </div>
-      </div>
-      <div class="row g-3 mt-1">
-        <div class="col-md-4">
-          <label class="form-label" for="max_price">Max price</label>
-          <div class="input-group">
-            <span class="input-group-text">$</span>
-            <input type="number" class="form-control" name="max_price" id="max_price" value="{{ max_price }}" placeholder="Any" min="0" max="{{ price_max_limit }}">
+        <div class="col-md-2">
+          <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-success flex-fill">Filter</button>
+            <a href="{% url 'menu:weekly_menu' %}" class="btn btn-outline-secondary">Clear</a>
           </div>
-          <div class="form-text">${{ price_min }} – ${{ price_max }} this week</div>
-        </div>
-        <div class="col-md-4">
-          <label class="form-label" for="max_calories">Max calories</label>
-          <div class="input-group">
-            <input type="number" class="form-control" name="max_calories" id="max_calories" value="{{ max_calories }}" placeholder="Any" min="0" max="{{ calories_max }}">
-            <span class="input-group-text">kcal</span>
-          </div>
-          <div class="form-text">{{ calories_min }} – {{ calories_max }} kcal this week</div>
-        </div>
-        <div class="col-md-4">
-          <label class="form-label" for="min_protein">Min protein</label>
-          <div class="input-group">
-            <input type="number" class="form-control" name="min_protein" id="min_protein" value="{{ selected_min_protein }}" placeholder="Any" min="0" max="{{ protein_max }}">
-            <span class="input-group-text">g</span>
-          </div>
-          <div class="form-text">{{ protein_min }} – {{ protein_max }} g this week</div>
         </div>
       </div>
-      <div class="d-flex flex-wrap align-items-end justify-content-between gap-3 mt-3">
-        <div class="flex-grow-1">
+      <details class="mt-3" {% if max_price or max_calories or selected_min_protein or hide_profile_allergens or selected_avoid %}open{% endif %}>
+        <summary class="small fw-semibold">
+          More filters (price, calories, protein, allergens)
+        </summary>
+        <div class="row g-3 mt-1">
+          <div class="col-md-4">
+            <label class="form-label" for="max_price">Max price</label>
+            <div class="input-group">
+              <span class="input-group-text">$</span>
+              <input type="number" class="form-control" name="max_price" id="max_price" value="{{ max_price }}" placeholder="Any" min="0" max="{{ price_max_limit }}">
+            </div>
+            <div class="form-text">${{ price_min }} – ${{ price_max }} this week</div>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label" for="max_calories">Max calories</label>
+            <div class="input-group">
+              <input type="number" class="form-control" name="max_calories" id="max_calories" value="{{ max_calories }}" placeholder="Any" min="0" max="{{ calories_max }}">
+              <span class="input-group-text">kcal</span>
+            </div>
+            <div class="form-text">{{ calories_min }} – {{ calories_max }} kcal this week</div>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label" for="min_protein">Min protein</label>
+            <div class="input-group">
+              <input type="number" class="form-control" name="min_protein" id="min_protein" value="{{ selected_min_protein }}" placeholder="Any" min="0" max="{{ protein_max }}">
+              <span class="input-group-text">g</span>
+            </div>
+            <div class="form-text">{{ protein_min }} – {{ protein_max }} g this week</div>
+          </div>
+        </div>
+        <div class="mt-3">
           <span class="form-label d-block">Hide meals containing</span>
           <div class="d-flex flex-wrap gap-2">
             {% for allergen in allergens %}
@@ -77,11 +85,7 @@
             {% endfor %}
           </div>
         </div>
-        <div class="d-flex gap-2">
-          <button type="submit" class="btn btn-success">Filter</button>
-          <a href="{% url 'menu:weekly_menu' %}" class="btn btn-outline-secondary">Clear</a>
-        </div>
-      </div>
+      </details>
     </form>
   </div>
 </div>

@@ -54,6 +54,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'campusbox.middleware.customer_only_middleware',
+    'campusbox.middleware.no_cache_for_logged_in_middleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'dashboard.middleware.staff_only_middleware',
 ]
