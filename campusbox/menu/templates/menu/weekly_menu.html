@@ -15,8 +15,8 @@
     <form method="get" action="{% url 'menu:weekly_menu' %}">
       <input type="hidden" name="filtered" value="1">
       <div class="row g-3">
-        <div class="col-12">
-          <label class="form-label" for="q">Search meals</label>
+        <div class="col-md-6">
+          <label class="form-label" for="q">Search</label>
           <input type="text" name="q" id="q" value="{{ selected_q }}" placeholder="Search meals, e.g. chicken" class="form-control">
         </div>
         <div class="col-md-3">
@@ -37,21 +37,35 @@
             {% endfor %}
           </select>
         </div>
-        <div class="col-md-3">
-          <label class="form-label" for="max_price">Maximum price</label>
+      </div>
+      <div class="row g-3 mt-1">
+        <div class="col-md-4">
+          <label class="form-label" for="max_price">Max price</label>
           <div class="input-group">
             <span class="input-group-text">$</span>
-            <input type="number" class="form-control" name="max_price" id="max_price" value="{{ max_price }}" placeholder="Any (${{ price_min }} &ndash; ${{ price_max }})" min="0" max="{{ price_max_limit }}">
+            <input type="number" class="form-control" name="max_price" id="max_price" value="{{ max_price }}" placeholder="Any" min="0" max="{{ price_max_limit }}">
           </div>
+          <div class="form-text">${{ price_min }} – ${{ price_max }} this week</div>
         </div>
-        <div class="col-md-3">
-          <label class="form-label" for="max_calories">Maximum calories</label>
+        <div class="col-md-4">
+          <label class="form-label" for="max_calories">Max calories</label>
           <div class="input-group">
-            <input type="number" class="form-control" name="max_calories" id="max_calories" value="{{ max_calories }}" placeholder="Any ({{ calories_min }} &ndash; {{ calories_max }} kcal)" min="0" max="{{ calories_max }}">
+            <input type="number" class="form-control" name="max_calories" id="max_calories" value="{{ max_calories }}" placeholder="Any" min="0" max="{{ calories_max }}">
             <span class="input-group-text">kcal</span>
           </div>
+          <div class="form-text">{{ calories_min }} – {{ calories_max }} kcal this week</div>
         </div>
-        <div class="col-12">
+        <div class="col-md-4">
+          <label class="form-label" for="min_protein">Min protein</label>
+          <div class="input-group">
+            <input type="number" class="form-control" name="min_protein" id="min_protein" value="{{ selected_min_protein }}" placeholder="Any" min="0" max="{{ protein_max }}">
+            <span class="input-group-text">g</span>
+          </div>
+          <div class="form-text">{{ protein_min }} – {{ protein_max }} g this week</div>
+        </div>
+      </div>
+      <div class="d-flex flex-wrap align-items-end justify-content-between gap-3 mt-3">
+        <div class="flex-grow-1">
           <span class="form-label d-block">Hide meals containing</span>
           <div class="d-flex flex-wrap gap-2">
             {% for allergen in allergens %}
@@ -60,10 +74,10 @@
             {% endfor %}
           </div>
         </div>
-      </div>
-      <div class="mt-3 d-flex justify-content-end gap-2">
-        <button type="submit" class="btn btn-success">Filter</button>
-        <a href="{% url 'menu:weekly_menu' %}" class="btn btn-outline-secondary">Clear</a>
+        <div class="d-flex gap-2">
+          <button type="submit" class="btn btn-success">Filter</button>
+          <a href="{% url 'menu:weekly_menu' %}" class="btn btn-outline-secondary">Clear</a>
+        </div>
       </div>
     </form>
   </div>
@@ -95,9 +109,11 @@
     <h2 class="h4 mt-4">{{ category_group.grouper }} <small class="text-muted">({{ category_group.list|length }} meals)</small></h2>
     <div class="row row-cols-1 row-cols-md-3 g-4">
       {% for item in category_group.list %}
-        <div class="col">
+        <div class="col-12 col-sm-6 col-md-4 col-lg-3">
           <div class="card h-100">
-            <img src="{{ item.meal.image_url }}" class="card-img-top img-fluid" alt="{{ item.meal.name }}">
+            <div class="ratio ratio-4x3">
+              <img src="{{ item.meal.image_url }}" class="card-img-top object-fit-cover" alt="{{ item.meal.name }}">
+            </div>
             <div class="card-body d-flex flex-column">
               <h3 class="h5 card-title">{{ item.meal.name }}</h3>
               {% if item.meal.category_id == recommended_category_id %}

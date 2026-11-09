@@ -130,10 +130,12 @@ def weekly_menu(request):
             hide_profile_allergens = bool(avoid)  # only show the note if they have allergies
     max_price = request.GET.get('max_price', '')
     max_calories = request.GET.get('max_calories', '')
+    min_protein = request.GET.get('min_protein', '')
     total_count = 0
     price_min = price_max = '0.00'
     price_max_limit = 0
     calories_min = calories_max = 0
+    protein_min = protein_max = 0
 
     if menu is None:
         items = []
@@ -151,6 +153,9 @@ def weekly_menu(request):
             price_max_limit = math.ceil(max(prices))
             calories_min = min(calories)
             calories_max = max(calories)
+            proteins = [item.meal.protein_g for item in active_item_list]
+            protein_min = min(proteins)
+            protein_max = max(proteins)
 
         items = active_items
         if q:
@@ -170,6 +175,8 @@ def weekly_menu(request):
             items = items.filter(meal__price_cents__lte=int(max_price) * 100)
         if max_calories.isdigit():
             items = items.filter(meal__calories__lte=int(max_calories))
+        if min_protein.isdigit():
+            items = items.filter(meal__protein_g__gte=int(min_protein))
         if recommended_category_id is not None:
             items = items.order_by(
                 Case(
@@ -198,12 +205,15 @@ def weekly_menu(request):
         'selected_avoid': avoid,
         'max_price': max_price,
         'max_calories': max_calories,
+        'selected_min_protein': min_protein,
         'total_count': total_count,
         'price_min': price_min,
         'price_max': price_max,
         'price_max_limit': price_max_limit,
         'calories_min': calories_min,
         'calories_max': calories_max,
+        'protein_min': protein_min,
+        'protein_max': protein_max,
         'hide_profile_allergens': hide_profile_allergens,
         'recommended_category_id': recommended_category_id,
         'recommended_category_name': recommended_category_name,
