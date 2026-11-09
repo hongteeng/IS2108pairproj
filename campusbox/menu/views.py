@@ -4,6 +4,7 @@ from django.db.models import Avg, Case, Q, When
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, render
 from accounts.models import CustomerProfile
+from accounts.services import predict_preferred_category
 from ml.services.suggestions import suggest_for_meals
 from .models import MealCategory, DietaryTag, Allergen, Meal, WeeklyMenu, MenuItem
 from datetime import date, timedelta
@@ -117,8 +118,11 @@ def weekly_menu(request):
     if request.user.is_authenticated:
         recommendation_profile = CustomerProfile.objects.filter(
             user=request.user,
-            predicted_category__isnull=False,
         ).select_related('predicted_category').first()
+        if recommendation_profile and recommendation_profile.predicted_category is None:
+            # Re-run the model if the category was cleared (e.g. after re-seeding).
+            recommendation_profile.predicted_category = predict_preferred_category(recommendation_profile)
+            recommendation_profile.save(update_fields=['predicted_category'])
         if recommendation_profile:
             recommended_category_id = recommendation_profile.predicted_category_id
             recommended_category_name = recommendation_profile.predicted_category.name

@@ -2,6 +2,7 @@ from django.db.models import F
 from django.shortcuts import render
 
 from accounts.models import CustomerProfile
+from accounts.services import predict_preferred_category
 from menu.models import MenuItem, WeeklyMenu
 from orders.models import Order
 
@@ -32,8 +33,11 @@ def index(request):
         picked_for_you = []
         profile = CustomerProfile.objects.filter(
             user=request.user,
-            predicted_category__isnull=False,
         ).select_related("predicted_category").first()
+        if profile and profile.predicted_category is None:
+            # Re-run the model if the category was cleared (e.g. after re-seeding).
+            profile.predicted_category = predict_preferred_category(profile)
+            profile.save(update_fields=["predicted_category"])
         if profile and menu:
             picked_for_you = list(
                 MenuItem.objects.filter(
