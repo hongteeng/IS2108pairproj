@@ -1,4 +1,5 @@
 from django import forms
+from django.core.validators import MinValueValidator
 from menu.models import Meal, WeeklyMenu, MenuItem
 from orders.models import PickupPoint, PickupSlot
 
@@ -18,6 +19,17 @@ class MealForm(forms.ModelForm):
         for name in ['name', 'description', 'price_cents', 'calories', 'protein_g',
                      'carbs_g', 'fat_g', 'image_url']:
             self.fields[name].widget.attrs['class'] = 'form-control'
+        for name, minimum in {
+            'price_cents': 1,
+            'calories': 0,
+            'protein_g': 0,
+            'carbs_g': 0,
+            'fat_g': 0,
+        }.items():
+            self.fields[name].validators.append(MinValueValidator(minimum))
+            self.fields[name].widget.attrs['min'] = minimum
+        self.fields['price_cents'].label = 'Price (cents)'
+        self.fields['price_cents'].help_text = 'e.g. 650 = $6.50'
         self.fields['category'].widget.attrs['class'] = 'form-select'
 
 class WeeklyMenuForm(forms.ModelForm):
@@ -39,6 +51,11 @@ class MenuItemForm(forms.ModelForm):
             'quantity_available': forms.NumberInput(attrs={'class': 'form-control'}),
         }
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['quantity_available'].validators.append(MinValueValidator(0))
+        self.fields['quantity_available'].widget.attrs['min'] = 0
+
 class PickupPointForm(forms.ModelForm):
     class Meta:
         model = PickupPoint
@@ -59,3 +76,8 @@ class PickupSlotForm(forms.ModelForm):
             'end_time': forms.TimeInput(attrs={'type': 'time', 'class': 'form-control'}),
             'capacity': forms.NumberInput(attrs={'class': 'form-control'}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['capacity'].validators.append(MinValueValidator(1))
+        self.fields['capacity'].widget.attrs['min'] = 1
