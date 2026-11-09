@@ -1,9 +1,13 @@
 {% extends "staff_base.html" %}
+{% load money %}
 
 {% block staff_content %}
-  <h1 class="h3 mb-3">Pickup points</h1>
-  <a class="btn btn-dark mb-3" href="{% url 'dashboard:pickup_add' %}">New pickup point</a>
-  <table class="table">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h3 mb-0">Pickup points</h1>
+    <a class="btn btn-success" href="{% url 'dashboard:pickup_add' %}">New pickup point</a>
+  </div>
+  <div class="card"><div class="card-body p-0"><div class="table-responsive">
+  <table class="table align-middle mb-0">
     <thead>
       <tr>
         <th>Name</th>
@@ -19,10 +23,11 @@
           <td>{{ point.name }}</td>
           <td>{{ point.location }}</td>
           <td>{{ point.slots.count }}</td>
-          <td>{{ point.is_active }}</td>
-          <td><a href="{% url 'dashboard:pickup_detail' point.id %}">Manage</a></td>
+          <td>{% if point.is_active %}<span class="badge text-bg-success">Active</span>{% else %}<span class="badge text-bg-secondary">Inactive</span>{% endif %}</td>
+          <td><div class="d-flex gap-2"><a href="{% url 'dashboard:pickup_detail' point.id %}" class="btn btn-sm btn-outline-secondary">Manage</a></div></td>
         </tr>
       {% endfor %}
     </tbody>
   </table>
+  </div></div></div>
 {% endblock %}

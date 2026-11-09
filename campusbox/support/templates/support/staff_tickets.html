@@ -1,8 +1,12 @@
 {% extends "staff_base.html" %}
+{% load money %}
 
 {% block staff_content %}
-  <h1 class="h3 mb-3">Support tickets</h1>
-  <table class="table">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h3 mb-0">Support tickets</h1>
+  </div>
+  <div class="card"><div class="card-body p-0"><div class="table-responsive">
+  <table class="table align-middle mb-0">
     <thead>
       <tr>
         <th>Ticket</th>
@@ -21,7 +25,7 @@
           <td>#{{ ticket.order.id }}</td>
           <td>{{ ticket.user.username }}</td>
           <td>{{ ticket.get_issue_type_display }}</td>
-          <td>{{ ticket.created_at|date:"j M Y" }}</td>
+          <td>{{ ticket.created_at|date:"D j M" }}</td>
           <td>
             {% if ticket.status == "open" %}
               <span class="badge text-bg-warning">{{ ticket.get_status_display }}</span>
@@ -42,4 +46,5 @@
       {% endfor %}
     </tbody>
   </table>
+  </div></div></div>
 {% endblock %}

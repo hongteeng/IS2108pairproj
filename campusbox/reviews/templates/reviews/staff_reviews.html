@@ -1,8 +1,12 @@
 {% extends "staff_base.html" %}
+{% load money %}
 
 {% block staff_content %}
-  <h1 class="h3 mb-3">Reviews</h1>
-  <table class="table">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h3 mb-0">Reviews</h1>
+  </div>
+  <div class="card"><div class="card-body p-0"><div class="table-responsive">
+  <table class="table align-middle mb-0">
     <thead>
       <tr>
         <th>Meal</th>
@@ -21,7 +25,7 @@
           <td>{{ review.user.username }}</td>
           <td><span class="text-warning">{% for star in "12345"|make_list %}{% if forloop.counter <= review.rating %}★{% else %}☆{% endif %}{% endfor %}</span></td>
           <td>{{ review.comment }}</td>
-          <td>{{ review.created_at|date:"j M Y" }}</td>
+          <td>{{ review.created_at|date:"D j M" }}</td>
           <td>
             {% if review.is_hidden %}
               <span class="badge text-bg-secondary">Hidden</span>
@@ -47,4 +51,5 @@
       {% endfor %}
     </tbody>
   </table>
+  </div></div></div>
 {% endblock %}

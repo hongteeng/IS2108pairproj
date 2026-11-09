@@ -1,12 +1,16 @@
 {% extends "staff_base.html" %}
+{% load money %}
 
 {% block staff_content %}
-  <h1 class="h3 mb-1">Menu for the week of {{ menu.week_start }}</h1>
-  <p class="text-muted">Orders close {{ menu.order_cutoff }}</p>
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h3 mb-0">Menu for the week of {{ menu.week_start|date:"D j M" }}</h1>
+  </div>
+  <div class="card mb-3"><div class="card-body"><p class="mb-0 text-muted">Orders close {{ menu.order_cutoff|date:"D j M, H:i" }}</p></div></div>
 
   {% if error %}<div class="alert alert-danger">{{ error }}</div>{% endif %}
 
-  <table class="table">
+  <div class="card"><div class="card-body p-0"><div class="table-responsive">
+  <table class="table align-middle mb-0">
     <thead>
       <tr>
         <th>Meal</th>
@@ -32,9 +36,14 @@
       {% endfor %}
     </tbody>
   </table>
+  </div></div></div>
 
-  <h2 class="h5 mt-4">Add a meal</h2>
-  <form method="post">
+  <div class="d-flex justify-content-between align-items-center mt-4 mb-3">
+    <h2 class="h5 mb-0">Add a meal</h2>
+    <button type="submit" form="add-menu-meal-form" class="btn btn-success">Add to menu</button>
+  </div>
+  <div class="card"><div class="card-body">
+  <form method="post" id="add-menu-meal-form">
     {% csrf_token %}
     {% for field in form %}
       <div class="mb-3">
@@ -43,7 +52,7 @@
         {% if field.errors %}<div class="text-danger">{{ field.errors }}</div>{% endif %}
       </div>
     {% endfor %}
-    <button type="submit" class="btn btn-dark">Add to menu</button>
   </form>
+  </div></div>
   <a href="{% url 'dashboard:menu_list' %}" class="btn btn-outline-secondary mt-3">Back to menus</a>
 {% endblock %}

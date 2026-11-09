@@ -1,11 +1,16 @@
 {% extends "staff_base.html" %}
+{% load money %}
 
 {% block staff_content %}
-  <h1 class="h3 mb-3">Delete {{ meal.name }}?</h1>
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h3 mb-0">Delete {{ meal.name }}?</h1>
+    <button type="submit" form="delete-meal-form" class="btn btn-danger">Delete</button>
+  </div>
   {% if error %}<div class="alert alert-danger">{{ error }}</div>{% endif %}
-  <form method="post">
+  <div class="card"><div class="card-body">
+  <form method="post" id="delete-meal-form">
     {% csrf_token %}
-    <button type="submit" class="btn btn-danger">Delete</button>
     <a href="{% url 'dashboard:meal_list' %}" class="btn btn-outline-secondary">Cancel</a>
   </form>
+  </div></div>
 {% endblock %}

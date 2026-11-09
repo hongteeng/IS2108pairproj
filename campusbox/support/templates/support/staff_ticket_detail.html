@@ -1,18 +1,23 @@
 {% extends "staff_base.html" %}
+{% load money %}
 
 {% block staff_content %}
-  <h1 class="h3 mb-3">Ticket #{{ ticket.id }}</h1>
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h3 mb-0">Ticket #{{ ticket.id }}</h1>
+    <button type="submit" form="ticket-form" class="btn btn-success">Save</button>
+  </div>
   <div class="card mb-4">
     <div class="card-body">
       <p><strong>Student:</strong> {{ ticket.user.username }}</p>
       <p><strong>Order:</strong> #{{ ticket.order.id }} (${{ order_total_dollars }})</p>
       <p><strong>Issue:</strong> {{ ticket.get_issue_type_display }}</p>
-      <p><strong>Date:</strong> {{ ticket.created_at|date:"j M Y" }}</p>
+      <p><strong>Date:</strong> {{ ticket.created_at|date:"D j M" }}</p>
       <p class="mb-0"><strong>Message:</strong> {{ ticket.message }}</p>
     </div>
   </div>
 
-  <form method="post">
+  <div class="card"><div class="card-body">
+  <form method="post" id="ticket-form">
     {% csrf_token %}
     {% for field in form %}
       <div class="mb-3">
@@ -31,7 +36,7 @@
         {% endif %}
       </div>
     {% endfor %}
-    <button type="submit" class="btn btn-success">Save</button>
     <a href="{% url 'support:staff_tickets' %}" class="btn btn-outline-secondary">Back</a>
   </form>
+  </div></div>
 {% endblock %}
