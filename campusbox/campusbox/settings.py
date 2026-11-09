@@ -53,6 +53,7 @@ MIDDLEWARE = [
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
+    'campusbox.middleware.customer_only_middleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'dashboard.middleware.staff_only_middleware',
 ]
