@@ -31,8 +31,11 @@ def menu_labels(weekly_menu):
     else:
         menu_dates = f"{start_day} {start.strftime('%b')} – {end_day} {end.strftime('%b')}"
 
-    order_deadline = localtime(weekly_menu.order_cutoff).strftime(
-        "%A %d %b, %H:%M"
-    )
-    order_deadline = order_deadline.replace(" 0", " ", 1)
+    cutoff = localtime(weekly_menu.order_cutoff)
+    order_deadline = f"{cutoff:%A} {cutoff.day} {cutoff:%b, %H:%M}"
     return menu_dates, order_deadline
+
+
+def ordering_open(weekly_menu):
+    """Return whether students can still order from this menu."""
+    return weekly_menu is not None and weekly_menu.order_cutoff > timezone.now()

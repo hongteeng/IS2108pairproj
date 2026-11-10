@@ -7,8 +7,7 @@ from accounts.models import CustomerProfile
 from accounts.services import get_profile
 from ml.services.suggestions import suggest_for_meals
 from .models import MealCategory, DietaryTag, Allergen, Meal, WeeklyMenu, MenuItem
-from .utils import current_menu
-from .utils import menu_labels
+from .utils import current_menu, menu_labels, ordering_open
 from datetime import date, timedelta
 from orders.models import Order, OrderItem, PickupPoint, PickupSlot
 from django.utils.text import slugify
@@ -218,6 +217,7 @@ def weekly_menu(request):
         'hide_profile_allergens': hide_profile_allergens,
         'recommended_category_id': recommended_category_id,
         'recommended_category_name': recommended_category_name,
+        'ordering_open': ordering_open(menu),
     })
 
 
@@ -273,4 +273,5 @@ def meal_detail(request, meal_id):
         'review_count': review_count,
         'can_review': can_review,
         'suggestions': suggestions,
+        'ordering_open': ordering_open(menu),
     })

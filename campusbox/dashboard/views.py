@@ -155,6 +155,18 @@ def menu_add(request):
     return render(request, 'dashboard/menu_form.html', {'form': form, 'title': 'New weekly menu'})
 
 
+def menu_edit(request, menu_id):
+    menu = get_object_or_404(WeeklyMenu, pk=menu_id)
+    if request.method == 'POST':
+        form = WeeklyMenuForm(request.POST, instance=menu)
+        if form.is_valid():
+            form.save()
+            return redirect('dashboard:menu_detail', menu_id=menu.id)
+    else:
+        form = WeeklyMenuForm(instance=menu)
+    return render(request, 'dashboard/menu_form.html', {'form': form, 'title': 'Edit weekly menu'})
+
+
 def menu_detail(request, menu_id):
     menu = get_object_or_404(WeeklyMenu, pk=menu_id)
     error = None

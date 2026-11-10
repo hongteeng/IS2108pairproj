@@ -48,7 +48,9 @@
     </div>
 
     {% if menu_item %}
-      {% if menu_item.stock_left > 0 %}
+      {% if not ordering_open %}
+        <p><span class="badge text-bg-secondary">Ordering closed</span></p>
+      {% elif menu_item.stock_left > 0 %}
         <p class="text-success">{{ menu_item.stock_left }} left this week</p>
         {% if user.is_authenticated and not user.is_staff %}
           <form method="post" action="{% url 'orders:add_to_cart' menu_item.id %}" class="d-flex gap-2 mb-3">
@@ -65,7 +67,7 @@
         <p><span class="badge text-bg-secondary">Sold out</span></p>
       {% endif %}
     {% else %}
-      <p class="text-muted">Not on this week&rsquo;s menu</p>
+      <p class="text-muted">Not on this week’s menu</p>
     {% endif %}
 
     <a href="{% url 'menu:weekly_menu' %}" class="btn btn-outline-secondary">Back to menu</a>

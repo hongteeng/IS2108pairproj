@@ -3,7 +3,7 @@ from django.shortcuts import redirect, render
 
 from accounts.services import get_profile
 from menu.models import MenuItem
-from menu.utils import current_menu, menu_labels
+from menu.utils import current_menu, menu_labels, ordering_open
 from orders.models import Order
 
 
@@ -27,7 +27,7 @@ def index(request):
             item.stock_left = item.quantity_available - item.quantity_sold
 
     context = {
-        "order_cutoff": menu.order_cutoff if menu else None,
+        "ordering_open": ordering_open(menu),
         "menu_dates": menu_dates,
         "order_deadline": order_deadline,
         "popular_meals": popular_meals,
@@ -49,6 +49,8 @@ def index(request):
                     meal__is_active=True,
                     meal__category=profile.predicted_category,
                     quantity_sold__lt=F("quantity_available"),
+                ).exclude(
+                    meal__allergens__in=profile.allergies.all(),
                 ).select_related("meal")[:3]
             )
             for item in picked_for_you:

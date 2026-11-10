@@ -21,7 +21,7 @@
       <div class="card mb-4">
         <div class="card-body">
           <h2 class="h5">No upcoming orders</h2>
-          {% if order_cutoff %}
+          {% if ordering_open %}
             <p class="text-muted">Order by <strong>{{ order_deadline }}</strong> to get meals for {{ menu_dates }}.</p>
           {% endif %}
           <a href="{% url 'menu:weekly_menu' %}" class="btn btn-success">Start an order</a>

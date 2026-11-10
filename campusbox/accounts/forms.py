@@ -1,5 +1,6 @@
 from django import forms
 from django.contrib.auth.models import User
+from django.contrib.auth.password_validation import validate_password
 
 from .models import CustomerProfile
 
@@ -28,11 +29,20 @@ class RegisterForm(forms.Form):
         if User.objects.filter(email__iexact=email).exists():
             raise forms.ValidationError('An account with this email already exists.')
         return email
+    
+    def clean_password(self):
+        """Apply the password rules from settings (too common, all numbers)."""
+        password = self.cleaned_data['password']
+        validate_password(password)
+        return password
+
 
     def clean(self):
         """Check that both passwords match."""
         cleaned_data = super().clean()
-        if cleaned_data.get('password') != cleaned_data.get('confirm_password'):
+        password = cleaned_data.get('password')
+        confirm = cleaned_data.get('confirm_password')
+        if password and confirm and password != confirm:
             raise forms.ValidationError('Passwords do not match.')
         return cleaned_data
 

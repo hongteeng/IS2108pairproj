@@ -17,6 +17,7 @@ urlpatterns = [
     path('menus/', views.menu_list, name='menu_list'),
     path('menus/add/', views.menu_add, name='menu_add'),
     path('menus/<int:menu_id>/', views.menu_detail, name='menu_detail'),
+    path('menus/<int:menu_id>/edit/', views.menu_edit, name='menu_edit'),
     path('pickups/', views.pickup_list, name='pickup_list'),
     path('pickups/add/', views.pickup_add, name='pickup_add'),
     path('pickups/<int:point_id>/', views.pickup_detail, name='pickup_detail'),

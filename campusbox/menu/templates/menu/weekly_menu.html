@@ -9,7 +9,7 @@
   {% endif %}
 </h1>
 {% if menu %}
-  <p class="small text-muted">Order by <strong>{{ order_deadline }}</strong></p>
+  <p class="small text-muted">{% if ordering_open %}Order by <strong>{{ order_deadline }}</strong>{% else %}Ordering closed on <strong>{{ order_deadline }}</strong>. Next week’s menu isn’t up yet.{% endif %}</p>
 {% endif %}
 
 <div class="card mb-4">

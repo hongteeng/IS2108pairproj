@@ -198,6 +198,8 @@ def add_to_cart(request, menu_item_id):
         stock_left = menu_item.quantity_available - menu_item.quantity_sold
         if quantity < 1:
             messages.error(request, "Please choose at least 1.")
+        elif menu_item.weekly_menu.order_cutoff < timezone.now():
+            messages.error(request, "Ordering for this week’s menu has closed.")
         elif in_cart + quantity > stock_left:
             messages.error(request, f"Only {stock_left} left, and you already have {in_cart} in your cart.")
         else:

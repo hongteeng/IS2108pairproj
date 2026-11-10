@@ -56,7 +56,7 @@ class WeeklyMenuForm(forms.ModelForm):
         fields = ['week_start', 'order_cutoff']
         widgets = {
             'week_start': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
-            'order_cutoff': forms.DateTimeInput(attrs={'type': 'datetime-local', 'class': 'form-control'}),
+            'order_cutoff': forms.DateTimeInput(format='%Y-%m-%dT%H:%M', attrs={'type': 'datetime-local', 'class': 'form-control'}),
         }
 
 
