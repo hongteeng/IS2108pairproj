@@ -11,6 +11,7 @@ from .utils import current_menu
 from .utils import menu_labels
 from datetime import date, timedelta
 from orders.models import Order, OrderItem, PickupPoint, PickupSlot
+from django.utils.text import slugify
 
 #views.py holds functions that run when someone vists an address
 def seed(request): #seed is a batch of starting data for empty database, 
@@ -70,7 +71,7 @@ def seed(request): #seed is a batch of starting data for empty database,
             protein_g=m[4],
             carbs_g=m[5],
             fat_g=m[6],
-            image_url="https://via.placeholder.com/300",
+            image_url="/static/menu/meals/" + slugify(m[0]) + ".jpg",
             category=MealCategory.objects.get(name=m[7]),
             is_active=True,
         )
