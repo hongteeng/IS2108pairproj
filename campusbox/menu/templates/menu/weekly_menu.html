@@ -97,10 +97,10 @@
 </p>
 
 {% if hide_profile_allergens %}
-  <p class="small text-muted">
-    Hiding meals with your allergens ·
-    <a href="{% url 'menu:weekly_menu' %}?filtered=1">Show all meals</a> ·
-    <a href="{% url 'accounts:quiz' %}">Update your allergies</a>
+  <p class="small text-muted d-flex flex-wrap align-items-center gap-2">
+    Hiding meals with your allergens.
+    <a href="{% url 'menu:weekly_menu' %}?filtered=1" class="btn btn-sm btn-outline-secondary">Show all meals</a>
+    <a href="{% url 'accounts:quiz' %}" class="btn btn-sm btn-outline-secondary">Update your allergies</a>
   </p>
 {% endif %}
 

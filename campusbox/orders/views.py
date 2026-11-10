@@ -69,8 +69,6 @@ def place_order(user, slot, lines, total_cents):
                 quantity=line["quantity"],
                 price_at_purchase_cents=menu_item.meal.price_cents,
             )
-            menu_item.quantity_sold += line["quantity"]
-            menu_item.save()
     return order
 
 

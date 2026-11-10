@@ -74,7 +74,11 @@
     </div>
   </div>
 {% else %}
-  <p>Your cart is empty.</p>
-  <a href="{% url 'menu:weekly_menu' %}" class="btn btn-success">Browse the menu</a>
+  <div class="card">
+    <div class="card-body">
+      <p>Your cart is empty.</p>
+      <a href="{% url 'menu:weekly_menu' %}" class="btn btn-success">Browse the menu</a>
+    </div>
+  </div>
 {% endif %}
 {% endblock %}

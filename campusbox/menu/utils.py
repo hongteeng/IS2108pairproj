@@ -32,8 +32,7 @@ def menu_labels(weekly_menu):
         menu_dates = f"{start_day} {start.strftime('%b')} – {end_day} {end.strftime('%b')}"
 
     order_deadline = localtime(weekly_menu.order_cutoff).strftime(
-        "%A %d %b, %I:%M %p"
+        "%A %d %b, %H:%M"
     )
     order_deadline = order_deadline.replace(" 0", " ", 1)
-    order_deadline = order_deadline.replace(", 0", ", ", 1)
     return menu_dates, order_deadline

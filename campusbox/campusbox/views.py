@@ -1,8 +1,7 @@
 from django.db.models import F
 from django.shortcuts import redirect, render
 
-from accounts.models import CustomerProfile
-from accounts.services import predict_preferred_category
+from accounts.services import get_profile
 from menu.models import MenuItem
 from menu.utils import current_menu, menu_labels
 from orders.models import Order
@@ -29,7 +28,6 @@ def index(request):
 
     context = {
         "order_cutoff": menu.order_cutoff if menu else None,
-        "menu_week_start": menu.week_start if menu else None,
         "menu_dates": menu_dates,
         "order_deadline": order_deadline,
         "popular_meals": popular_meals,
@@ -43,13 +41,7 @@ def index(request):
             "pickup_slot__day", "pickup_slot__start_time",
         ).first()
         picked_for_you = []
-        profile = CustomerProfile.objects.filter(
-            user=request.user,
-        ).select_related("predicted_category").first()
-        if profile and profile.predicted_category is None:
-            # Re-run the model if the category was cleared (e.g. after re-seeding).
-            profile.predicted_category = predict_preferred_category(profile)
-            profile.save(update_fields=["predicted_category"])
+        profile = get_profile(request.user)
         if profile and menu:
             picked_for_you = list(
                 MenuItem.objects.filter(

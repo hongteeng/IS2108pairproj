@@ -4,7 +4,7 @@ from django.shortcuts import redirect
 def staff_only_middleware(get_response):
     def middleware(request):
         path = request.path
-        is_staff_page = path.startswith('/dashboard/') or '/staff/' in path
+        is_staff_page = path.startswith('/dashboard/')
         is_login_page = path == '/dashboard/login/'
 
         if is_staff_page and not is_login_page:

@@ -6,8 +6,6 @@ from django.utils import timezone
 from datetime import timedelta
 from accounts.models import CustomerProfile
 from accounts.forms import LoginForm
-from menu.models import Meal
-from .forms import MealForm
 from django.db.models import ProtectedError
 from menu.models import Meal, WeeklyMenu, MenuItem
 from menu.utils import current_menu, menu_labels
@@ -105,53 +103,28 @@ def meal_list(request):
     meals = Meal.objects.select_related('category').order_by('category__name', 'name')
     return render(request, 'dashboard/meal_list.html', {'meals': meals})
 
-def meal_add(request):
-    if request.method == 'POST':
-        form = MealForm(request.POST)
-        if form.is_valid():
-            meal = Meal(
-                name=form.cleaned_data['name'],
-                description=form.cleaned_data['description'],
-                price_cents=form.cleaned_data['price_cents'],
-                calories=form.cleaned_data['calories'],
-                protein_g=form.cleaned_data['protein_g'],
-                carbs_g=form.cleaned_data['carbs_g'],
-                fat_g=form.cleaned_data['fat_g'],
-                image_url=form.cleaned_data['image_url'],
-                category=form.cleaned_data['category'],
-                is_active=form.cleaned_data['is_active'],
-            )
-            meal.save()
-            meal.dietary_tags.set(form.cleaned_data['dietary_tags'])
-            meal.allergens.set(form.cleaned_data['allergens'])
-            return redirect('dashboard:meal_list')
-    else:
-        form = MealForm()
-    return render(request, 'dashboard/meal_form.html', {'form': form, 'title': 'Add meal'})
-
 
 def meal_edit(request, meal_id):
     meal = get_object_or_404(Meal, pk=meal_id)
     if request.method == 'POST':
         form = MealForm(request.POST, instance=meal)
         if form.is_valid():
-            meal.name = form.cleaned_data['name']
-            meal.description = form.cleaned_data['description']
-            meal.price_cents = form.cleaned_data['price_cents']
-            meal.calories = form.cleaned_data['calories']
-            meal.protein_g = form.cleaned_data['protein_g']
-            meal.carbs_g = form.cleaned_data['carbs_g']
-            meal.fat_g = form.cleaned_data['fat_g']
-            meal.image_url = form.cleaned_data['image_url']
-            meal.category = form.cleaned_data['category']
-            meal.is_active = form.cleaned_data['is_active']
-            meal.save()
-            meal.dietary_tags.set(form.cleaned_data['dietary_tags'])
-            meal.allergens.set(form.cleaned_data['allergens'])
+            form.save()  # updates this meal because the form was given instance=meal
             return redirect('dashboard:meal_list')
     else:
         form = MealForm(instance=meal)
     return render(request, 'dashboard/meal_form.html', {'form': form, 'title': 'Edit meal'})
+
+
+def meal_add(request):
+    if request.method == 'POST':
+        form = MealForm(request.POST)
+        if form.is_valid():
+            form.save()  # saves the meal, its dietary tags and allergens
+            return redirect('dashboard:meal_list')
+    else:
+        form = MealForm()
+    return render(request, 'dashboard/meal_form.html', {'form': form, 'title': 'Add meal'})
 
 
 def meal_delete(request, meal_id):
@@ -175,15 +148,12 @@ def menu_add(request):
     if request.method == 'POST':
         form = WeeklyMenuForm(request.POST)
         if form.is_valid():
-            menu = WeeklyMenu(
-                week_start=form.cleaned_data['week_start'],
-                order_cutoff=form.cleaned_data['order_cutoff'],
-            )
-            menu.save()
+            form.save()
             return redirect('dashboard:menu_list')
     else:
         form = WeeklyMenuForm()
     return render(request, 'dashboard/menu_form.html', {'form': form, 'title': 'New weekly menu'})
+
 
 def menu_detail(request, menu_id):
     menu = get_object_or_404(WeeklyMenu, pk=menu_id)
@@ -214,8 +184,15 @@ def menu_detail(request, menu_id):
                     form = MenuItemForm()
 
     items = menu.items.all()
-    return render(request, 'dashboard/menu_detail.html',
-                  {'menu': menu, 'items': items, 'form': form, 'error': error})
+    menu_dates, order_deadline = menu_labels(menu)
+    return render(request, 'dashboard/menu_detail.html', {
+        'menu': menu,
+        'menu_dates': menu_dates,
+        'order_deadline': order_deadline,
+        'items': items,
+        'form': form,
+        'error': error,
+    })
 
 def pickup_list(request):
     points = PickupPoint.objects.all()
@@ -226,12 +203,7 @@ def pickup_add(request):
     if request.method == 'POST':
         form = PickupPointForm(request.POST)
         if form.is_valid():
-            point = PickupPoint(
-                name=form.cleaned_data['name'],
-                location=form.cleaned_data['location'],
-                is_active=form.cleaned_data['is_active'],
-            )
-            point.save()
+            point = form.save()
             return redirect('dashboard:pickup_detail', point_id=point.id)
     else:
         form = PickupPointForm()

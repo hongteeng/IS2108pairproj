@@ -4,7 +4,7 @@ from django.db.models import Avg, Case, Q, When
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, render
 from accounts.models import CustomerProfile
-from accounts.services import predict_preferred_category
+from accounts.services import get_profile
 from ml.services.suggestions import suggest_for_meals
 from .models import MealCategory, DietaryTag, Allergen, Meal, WeeklyMenu, MenuItem
 from .utils import current_menu
@@ -105,7 +105,7 @@ def seed(request): #seed is a batch of starting data for empty database,
 
 
 def weekly_menu(request):
-    """Display the latest weekly menu and its active meals."""
+    """Display the current weekly menu and its active meals."""
 
     menu = current_menu()
     menu_dates, order_deadline = menu_labels(menu)
@@ -119,23 +119,14 @@ def weekly_menu(request):
     hide_profile_allergens = False
     recommended_category_id = None
     recommended_category_name = None
-    if request.user.is_authenticated:
-        recommendation_profile = CustomerProfile.objects.filter(
-            user=request.user,
-        ).select_related('predicted_category').first()
-        if recommendation_profile and recommendation_profile.predicted_category is None:
-            # Re-run the model if the category was cleared (e.g. after re-seeding).
-            recommendation_profile.predicted_category = predict_preferred_category(recommendation_profile)
-            recommendation_profile.save(update_fields=['predicted_category'])
-        if recommendation_profile and recommendation_profile.predicted_category:
-            recommended_category_id = recommendation_profile.predicted_category_id
-            recommended_category_name = recommendation_profile.predicted_category.name
+    profile = get_profile(request.user) if request.user.is_authenticated else None
+    if profile and profile.predicted_category:
+        recommended_category_id = profile.predicted_category_id
+        recommended_category_name = profile.predicted_category.name
     # Pre-hide the student's allergens until they submit the filter form themselves.
-    if request.user.is_authenticated and 'filtered' not in request.GET:
-        profile = CustomerProfile.objects.filter(user=request.user).first()
-        if profile:
-            avoid = [str(allergen_id) for allergen_id in profile.allergies.values_list('id', flat=True)]
-            hide_profile_allergens = bool(avoid)  # only show the note if they have allergies
+    if profile and 'filtered' not in request.GET:
+        avoid = [str(allergen_id) for allergen_id in profile.allergies.values_list('id', flat=True)]
+        hide_profile_allergens = bool(avoid)  # only show the note if they have allergies
     max_price = request.GET.get('max_price', '')
     max_calories = request.GET.get('max_calories', '')
     min_protein = request.GET.get('min_protein', '')

@@ -1,12 +1,24 @@
+from decimal import Decimal
+
 from django import forms
 from django.core.validators import MinValueValidator
 from menu.models import Meal, WeeklyMenu, MenuItem
 from orders.models import PickupPoint, PickupSlot
 
 class MealForm(forms.ModelForm):
+    # Staff type dollars; the database still stores whole cents.
+    price = forms.DecimalField(
+        label='Price ($)',
+        min_value=Decimal('0.01'),
+        max_digits=6,
+        decimal_places=2,
+        help_text='e.g. 6.50',
+        widget=forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'min': '0.01'}),
+    )
+
     class Meta:
         model = Meal
-        fields = ['name', 'description', 'price_cents', 'calories', 'protein_g',
+        fields = ['name', 'description', 'price', 'calories', 'protein_g',
                   'carbs_g', 'fat_g', 'image_url', 'category', 'dietary_tags',
                   'allergens', 'is_active']
         widgets = {
@@ -16,21 +28,27 @@ class MealForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        for name in ['name', 'description', 'price_cents', 'calories', 'protein_g',
+        if self.instance.pk:
+            # Editing: show the saved price in dollars, e.g. 650 -> 6.50
+            self.initial['price'] = f"{self.instance.price_cents / 100:.2f}"
+        for name in ['name', 'description', 'calories', 'protein_g',
                      'carbs_g', 'fat_g', 'image_url']:
             self.fields[name].widget.attrs['class'] = 'form-control'
-        for name, minimum in {
-            'price_cents': 1,
-            'calories': 0,
-            'protein_g': 0,
-            'carbs_g': 0,
-            'fat_g': 0,
-        }.items():
-            self.fields[name].validators.append(MinValueValidator(minimum))
-            self.fields[name].widget.attrs['min'] = minimum
-        self.fields['price_cents'].label = 'Price (cents)'
-        self.fields['price_cents'].help_text = 'e.g. 650 = $6.50'
+        for name in ['calories', 'protein_g', 'carbs_g', 'fat_g']:
+            self.fields[name].validators.append(MinValueValidator(0))
+            self.fields[name].widget.attrs['min'] = 0
         self.fields['category'].widget.attrs['class'] = 'form-select'
+        self.fields['protein_g'].label = 'Protein (g)'
+        self.fields['carbs_g'].label = 'Carbs (g)'
+        self.fields['fat_g'].label = 'Fat (g)'
+        self.fields['image_url'].label = 'Image URL'
+        self.fields['image_url'].help_text = 'A photo in menu/static/menu/meals/, e.g. /static/menu/meals/chicken-rice-box.jpg, or a full https:// link'
+
+    def save(self, commit=True):
+        # Convert dollars back to cents before saving, e.g. 6.50 -> 650
+        self.instance.price_cents = int(self.cleaned_data['price'] * 100)
+        return super().save(commit)
+
 
 class WeeklyMenuForm(forms.ModelForm):
     class Meta:
