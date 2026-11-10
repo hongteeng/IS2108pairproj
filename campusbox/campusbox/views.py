@@ -39,7 +39,9 @@ def index(request):
         next_order = Order.objects.filter(
             user=request.user,
             status__in=["confirmed", "preparing", "ready"],
-        ).select_related("pickup_slot__pickup_point").order_by("-created_at").first()
+        ).select_related("pickup_slot__pickup_point").order_by(
+            "pickup_slot__day", "pickup_slot__start_time",
+        ).first()
         picked_for_you = []
         profile = CustomerProfile.objects.filter(
             user=request.user,

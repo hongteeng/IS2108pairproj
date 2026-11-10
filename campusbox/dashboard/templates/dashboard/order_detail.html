@@ -35,11 +35,14 @@
   </div></div></div>
   <div class="card mt-3"><div class="card-body"><p class="mb-0">Total: {{ order.total_cents|dollars }}</p></div></div>
 
-  {% if next_label %}
-    <form method="post" class="mb-3">
-      {% csrf_token %}
-      <button type="submit" class="btn btn-success">{{ next_label }}</button>
-    </form>
-  {% endif %}
-  <a href="{% url 'dashboard:order_list' %}" class="btn btn-outline-secondary">Back to orders</a>
+  <div class="d-flex gap-2 mt-3">
+    {% if next_label %}
+      <form method="post" class="m-0">
+        {% csrf_token %}
+        <input type="hidden" name="from_status" value="{{ order.status }}">
+        <button type="submit" class="btn btn-success">{{ next_label }}</button>
+      </form>
+    {% endif %}
+    <a href="{% url 'dashboard:order_list' %}" class="btn btn-outline-secondary">Back to orders</a>
+  </div>
 {% endblock %}

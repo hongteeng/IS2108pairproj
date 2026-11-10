@@ -5,6 +5,7 @@ from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
+from django.db.models import F
 
 from ml.services.suggestions import suggest_for_meals
 from menu.models import MenuItem
@@ -15,6 +16,10 @@ from .models import Order, OrderItem, PickupSlot
 TRACKING_STEPS = [
     choice for choice in Order.STATUS_CHOICES if choice[0] != "cancelled"
 ]
+
+
+class OutOfStock(Exception):
+    """A meal sold out while the order was being placed."""
 
 
 def can_cancel(order, items):
@@ -51,6 +56,13 @@ def place_order(user, slot, lines, total_cents):
         )
         for line in lines:
             menu_item = line["menu_item"]
+            # Check stock and record the sale in one database step.
+            updated = MenuItem.objects.filter(
+                id=menu_item.id,
+                quantity_sold__lte=F("quantity_available") - line["quantity"],
+            ).update(quantity_sold=F("quantity_sold") + line["quantity"])
+            if not updated:
+                raise OutOfStock()  # undoes the whole order
             OrderItem.objects.create(
                 order=order,
                 menu_item=menu_item,
@@ -88,7 +100,11 @@ def checkout(request):
         if problem:
             messages.error(request, problem)
         else:
-            order = place_order(request.user, slot, lines, total_cents)
+            try:
+                order = place_order(request.user, slot, lines, total_cents)
+            except OutOfStock:
+                messages.error(request, "Some meals no longer have enough stock. Please update your cart.")
+                return redirect("orders:cart")
             cart.clear_cart(request)
             messages.success(request, f"Payment received. Order #{order.id} is confirmed.")
             return redirect("orders:order_detail", order_id=order.id)
@@ -151,9 +167,9 @@ def cancel_order(request, order_id):
         order.status = "cancelled"
         order.save(update_fields=["status"])
         for item in items:
-            menu_item = item.menu_item
-            menu_item.quantity_sold -= item.quantity
-            menu_item.save(update_fields=["quantity_sold"])
+            MenuItem.objects.filter(id=item.menu_item_id).update(
+                quantity_sold=F("quantity_sold") - item.quantity,
+            )
 
     messages.success(
         request,

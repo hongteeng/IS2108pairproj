@@ -296,7 +296,7 @@ def order_detail(request, order_id):
         next_status = 'collected'
         next_label = 'Mark as collected'
 
-    if request.method == 'POST' and next_status is not None:
+    if request.method == 'POST' and next_status is not None and request.POST.get('from_status') == order.status:
         order.status = next_status
         order.save()
         return redirect('dashboard:order_detail', order_id=order.id)
