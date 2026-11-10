@@ -30,14 +30,14 @@
     {% endif %}
 
     {% if user.profile.predicted_category %}
-      <div class="alert alert-success">
-        Recommended for you: <strong>{{ user.profile.predicted_category.name }}</strong> ·
-        <a href="{% url 'accounts:quiz' %}" class="alert-link">Update your answers</a>
+      <div class="alert alert-success d-flex justify-content-between align-items-center">
+        <span>Recommended for you: <strong>{{ user.profile.predicted_category.name }}</strong></span>
+        <a href="{% url 'accounts:quiz' %}" class="btn btn-sm btn-outline-success">Update your answers</a>
       </div>
     {% else %}
-      <div class="alert alert-info">
-        Tell us your preferences to get a meal recommendation.
-        <a href="{% url 'accounts:quiz' %}" class="alert-link">Take the taste quiz</a>
+      <div class="alert alert-info d-flex justify-content-between align-items-center">
+        <span>Tell us your preferences to get a meal recommendation.</span>
+        <a href="{% url 'accounts:quiz' %}" class="btn btn-sm btn-success">Take the taste quiz</a>
       </div>
     {% endif %}
 
