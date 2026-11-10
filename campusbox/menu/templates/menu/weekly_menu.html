@@ -17,11 +17,11 @@
     <form method="get" action="{% url 'menu:weekly_menu' %}">
       <input type="hidden" name="filtered" value="1">
       <div class="row g-2 align-items-end">
-        <div class="col-md-5">
+        <div class="col-12 col-lg">
           <label class="form-label" for="q">Search</label>
           <input type="text" name="q" id="q" value="{{ selected_q }}" placeholder="Search meals, e.g. chicken" class="form-control">
         </div>
-        <div class="col-md-3">
+        <div class="col-md col-lg-3">
           <label class="form-label" for="category">Category</label>
           <select class="form-select" name="category" id="category">
             <option value="">All categories</option>
@@ -30,7 +30,7 @@
             {% endfor %}
           </select>
         </div>
-        <div class="col-md-2">
+        <div class="col-md col-lg-2">
           <label class="form-label" for="diet">Diet</label>
           <select class="form-select" name="diet" id="diet">
             <option value="">All diets</option>
@@ -39,9 +39,10 @@
             {% endfor %}
           </select>
         </div>
-        <div class="col-md-2">
+        <div class="col-md-auto">
+          {# Buttons take only the width they need, so they never overflow #}
           <div class="d-flex gap-2">
-            <button type="submit" class="btn btn-success flex-fill">Filter</button>
+            <button type="submit" class="btn btn-success">Filter</button>
             <a href="{% url 'menu:weekly_menu' %}" class="btn btn-outline-secondary">Clear</a>
           </div>
         </div>
