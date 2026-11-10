@@ -24,7 +24,7 @@
       </div>
     </div>
     <div class="col-6 col-lg-3">
-      <div class="card card-link h-100">
+      <div class="card card-link h-100 {% if open_tickets %}bg-warning-subtle{% endif %}">
         <div class="card-body position-relative d-flex flex-column">
           <div class="small text-muted">Open tickets</div>
           <h2 class="mb-0">{{ open_tickets }}</h2>
@@ -51,14 +51,29 @@
       <div class="card h-100">
         <div class="card-body">
           <h2 class="h5">Last 7 days</h2>
-          <p>{{ week_orders }} orders · {{ week_revenue_cents|dollars }}</p>
-          <ol class="mb-0">
-            {% for item in top_meals %}
-              <li>{{ item.menu_item__meal__name }} × {{ item.total }}</li>
-            {% empty %}
-              <li class="list-unstyled">No orders yet.</li>
-            {% endfor %}
-          </ol>
+          <div class="row g-2 text-center mb-3">
+            <div class="col-6">
+              <div class="border rounded py-2">
+                <div class="small text-muted">Orders</div>
+                <div class="h4 mb-0">{{ week_orders }}</div>
+              </div>
+            </div>
+            <div class="col-6">
+              <div class="border rounded py-2">
+                <div class="small text-muted">Revenue</div>
+                <div class="h4 mb-0">{{ week_revenue_cents|dollars }}</div>
+              </div>
+            </div>
+          </div>
+          <h3 class="h6 text-muted">Top meals</h3>
+          {% for item in top_meals %}
+            <div class="d-flex justify-content-between py-1 {% if not forloop.last %}border-bottom{% endif %}">
+              <span>{{ forloop.counter }}. {{ item.menu_item__meal__name }}</span>
+              <span class="text-muted">{{ item.total }} sold</span>
+            </div>
+          {% empty %}
+            <p class="text-muted mb-0">No orders yet.</p>
+          {% endfor %}
         </div>
       </div>
     </div>
