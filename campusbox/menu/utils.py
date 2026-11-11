@@ -1,5 +1,6 @@
 from datetime import timedelta
 
+from django.db.models import Avg, Count, Q
 from django.utils import timezone
 from django.utils.timezone import localtime
 
@@ -39,3 +40,12 @@ def menu_labels(weekly_menu):
 def ordering_open(weekly_menu):
     """Return whether students can still order from this menu."""
     return weekly_menu is not None and weekly_menu.order_cutoff > timezone.now()
+
+
+def with_ratings(items):
+    """Add each meal's average rating and review count. Hidden reviews don't count."""
+    shown = Q(meal__reviews__is_hidden=False)
+    return items.annotate(
+        avg_rating=Avg("meal__reviews__rating", filter=shown),
+        review_count=Count("meal__reviews", filter=shown, distinct=True),
+    )

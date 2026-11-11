@@ -3,7 +3,7 @@ from django.shortcuts import redirect, render
 
 from accounts.services import get_profile, mark_allergens
 from menu.models import MenuItem
-from menu.utils import current_menu, menu_labels, ordering_open
+from menu.utils import current_menu, menu_labels, ordering_open, with_ratings
 from orders.models import Order
 from orders.views import can_cancel
 
@@ -17,11 +17,11 @@ def index(request):
     popular_meals = []
     if menu:
         popular_meals = list(
-            MenuItem.objects.filter(
+            with_ratings(MenuItem.objects.filter(
                 weekly_menu=menu,
                 meal__is_active=True,
                 quantity_sold__lt=F("quantity_available"),
-            ).select_related("meal").order_by("-quantity_sold", "meal__name")[:8]
+            )).select_related("meal").order_by("-quantity_sold", "meal__name")[:8]
         )
         for item in popular_meals:
             item.price_dollars = f"{item.meal.price_cents / 100:.2f}"
@@ -51,14 +51,14 @@ def index(request):
         profile = get_profile(request.user)
         if profile and menu:
             picked_for_you = list(
-                MenuItem.objects.filter(
+                with_ratings(MenuItem.objects.filter(
                     weekly_menu=menu,
                     meal__is_active=True,
                     meal__category=profile.predicted_category,
                     quantity_sold__lt=F("quantity_available"),
                 ).exclude(
                     meal__allergens__in=profile.allergies.all(),
-                ).select_related("meal")[:4]
+                )).select_related("meal")[:4]
             )
             for item in picked_for_you:
                 item.price_dollars = f"{item.meal.price_cents / 100:.2f}"

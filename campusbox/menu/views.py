@@ -7,7 +7,7 @@ from accounts.models import CustomerProfile
 from accounts.services import get_profile, mark_allergens
 from ml.services.suggestions import suggest_for_meals
 from .models import MealCategory, DietaryTag, Allergen, Meal, WeeklyMenu, MenuItem
-from .utils import current_menu, menu_labels, ordering_open
+from .utils import current_menu, menu_labels, ordering_open, with_ratings
 from datetime import date, timedelta
 from orders.models import Order, OrderItem, PickupPoint, PickupSlot
 from django.utils.text import slugify
@@ -137,9 +137,9 @@ def weekly_menu(request):
     if menu is None:
         items = []
     else:
-        active_items = menu.items.filter(
+        active_items = with_ratings(menu.items.filter(
             meal__is_active=True,
-        ).select_related('meal', 'meal__category').prefetch_related('meal__allergens')
+        )).select_related('meal', 'meal__category').prefetch_related('meal__allergens')
         active_item_list = list(active_items)
         total_count = len(active_item_list)
         if active_item_list:
