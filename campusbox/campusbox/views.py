@@ -1,7 +1,7 @@
 from django.db.models import F
 from django.shortcuts import redirect, render
 
-from accounts.services import get_profile
+from accounts.services import get_profile, mark_allergens
 from menu.models import MenuItem
 from menu.utils import current_menu, menu_labels, ordering_open
 from orders.models import Order
@@ -56,6 +56,7 @@ def index(request):
             for item in picked_for_you:
                 item.price_dollars = f"{item.meal.price_cents / 100:.2f}"
                 item.stock_left = item.quantity_available - item.quantity_sold
+        mark_allergens(popular_meals + picked_for_you, profile)
         context.update({
             "next_order": next_order,
             "picked_for_you": picked_for_you,

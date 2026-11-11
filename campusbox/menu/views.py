@@ -4,7 +4,7 @@ from django.db.models import Avg, Case, Q, When
 from django.contrib import messages
 from django.shortcuts import get_object_or_404, redirect, render
 from accounts.models import CustomerProfile
-from accounts.services import get_profile
+from accounts.services import get_profile, mark_allergens
 from ml.services.suggestions import suggest_for_meals
 from .models import MealCategory, DietaryTag, Allergen, Meal, WeeklyMenu, MenuItem
 from .utils import current_menu, menu_labels, ordering_open
@@ -141,7 +141,7 @@ def weekly_menu(request):
     else:
         active_items = menu.items.filter(
             meal__is_active=True,
-        ).select_related('meal', 'meal__category')
+        ).select_related('meal', 'meal__category').prefetch_related('meal__allergens')
         active_item_list = list(active_items)
         total_count = len(active_item_list)
         if active_item_list:
@@ -191,7 +191,8 @@ def weekly_menu(request):
         for item in items:
             item.price_dollars = f"{item.meal.price_cents / 100:.2f}"
             item.stock_left = item.quantity_available - item.quantity_sold
-
+            
+    mark_allergens(items, profile)
     return render(request, 'menu/weekly_menu.html', {
         'menu': menu,
         'menu_dates': menu_dates,
@@ -260,6 +261,8 @@ def meal_detail(request, meal_id):
     for item in suggestions:
         item.price_dollars = f"{item.meal.price_cents / 100:.2f}"
         item.stock_left = item.quantity_available - item.quantity_sold
+        
+    mark_allergens(suggestions, get_profile(request.user) if request.user.is_authenticated else None)
 
     return render(request, 'menu/meal_detail.html', {
         'meal': meal,

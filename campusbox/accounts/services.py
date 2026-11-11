@@ -13,3 +13,15 @@ def get_profile(user):
         profile.predicted_category = predict_preferred_category(profile)
         profile.save(update_fields=["predicted_category"])
     return profile
+
+
+def mark_allergens(items, profile):
+    """Attach the student's allergens found in each menu item's meal, for the card badge."""
+    if not profile:
+        return
+    allergy_ids = set(profile.allergies.values_list("id", flat=True))
+    for item in items:
+        item.your_allergens = [
+            allergen.name for allergen in item.meal.allergens.all()
+            if allergen.id in allergy_ids
+        ]
