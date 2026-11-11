@@ -85,8 +85,8 @@
             <button type="submit" class="btn btn-outline-secondary btn-sm">Log out</button>
           </form>
         {% else %}
-          <a class="btn btn-outline-secondary btn-sm" href="{% url 'accounts:login' %}{% if request.resolver_match.app_name != 'accounts' %}?next={{ request.get_full_path|urlencode }}{% endif %}">Log in</a>
-          <a class="btn btn-success btn-sm" href="{% url 'accounts:register' %}">Register</a>
+          <a class="nav-link {% if request.resolver_match.url_name == 'login' %}active{% endif %}" href="{% url 'accounts:login' %}{% if request.resolver_match.app_name != 'accounts' %}?next={{ request.get_full_path|urlencode }}{% endif %}">Log in</a>
+          <a class="btn btn-success btn-sm" href="{% url 'accounts:register' %}">Sign up</a>
         {% endif %}
       </div>
     </div>
