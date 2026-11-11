@@ -6,6 +6,7 @@
 </div>
 <div class="card mb-3"><div class="card-body">
 <form method="get" class="row g-2">
+  {% if request.GET.sort %}<input type="hidden" name="sort" value="{{ sort }}">{% endif %}
   <div class="col">
     <input type="search" name="q" value="{{ q }}" class="form-control" placeholder="Search username or email">
   </div>
@@ -19,14 +20,14 @@
   <table class="table align-middle mb-0">
     <thead>
       <tr>
-        <th>Username</th>
+        {% include "sort_header.html" with key="username" label="Username" %}
         <th>Email</th>
-        <th>Joined</th>
+        {% include "sort_header.html" with key="joined" label="Joined" first="-" %}
         <th>Diet</th>
         <th>Goal</th>
         <th>Predicted</th>
-        <th>Orders</th>
-        <th>Spent</th>
+        {% include "sort_header.html" with key="orders" label="Orders" first="-" %}
+        {% include "sort_header.html" with key="spent" label="Spent" first="-" %}
         <th></th>
       </tr>
     </thead>
