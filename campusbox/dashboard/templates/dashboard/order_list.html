@@ -8,6 +8,7 @@
   <div class="card mb-3"><div class="card-body">
     <form method="get" class="row g-2">
       {% if status %}<input type="hidden" name="status" value="{{ status }}">{% endif %}
+      {% if request.GET.sort %}<input type="hidden" name="sort" value="{{ sort }}">{% endif %}
       <div class="col">
         <input type="search" name="q" value="{{ q }}" class="form-control" placeholder="Search order number or username">
       </div>
@@ -18,7 +19,7 @@
     </form>
     <div class="d-flex flex-wrap gap-2 mt-3">
       {% for value, label in filters %}
-        <a href="{% url 'dashboard:order_list' %}?status={{ value }}{% if q %}&amp;q={{ q|urlencode }}{% endif %}" class="btn btn-sm {% if value == status %}btn-success{% else %}btn-outline-success{% endif %}">{{ label }}</a>
+        <a href="{% url 'dashboard:order_list' %}?status={{ value }}{% if q %}&amp;q={{ q|urlencode }}{% endif %}{% if request.GET.sort %}&amp;sort={{ sort }}{% endif %}" class="btn btn-sm {% if value == status %}btn-success{% else %}btn-outline-success{% endif %}">{{ label }}</a>
       {% endfor %}
     </div>
   </div></div>
@@ -26,10 +27,10 @@
   <table class="table align-middle mb-0">
     <thead>
       <tr>
-        <th>Order</th>
-        <th>Customer</th>
-        <th>Pickup</th>
-        <th>Total</th>
+        {% include "sort_header.html" with key="order" label="Order" first="-" %}
+        {% include "sort_header.html" with key="customer" label="Customer" %}
+        {% include "sort_header.html" with key="pickup" label="Pickup" %}
+        {% include "sort_header.html" with key="total" label="Total" first="-" %}
         <th>Status</th>
         <th></th>
       </tr>

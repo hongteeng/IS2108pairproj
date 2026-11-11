@@ -1,0 +1,5 @@
+<th class="text-nowrap">
+  <a href="?{% if sort_querystring %}{{ sort_querystring }}&amp;{% endif %}sort={% if sort == key %}-{{ key }}{% elif sort == '-'|add:key %}{{ key }}{% else %}{{ first }}{{ key }}{% endif %}">
+    {{ label }}{% if sort == key %} ▲{% elif sort == '-'|add:key %} ▼{% else %} <span class="text-muted fw-normal">↕</span>{% endif %}
+  </a>
+</th>

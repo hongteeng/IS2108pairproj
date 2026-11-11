@@ -267,13 +267,21 @@ ORDER_FILTERS = [
 ]
 
 
+ORDER_SORTS = {
+    'order': ['id'],
+    'customer': ['user__username'],
+    'pickup': ['pickup_slot__day', 'pickup_slot__start_time'],
+    'total': ['total_cents'],
+}
+
+
 def order_list(request):
     status = request.GET.get('status', '')
     q = request.GET.get('q', '').strip()
     orders = Order.objects.select_related(
         'user',
         'pickup_slot__pickup_point',
-    ).order_by('-created_at')
+    )
     if status == 'to_prepare':
         orders = orders.filter(status__in=['confirmed', 'preparing'])
     elif status in ('ready', 'collected', 'cancelled'):
@@ -286,12 +294,26 @@ def order_list(request):
             match |= Q(id=number)
         orders = orders.filter(match)
 
+    # ?sort=total is low to high, ?sort=-total is high to low. Only the keys above are allowed.
+    sort = request.GET.get('sort', '-order')
+    key = sort.lstrip('-')
+    if key not in ORDER_SORTS:
+        sort, key = '-order', 'order'
+    direction = '-' if sort.startswith('-') else ''
+    sort = direction + key
+    fields = [direction + field for field in ORDER_SORTS[key]]
+    orders = orders.order_by(*fields, 'id')  # id keeps ties in a fixed order
+
     page_obj = Paginator(orders, 20).get_page(request.GET.get('page'))
     params = request.GET.copy()
     params.pop('page', None)  # page links add their own page number
+    querystring = params.urlencode()
+    params.pop('sort', None)  # sort links add their own sort
     return render(request, 'dashboard/order_list.html', {
         'page_obj': page_obj,
-        'querystring': params.urlencode(),
+        'querystring': querystring,
+        'sort_querystring': params.urlencode(),
+        'sort': sort,
         'status': status,
         'q': q,
         'filters': ORDER_FILTERS,
