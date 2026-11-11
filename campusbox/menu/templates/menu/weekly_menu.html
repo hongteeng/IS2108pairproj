@@ -92,24 +92,20 @@
 </div>
 
 <p class="mb-3">
-  Showing {{ items|length }} of {{ total_count }} meals
-  {% if selected_q %} · Results for “{{ selected_q }}”{% endif %}
-</p>
-
-{% if hide_profile_allergens %}
-  <p class="small text-muted d-flex flex-wrap align-items-center gap-2">
-    Hiding meals with your allergens.
-    <a href="{% url 'menu:weekly_menu' %}?filtered=1" class="btn btn-sm btn-outline-secondary">Show all meals</a>
-    <a href="{% url 'accounts:quiz' %}" class="btn btn-sm btn-outline-secondary">Update your allergies</a>
-  </p>
-{% endif %}
-
-{% if recommended_category_name %}
-  <p class="small text-success d-flex align-items-center gap-2">
-    Showing {{ recommended_category_name }} first, based on your taste quiz.
-    <a href="{% url 'accounts:quiz' %}" class="btn btn-sm btn-outline-success">Edit preferences</a>
-  </p>
-{% endif %}
+<div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+  <span>Showing {{ items|length }} of {{ total_count }} meals{% if selected_q %} for “{{ selected_q }}”{% endif %}</span>
+  {% if recommended_category_name %}<span class="text-success">· {{ recommended_category_name }} shown first</span>{% endif %}
+  {% if hide_profile_allergens %}<span class="text-muted">· Your allergens hidden</span>{% endif %}
+  {# Actions sit on the right on wider screens #}
+  <div class="d-flex gap-2 ms-md-auto">
+    {% if hide_profile_allergens %}
+      <a href="{% url 'menu:weekly_menu' %}?filtered=1" class="btn btn-sm btn-outline-secondary">Show all meals</a>
+    {% endif %}
+    {% if recommended_category_name or hide_profile_allergens %}
+      <a href="{% url 'accounts:quiz' %}" class="btn btn-sm btn-outline-success">Edit preferences</a>
+    {% endif %}
+  </div>
+</div>
 
 {% if items %}
   {% regroup items by meal.category.name as category_groups %}
