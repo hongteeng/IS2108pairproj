@@ -1,8 +1,8 @@
 import math
 
 from django.db.models import Avg, Case, Q, When
-from django.http import HttpResponse
-from django.shortcuts import get_object_or_404, render
+from django.contrib import messages
+from django.shortcuts import get_object_or_404, redirect, render
 from accounts.models import CustomerProfile
 from accounts.services import get_profile
 from ml.services.suggestions import suggest_for_meals
@@ -100,7 +100,8 @@ def seed(request): #seed is a batch of starting data for empty database,
         slot = PickupSlot(pickup_point=point, day=s[0], start_time=s[1], end_time=s[2], capacity=20)
         slot.save()
 
-    return HttpResponse("Seeded " + str(Meal.objects.count()) + " meals")
+    messages.success(request, "Seeded " + str(Meal.objects.count()) + " meals.")
+    return redirect("dashboard:home")
 
 
 def weekly_menu(request):

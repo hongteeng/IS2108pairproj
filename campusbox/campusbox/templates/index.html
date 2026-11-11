@@ -65,7 +65,7 @@
   {% else %}
     <section class="rounded bg-success-subtle p-5 mb-4">
       <h1>Healthy meal boxes, picked up on campus</h1>
-      <p class="lead">Pre-order your week’s meals by Sunday night and collect them at your hall.</p>
+      <p class="lead">Pre-order your meals for the week ahead and collect them at your hall.</p>
       <a href="{% url 'menu:weekly_menu' %}" class="btn btn-success me-2">Browse this week’s menu</a>
       <a href="{% url 'accounts:register' %}" class="btn btn-outline-success">Sign up</a>
     </section>
@@ -74,8 +74,8 @@
       <div class="col-md-4">
         <div class="card h-100">
           <div class="card-body">
-            <h2 class="h5">1. Order by Sunday</h2>
-            <p class="mb-0">Choose your meals before the weekly cutoff.</p>
+            <h2 class="h5">1. Order before the cutoff</h2>
+            <p class="mb-0">{% if ordering_open %}This week’s cutoff is {{ order_deadline }}.{% else %}Choose your meals before the weekly cutoff.{% endif %}</p>
           </div>
         </div>
       </div>

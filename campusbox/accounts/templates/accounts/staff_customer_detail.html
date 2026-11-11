@@ -1,6 +1,5 @@
 {% extends "staff_base.html" %}
 {% load money %}
-{% block title %}{{ customer.username }} · CampusBox{% endblock %}
 {% block staff_content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h1 class="h3 mb-0">{{ customer.username }}</h1>
@@ -50,7 +49,7 @@
               <td><a href="{% url 'dashboard:order_detail' order.id %}" class="btn btn-sm btn-outline-success">View</a></td>
             </tr>
           {% empty %}
-            <tr><td colspan="6">None yet.</td></tr>
+              <tr><td colspan="6" class="text-center text-muted py-4">None yet.</td></tr>
           {% endfor %}
         </tbody>
       </table>
@@ -68,7 +67,7 @@
         <p class="mb-0">{{ review.comment }}</p>
       </div>
     {% empty %}
-      <p class="mb-0">None yet.</p>
+      <p class="text-muted mb-0">None yet.</p>
     {% endfor %}
   </div>
 </div>
@@ -90,7 +89,7 @@
               <td><a href="{% url 'dashboard:ticket_detail' ticket.id %}" class="btn btn-sm btn-outline-success">View</a></td>
             </tr>
           {% empty %}
-            <tr><td colspan="6">None yet.</td></tr>
+              <tr><td colspan="6" class="text-center text-muted py-4">None yet.</td></tr>
           {% endfor %}
         </tbody>
       </table>

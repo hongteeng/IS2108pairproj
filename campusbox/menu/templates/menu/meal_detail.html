@@ -61,7 +61,10 @@
         {% elif user.is_staff %}
           <p class="text-muted small">Staff preview: customers can add this meal to their cart here.</p>
         {% else %}
-          <p><a href="{% url 'accounts:login' %}">Log in</a> to order this meal.</p>
+          <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+            <a href="{% url 'accounts:login' %}?next={{ request.path|urlencode }}" class="btn btn-success">Log in to order</a>
+            <span class="small text-muted">New here? <a href="{% url 'accounts:register' %}">Create an account</a></span>
+          </div>
         {% endif %}
       {% else %}
         <p><span class="badge text-bg-secondary">Sold out</span></p>

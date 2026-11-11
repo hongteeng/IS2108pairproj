@@ -12,7 +12,7 @@
         <th>Week starting</th>
         <th>Order cutoff</th>
         <th>Meals</th>
-                <th></th>
+        <th></th>
       </tr>
     </thead>
     <tbody>
@@ -21,7 +21,7 @@
           <td>{{ menu.week_start|date:"D j M" }}</td>
           <td>{{ menu.order_cutoff|date:"D j M, H:i" }}</td>
           <td>{{ menu.items.count }}</td>
-                    <td><div class="d-flex gap-2"><a href="{% url 'dashboard:menu_detail' menu.id %}" class="btn btn-sm btn-outline-success">Manage</a></div></td>
+          <td><div class="d-flex gap-2"><a href="{% url 'dashboard:menu_detail' menu.id %}" class="btn btn-sm btn-outline-success">Manage</a></div></td>
         </tr>
       {% empty %}
         <tr><td colspan="4" class="text-center text-muted py-4">No weekly menus yet.</td></tr>

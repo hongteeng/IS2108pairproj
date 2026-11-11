@@ -1,3 +1,4 @@
+from django.contrib import messages
 from django.contrib.auth import authenticate
 from django.contrib.auth import login as auth_login    # renamed so they don't clash
 from django.contrib.auth import logout as auth_logout  # with our login/logout views
@@ -8,8 +9,7 @@ from django.db.models.functions import Coalesce
 from django.shortcuts import get_object_or_404
 from django.shortcuts import redirect, render
 
-from reviews.models import Review
-from support.models import SupportTicket
+from django.utils.http import url_has_allowed_host_and_scheme
 
 from .forms import LoginForm, RegisterForm, TasteQuizForm
 from .models import CustomerProfile
@@ -52,6 +52,10 @@ def login(request):
                 error = 'Incorrect username or password.'
             else:
                 auth_login(request, user)
+                # Go back to the page that asked them to log in, but only within this site.
+                next_url = request.GET.get('next', '')
+                if url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}):
+                    return redirect(next_url)
                 return redirect('index')
     else:
         form = LoginForm()
@@ -82,6 +86,7 @@ def quiz(request):
             profile.predicted_category = predict_preferred_category(profile)
             profile.save()
             form.save_m2m() # allergies can only be saved once the profile exists
+            messages.success(request, "Preferences saved.")
             return redirect('index')
     else:
         form = TasteQuizForm(instance=profile)
@@ -105,8 +110,6 @@ def staff_customers(request):
     ).order_by("-date_joined")
     if q:
         customers = customers.filter(Q(username__icontains=q) | Q(email__icontains=q))
-    for customer in customers:
-        customer.total_spent_dollars = f"{customer.total_spent_cents / 100:.2f}"
     return render(request, "accounts/staff_customers.html", {
         "customers": customers,
         "q": q,
@@ -125,8 +128,6 @@ def staff_customer_detail(request, user_id):
     orders = customer.orders.select_related(
         "pickup_slot__pickup_point",
     ).order_by("-created_at")
-    for order in orders:
-        order.total_dollars = f"{order.total_cents / 100:.2f}"
     reviews = customer.reviews.select_related("meal")
     tickets = customer.tickets.select_related("order")
     return render(request, "accounts/staff_customer_detail.html", {

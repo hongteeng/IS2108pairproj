@@ -19,7 +19,7 @@ class RegisterForm(forms.Form):
     def clean_username(self):
         """Reject usernames that are already taken."""
         username = self.cleaned_data['username']
-        if User.objects.filter(username=username).exists():
+        if User.objects.filter(username__iexact=username).exists():
             raise forms.ValidationError('This username is already taken.')
         return username
 

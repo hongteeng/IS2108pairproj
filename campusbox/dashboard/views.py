@@ -1,5 +1,5 @@
 from django.contrib.auth import authenticate, login as auth_login
-from django.db.models import Count, F, Q, Sum, Value
+from django.db.models import Count, F, Sum, Value
 from django.db.models.functions import Coalesce
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -34,7 +34,7 @@ def staff_login(request): #function to authenticate user, runs when visiting /da
     return render(request, 'dashboard/staff_login.html', {'form': form, 'error': error})
 
 def home(request):
-    latest_menu = current_menu()
+    menu = current_menu()
     to_prepare = Order.objects.filter(
         status__in=["confirmed", "preparing"],
     ).count()
@@ -42,8 +42,8 @@ def home(request):
     open_tickets = SupportTicket.objects.filter(status="open").count()
     sold_out = 0
     low_stock = 0
-    if latest_menu:
-        stock_items = MenuItem.objects.filter(weekly_menu=latest_menu).annotate(
+    if menu:
+        stock_items = MenuItem.objects.filter(weekly_menu=menu).annotate(
             stock_remaining=F("quantity_available") - F("quantity_sold"),
         )
         sold_out = stock_items.filter(stock_remaining__lte=0).count()
@@ -164,7 +164,7 @@ def menu_edit(request, menu_id):
             return redirect('dashboard:menu_detail', menu_id=menu.id)
     else:
         form = WeeklyMenuForm(instance=menu)
-    return render(request, 'dashboard/menu_form.html', {'form': form, 'title': 'Edit weekly menu'})
+    return render(request, 'dashboard/menu_form.html', {'form': form, 'title': 'Edit weekly menu', 'menu': menu})
 
 
 def menu_detail(request, menu_id):
@@ -257,12 +257,30 @@ def pickup_detail(request, point_id):
     return render(request, 'dashboard/pickup_detail.html',
                   {'point': point, 'slots': slots, 'form': form, 'error': error})
 
+ORDER_FILTERS = [
+    ('', 'All'),
+    ('to_prepare', 'To prepare'),
+    ('ready', 'Ready for pickup'),
+    ('collected', 'Collected'),
+    ('cancelled', 'Cancelled'),
+]
+
+
 def order_list(request):
+    status = request.GET.get('status', '')
     orders = Order.objects.select_related(
         'user',
         'pickup_slot__pickup_point',
     ).order_by('-created_at')
-    return render(request, 'dashboard/order_list.html', {'orders': orders})
+    if status == 'to_prepare':
+        orders = orders.filter(status__in=['confirmed', 'preparing'])
+    elif status in ('ready', 'collected', 'cancelled'):
+        orders = orders.filter(status=status)
+    return render(request, 'dashboard/order_list.html', {
+        'orders': orders,
+        'status': status,
+        'filters': ORDER_FILTERS,
+    })
 
 
 def order_detail(request, order_id):

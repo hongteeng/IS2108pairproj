@@ -18,10 +18,6 @@
     .btn {
       border-radius: .6rem;
     }
-    .navbar {
-      background: white;
-      border-bottom: 1px solid #198754;
-    }
     body {
       background: #f7f9f6;
       font-family: "Plus Jakarta Sans", system-ui, sans-serif;
@@ -39,6 +35,7 @@
     .card-link:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,0,0,.10); }
     .navbar .nav-link.active { color: #198754; font-weight: 700; }
     .list-group-item.active { background-color: #198754; border-color: #198754; }
+    .navbar .nav-link, .navbar .btn { white-space: nowrap; }
   </style>
 </head>
 <body>
@@ -46,7 +43,7 @@
   <nav class="navbar navbar-expand bg-body-tertiary border-bottom">
     <div class="container">
       <a class="navbar-brand text-success" href="{% if user.is_staff %}{% url 'dashboard:home' %}{% else %}{% url 'index' %}{% endif %}">CampusBox</a>
-      <ul class="navbar-nav me-auto">
+      <ul class="navbar-nav me-auto flex-wrap">
         {% if user.is_staff %}
           <li class="nav-item">
             <a class="nav-link {% if request.resolver_match.app_name == 'dashboard' %}active{% endif %}" href="{% url 'dashboard:home' %}"{% if request.resolver_match.app_name == 'dashboard' %} aria-current="page"{% endif %}>Staff panel</a>
@@ -98,7 +95,7 @@
   <main class="container py-4">
     {# Messages like "Added to your cart" #}
     {% for message in messages %}
-      <div class="alert {% if message.tags == 'error' %}alert-danger{% else %}alert-success{% endif %}">{{ message }}</div>
+      <div class="alert {% if message.tags == 'error' %}alert-danger{% elif message.tags == 'info' %}alert-info{% else %}alert-success{% endif %}">{{ message }}</div>
     {% endfor %}
     {% block content %}{% endblock %}
   </main>

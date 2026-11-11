@@ -1,10 +1,7 @@
 {% extends "staff_base.html" %}
 
 {% block staff_content %}
-  <div class="d-flex justify-content-between align-items-center mb-3">
-    <h1 class="h3 mb-0">Ticket #{{ ticket.id }}</h1>
-    <button type="submit" form="ticket-form" class="btn btn-success">Save</button>
-  </div>
+  <h1 class="h3 mb-3">Ticket #{{ ticket.id }}</h1>
   <div class="card mb-4">
     <div class="card-body">
       <p><strong>Student:</strong> {{ ticket.user.username }}</p>
@@ -16,7 +13,7 @@
   </div>
 
   <div class="card"><div class="card-body">
-  <form method="post" id="ticket-form">
+  <form method="post">
     {% csrf_token %}
     {% for field in form %}
       <div class="mb-3">
@@ -35,7 +32,10 @@
         {% endif %}
       </div>
     {% endfor %}
-    <a href="{% url 'dashboard:tickets' %}" class="btn btn-outline-secondary">Back</a>
+      <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-success">Save</button>
+        <a href="{% url 'dashboard:tickets' %}" class="btn btn-outline-secondary">Back to tickets</a>
+      </div>
   </form>
   </div></div>
 {% endblock %}

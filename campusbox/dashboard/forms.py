@@ -2,6 +2,7 @@ from decimal import Decimal
 
 from django import forms
 from django.core.validators import MinValueValidator
+from django.utils.timezone import localtime
 from menu.models import Meal, WeeklyMenu, MenuItem
 from orders.models import PickupPoint, PickupSlot
 
@@ -58,6 +59,20 @@ class WeeklyMenuForm(forms.ModelForm):
             'week_start': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
             'order_cutoff': forms.DateTimeInput(format='%Y-%m-%dT%H:%M', attrs={'type': 'datetime-local', 'class': 'form-control'}),
         }
+    
+    def clean(self):
+        """A menu runs Monday to Friday, closes before it starts, and only one per week."""
+        cleaned_data = super().clean()
+        week_start = cleaned_data.get('week_start')
+        order_cutoff = cleaned_data.get('order_cutoff')
+        if week_start:
+            if week_start.weekday() != 0:
+                self.add_error('week_start', 'Pick a Monday.')
+            elif WeeklyMenu.objects.filter(week_start=week_start).exclude(pk=self.instance.pk).exists():
+                self.add_error('week_start', 'There is already a menu for this week.')
+        if week_start and order_cutoff and localtime(order_cutoff).date() >= week_start:
+            self.add_error('order_cutoff', 'The cutoff must be before the week starts.')
+        return cleaned_data
 
 
 class MenuItemForm(forms.ModelForm):

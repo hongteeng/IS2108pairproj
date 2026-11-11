@@ -64,6 +64,14 @@ class StaffTicketForm(forms.ModelForm):
                 f"(${order_total_dollars:.2f})."
             )
         return refund_dollars
+    
+    def clean(self):
+        """Only resolved tickets can have a refund."""
+        cleaned_data = super().clean()
+        refund = cleaned_data.get("refund_dollars") or Decimal("0")
+        if refund > 0 and cleaned_data.get("status") != "resolved":
+            self.add_error("refund_dollars", "Set the status to Resolved to give a refund.")
+        return cleaned_data
 
     def save(self, commit=True):
         """Save the ticket with the refund converted to cents."""

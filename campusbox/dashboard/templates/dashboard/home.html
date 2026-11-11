@@ -10,7 +10,7 @@
         <div class="card-body position-relative d-flex flex-column">
           <div class="small text-muted">To prepare</div>
           <h2 class="mb-0">{{ to_prepare }}</h2>
-          <a href="{% url 'dashboard:order_list' %}" class="stretched-link mt-auto"><span class="small fw-semibold text-success">View orders →</span></a>
+          <a href="{% url 'dashboard:order_list' %}?status=to_prepare" class="stretched-link mt-auto"><span class="small fw-semibold text-success">View orders →</span></a>
         </div>
       </div>
     </div>
@@ -19,7 +19,7 @@
         <div class="card-body position-relative d-flex flex-column">
           <div class="small text-muted">Ready for pickup</div>
           <h2 class="mb-0">{{ ready_count }}</h2>
-          <a href="{% url 'dashboard:order_list' %}" class="stretched-link mt-auto"><span class="small fw-semibold text-success">View orders →</span></a>
+          <a href="{% url 'dashboard:order_list' %}?status=ready" class="stretched-link mt-auto"><span class="small fw-semibold text-success">View orders →</span></a>
         </div>
       </div>
     </div>
@@ -38,7 +38,7 @@
           <div class="small text-muted">Stock alerts</div>
           <h2 class="mb-0">{{ sold_out|add:low_stock }}</h2>
           <div class="small text-muted">
-            {% if sold_out or low_stock %}{{ sold_out }} sold out · {{ low_stock }} running low{% else %}All meals in stock{% endif %}
+            {% if sold_out or low_stock %}{{ sold_out }} sold out · {{ low_stock }} low stock{% else %}All meals in stock{% endif %}
           </div>
           <a href="{% url 'dashboard:inventory' %}" class="stretched-link mt-auto"><span class="small fw-semibold text-success">View inventory →</span></a>
         </div>
