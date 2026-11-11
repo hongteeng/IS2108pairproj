@@ -20,23 +20,18 @@ def seed(request): #seed is a batch of starting data for empty database,
     MenuItem.objects.all().delete()
     WeeklyMenu.objects.all().delete()
     Meal.objects.all().delete()
-    MealCategory.objects.all().delete()
-    DietaryTag.objects.all().delete()
-    Allergen.objects.all().delete()
     PickupSlot.objects.all().delete()
     PickupPoint.objects.all().delete()
-
+    
+    # Reuse existing categories, tags and allergens so students' quiz answers stay linked.
     for name in ["High-Protein", "Asian Rice Bowls", "Vegetarian", "Low-Carb", "Western", "Comfort"]:
-        category = MealCategory(name=name)
-        category.save()
+        MealCategory.objects.get_or_create(name=name)
 
     for name in ["halal", "vegetarian", "vegan", "high-protein"]:
-        tag = DietaryTag(name=name)
-        tag.save()
+        DietaryTag.objects.get_or_create(name=name)
 
     for name in ["nuts", "dairy", "shellfish", "gluten", "egg", "fish", "soy"]:
-        allergen = Allergen(name=name)
-        allergen.save()
+        Allergen.objects.get_or_create(name=name)
 
     meals = [
         ["Chicken Rice Box", "Steamed chicken, rice, cucumber", 650, 520, 35, 70, 12, "Asian Rice Bowls", ["halal"], ["soy"]],
