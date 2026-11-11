@@ -31,7 +31,7 @@
       </tr>
     </thead>
     <tbody>
-      {% for customer in customers %}
+      {% for customer in page_obj %}
         <tr>
           <td>{{ customer.username }}</td>
           <td>{{ customer.email }}</td>
@@ -44,10 +44,11 @@
           <td><div class="d-flex gap-2"><a href="{% url 'dashboard:customer_detail' customer.id %}" class="btn btn-sm btn-outline-success">View</a></div></td>
         </tr>
       {% empty %}
-        <tr><td colspan="9" class="text-center text-muted py-4">No customers found.</td></tr>
+        <tr><td colspan="9" class="text-center text-muted py-4">{% if q %}No customers match “{{ q }}”.{% else %}No customers yet.{% endif %}</td></tr>
       {% endfor %}
     </tbody>
   </table>
 </div>
 </div></div>
+{% include "pagination.html" with noun="customer" %}
 {% endblock %}

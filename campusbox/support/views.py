@@ -1,6 +1,7 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.db.models import Case, IntegerField, When
+from django.core.paginator import Paginator
+from django.db.models import Case, IntegerField, Q, When
 from django.shortcuts import get_object_or_404, redirect, render
 
 from orders.models import Order
@@ -44,10 +45,15 @@ def my_tickets(request):
     return render(request, "support/my_tickets.html", {"tickets": tickets})
 
 
+TICKET_FILTERS = [("", "All")] + SupportTicket.STATUS_CHOICES
+
+
 def staff_tickets(request):
-    """List support tickets for staff."""
+    """List support tickets for staff, with search and a status filter."""
     if not request.user.is_staff:
         return redirect("dashboard:staff_login")
+    status = request.GET.get("status", "")
+    q = request.GET.get("q", "").strip()
     tickets = SupportTicket.objects.select_related("user", "order").order_by(
         Case(
             When(status="open", then=0),
@@ -56,7 +62,26 @@ def staff_tickets(request):
         ),
         "-created_at",
     )
-    return render(request, "support/staff_tickets.html", {"tickets": tickets})
+    if status in dict(SupportTicket.STATUS_CHOICES):
+        tickets = tickets.filter(status=status)
+    if q:
+        # "12" or "#12" finds ticket 12 or order 12; any text also matches usernames
+        number = q.lstrip("#")
+        match = Q(user__username__icontains=q)
+        if number.isdigit():
+            match |= Q(id=number) | Q(order__id=number)
+        tickets = tickets.filter(match)
+
+    page_obj = Paginator(tickets, 20).get_page(request.GET.get("page"))
+    params = request.GET.copy()
+    params.pop("page", None)  # page links add their own page number
+    return render(request, "support/staff_tickets.html", {
+        "page_obj": page_obj,
+        "querystring": params.urlencode(),
+        "status": status,
+        "q": q,
+        "filters": TICKET_FILTERS,
+    })
 
 
 def staff_ticket_detail(request, ticket_id):
