@@ -123,10 +123,13 @@ def weekly_menu(request):
     if profile and profile.predicted_category:
         recommended_category_id = profile.predicted_category_id
         recommended_category_name = profile.predicted_category.name
-    # Pre-hide the student's allergens until they submit the filter form themselves.
-    if profile and 'filtered' not in request.GET:
-        avoid = [str(allergen_id) for allergen_id in profile.allergies.values_list('id', flat=True)]
-        hide_profile_allergens = bool(avoid)  # only show the note if they have allergies
+    # Pre-hide the student's allergens until they submit the filter form themselves,
+    # and once right after logging in, on top of any filters chosen before.
+    just_logged_in = request.session.pop('apply_allergens', False)
+    if profile and ('filtered' not in request.GET or just_logged_in):
+        saved = [str(allergen_id) for allergen_id in profile.allergies.values_list('id', flat=True)]
+        avoid = list(dict.fromkeys(avoid + saved))  # merge, no duplicates
+        hide_profile_allergens = bool(saved)  # only show the note if they have allergies
     max_price = request.GET.get('max_price', '')
     max_calories = request.GET.get('max_calories', '')
     min_protein = request.GET.get('min_protein', '')

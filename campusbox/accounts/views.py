@@ -52,6 +52,7 @@ def login(request):
                 error = 'Incorrect username or password.'
             else:
                 auth_login(request, user)
+                request.session['apply_allergens'] = True  # menu hides their allergens on the next visit
                 # Go back to the page that asked them to log in, but only within this site.
                 next_url = request.GET.get('next', '')
                 if url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}):
