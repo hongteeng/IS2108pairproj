@@ -1,5 +1,6 @@
 from django.db.models import F
 from django.shortcuts import redirect, render
+from django.utils import timezone
 
 from accounts.services import get_profile, mark_allergens
 from menu.models import MenuItem
@@ -38,6 +39,7 @@ def index(request):
         next_order = Order.objects.filter(
             user=request.user,
             status__in=["confirmed", "preparing", "ready"],
+            pickup_slot__day__gte=timezone.localdate(),  # ignore old orders never marked collected
         ).select_related("pickup_slot__pickup_point").order_by(
             "pickup_slot__day", "pickup_slot__start_time",
         ).first()

@@ -86,6 +86,7 @@ class MenuItemForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields['meal'].queryset = Meal.objects.filter(is_active=True).order_by('name')  # only meals students can buy
         self.fields['quantity_available'].validators.append(MinValueValidator(0))
         self.fields['quantity_available'].widget.attrs['min'] = 0
 

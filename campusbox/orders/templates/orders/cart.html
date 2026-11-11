@@ -47,6 +47,10 @@
                 <div>
                   <a href="{% url 'menu:meal_detail' item.meal.id %}">{{ item.meal.name }}</a>
                   <div class="small text-muted">${{ item.price_dollars }} · {{ item.meal.calories }} kcal</div>
+                  <div class="small text-muted">${{ item.price_dollars }} · {{ item.meal.calories }} kcal</div>
+                  {% if item.your_allergens %}
+                    <span class="badge text-bg-danger">Contains {{ item.your_allergens|join:", " }}</span>
+                  {% endif %}
                 </div>
               </div>
               <form method="post" action="{% url 'orders:add_to_cart' item.id %}">

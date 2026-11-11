@@ -98,4 +98,17 @@
       </div>
     </div>
   </div>
+  {# Resets the starter data. POST only, so visiting the URL can't wipe anything. #}
+  <div class="card mt-3">
+    <div class="card-body d-flex flex-wrap justify-content-between align-items-center gap-2">
+      <div>
+        <h2 class="h6 mb-1">Demo data</h2>
+        <p class="small text-muted mb-0">Deletes all meals, menus, pickup points, orders, tickets and reviews, then loads the starter menu. Customer accounts stay.</p>
+      </div>
+      <form method="post" action="{% url 'dashboard:seed' %}" class="m-0">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-outline-danger btn-sm">Reset demo data</button>
+      </form>
+    </div>
+  </div>
 {% endblock %}

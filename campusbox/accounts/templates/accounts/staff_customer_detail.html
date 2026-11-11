@@ -19,7 +19,7 @@
         <div class="col-md-6"><strong>Fitness goal:</strong> {{ profile.get_fitness_goal_display }}</div>
         <div class="col-md-6"><strong>Spice tolerance:</strong> {{ profile.get_spice_tolerance_display }}</div>
         <div class="col-md-6"><strong>Diet:</strong> {{ profile.get_diet_display }}</div>
-        <div class="col-md-6"><strong>Predicted category:</strong> {% if profile.predicted_category %}{{ profile.predicted_category.name }}{% else %}Hasn’t taken the taste quiz{% endif %}</div>
+        <div class="col-md-6"><strong>Predicted category:</strong> {% if profile.predicted_category %}{{ profile.predicted_category.name }}{% else %}—{% endif %}</div>
         <div class="col-12">
           <strong>Allergies:</strong>
           {% for allergy in profile.allergies.all %}{{ allergy.name }}{% if not forloop.last %}, {% endif %}{% empty %}None{% endfor %}

@@ -1,4 +1,5 @@
 import uuid
+from datetime import timedelta
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -7,6 +8,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.db.models import F
 
+from accounts.services import get_profile, mark_allergens
 from ml.services.suggestions import suggest_for_meals
 from menu.models import MenuItem
 from . import cart
@@ -30,10 +32,15 @@ def can_cancel(order, items):
     )
 
 
-def get_open_slots():
-    """Return upcoming slots at active pickup points, with spaces left."""
+def get_open_slots(menu):
+    """Return upcoming slots in the menu's week (Mon-Fri) at active pickup points, with spaces left."""
+    week_end = menu.week_start + timedelta(days=4)
     slots = list(
-        PickupSlot.objects.filter(pickup_point__is_active=True, day__gte=timezone.localdate())
+        PickupSlot.objects.filter(
+            pickup_point__is_active=True,
+            day__gte=timezone.localdate(),
+            day__range=(menu.week_start, week_end),
+        )
         .select_related("pickup_point")
         .order_by("day", "start_time")
     )
@@ -80,7 +87,8 @@ def checkout(request):
         messages.error(request, "Your cart is empty.")
         return redirect("orders:cart")
 
-    slots = get_open_slots()
+    # Pickup happens in the same week as the menu the meals come from.
+    slots = get_open_slots(lines[0]["menu_item"].weekly_menu)
 
     if request.method == "POST":
         slot_id = request.POST.get("pickup_slot", "")
@@ -219,6 +227,7 @@ def cart_detail(request):
     for item in suggestions:
         item.price_dollars = f"{item.meal.price_cents / 100:.2f}"
         item.stock_left = item.quantity_available - item.quantity_sold
+    mark_allergens(suggestions, get_profile(request.user))
     return render(request, "orders/cart.html", {
         "lines": lines,
         "total_dollars": f"{total_cents / 100:.2f}",

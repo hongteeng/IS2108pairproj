@@ -39,7 +39,7 @@ REVIEW_COMMENTS = {
 
 
 class Command(BaseCommand):
-    help = "Add demo customers, orders, tickets and reviews. Run /dashboard/seed/ first."
+    help = "Add demo customers, orders, tickets and reviews. Reset demo data on the staff dashboard first."
 
     def add_arguments(self, parser):
         parser.add_argument("--customers", type=int, default=30)
@@ -51,7 +51,7 @@ class Command(BaseCommand):
         slots = list(PickupSlot.objects.filter(pickup_point__is_active=True))
         menu_items = list(menu.items.select_related("meal")) if menu else []
         if not menu_items or not slots:
-            raise CommandError("No menu or pickup slots yet. Open /dashboard/seed/ as staff first.")
+            raise CommandError("No menu or pickup slots yet. Click Reset demo data on the staff dashboard first.")
 
         customers = self.make_customers(options["customers"])
         orders = self.make_orders(customers, slots, menu_items, options["orders"])

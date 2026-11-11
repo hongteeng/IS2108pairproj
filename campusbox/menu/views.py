@@ -12,9 +12,11 @@ from datetime import date, timedelta
 from orders.models import Order, OrderItem, PickupPoint, PickupSlot
 from django.utils.text import slugify
 
-#views.py holds functions that run when someone vists an address
 def seed(request): #seed is a batch of starting data for empty database, 
     #for demo n testing. fake starting data
+    # Only a POST from the dashboard button can wipe data, never just visiting the URL.
+    if request.method != "POST":
+        return redirect("dashboard:home")
     OrderItem.objects.all().delete()
     Order.objects.all().delete()
     MenuItem.objects.all().delete()

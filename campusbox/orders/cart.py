@@ -29,6 +29,7 @@ def get_cart_lines(request):
     cart = get_cart(request)
     menu_items = MenuItem.objects.filter(
         id__in=cart.keys(),
+        meal__is_active=True,
     ).select_related("meal", "weekly_menu")
     items_by_id = {str(item.id): item for item in menu_items}
     lines = []
