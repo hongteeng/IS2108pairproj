@@ -21,7 +21,7 @@ def index(request):
                 weekly_menu=menu,
                 meal__is_active=True,
                 quantity_sold__lt=F("quantity_available"),
-            ).select_related("meal").order_by("-quantity_sold", "meal__name")[:3]
+            ).select_related("meal").order_by("-quantity_sold", "meal__name")[:8]
         )
         for item in popular_meals:
             item.price_dollars = f"{item.meal.price_cents / 100:.2f}"
@@ -31,7 +31,7 @@ def index(request):
         "ordering_open": ordering_open(menu),
         "menu_dates": menu_dates,
         "order_deadline": order_deadline,
-        "popular_meals": popular_meals,
+        "popular_meals": popular_meals[:4],
         "recommended_category_id": None,
     }
     if request.user.is_authenticated:
@@ -58,15 +58,19 @@ def index(request):
                     quantity_sold__lt=F("quantity_available"),
                 ).exclude(
                     meal__allergens__in=profile.allergies.all(),
-                ).select_related("meal")[:3]
+                ).select_related("meal")[:4]
             )
             for item in picked_for_you:
                 item.price_dollars = f"{item.meal.price_cents / 100:.2f}"
                 item.stock_left = item.quantity_available - item.quantity_sold
+        # Don't repeat meals that are already in Picked for you.
+        picked_ids = {item.id for item in picked_for_you}
+        popular_meals = [item for item in popular_meals if item.id not in picked_ids][:4]
         mark_allergens(popular_meals + picked_for_you, profile)
         context.update({
             "next_order": next_order,
             "picked_for_you": picked_for_you,
+            "popular_meals": popular_meals,
             "recommended_category_id": profile.predicted_category_id if profile else None,
         })
     return render(request, 'index.html', context)
