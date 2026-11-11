@@ -36,6 +36,21 @@
     .navbar .nav-link.active { color: #198754; font-weight: 700; }
     .list-group-item.active { background-color: #198754; border-color: #198754; }
     .navbar .nav-link, .navbar .btn { white-space: nowrap; }
+    html { scroll-behavior: smooth; }
+    /* Category bar on the menu page stays at the top while scrolling */
+    .menu-jump {
+      position: sticky;
+      top: 0.75rem;
+      z-index: 10;
+      background: #fff;
+      border-radius: 0.75rem;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+      padding: 0.5rem 0.75rem;
+      margin-bottom: 0.5rem;
+      overflow-x: auto;
+      white-space: nowrap;
+    }
+    h2[id] { scroll-margin-top: 5rem; }
   </style>
 </head>
 <body>

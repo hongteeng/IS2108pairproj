@@ -91,8 +91,7 @@
   </div>
 </div>
 
-<p class="mb-3">
-<div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+<div class="d-flex flex-wrap align-items-center gap-2 mb-2">
   <span>Showing {{ items|length }} of {{ total_count }} meals{% if selected_q %} for “{{ selected_q }}”{% endif %}</span>
   {% if recommended_category_name %}<span class="text-success">· {{ recommended_category_name }} shown first</span>{% endif %}
   {% if hide_profile_allergens %}<span class="text-muted">· Your allergens hidden</span>{% endif %}
@@ -109,8 +108,17 @@
 
 {% if items %}
   {% regroup items by meal.category.name as category_groups %}
+  {% if category_groups|length > 1 %}
+    <nav class="menu-jump d-flex align-items-center gap-2" aria-label="Jump to category">
+      <span class="small fw-semibold">Jump to:</span>
+      {% for group in category_groups %}
+        <a href="#{{ group.grouper|slugify }}" class="btn btn-sm btn-outline-success">{{ group.grouper }}</a>
+      {% endfor %}
+      <a href="#" class="btn btn-sm btn-light text-success border-success ms-auto">↑ Top</a>
+    </nav>
+  {% endif %}
   {% for category_group in category_groups %}
-    <h2 class="h4 mt-4">{{ category_group.grouper }} <small class="text-muted">({{ category_group.list|length }} meal{{ category_group.list|length|pluralize }})</small></h2>
+    <h2 id="{{ category_group.grouper|slugify }}" class="h4 mt-4">{{ category_group.grouper }} <small class="text-muted">({{ category_group.list|length }} meal{{ category_group.list|length|pluralize }})</small></h2>
     <div class="row g-4">
       {% for item in category_group.list %}
         {% include "menu/meal_card.html" %}
