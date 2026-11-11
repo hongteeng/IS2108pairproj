@@ -1,15 +1,16 @@
 import math
 
 from django.db.models import Avg, Case, Q, When
-from django.http import HttpResponse
-from django.shortcuts import get_object_or_404, render
+from django.contrib import messages
+from django.shortcuts import get_object_or_404, redirect, render
 from accounts.models import CustomerProfile
-from accounts.services import predict_preferred_category
+from accounts.services import get_profile, mark_allergens
 from ml.services.suggestions import suggest_for_meals
 from .models import MealCategory, DietaryTag, Allergen, Meal, WeeklyMenu, MenuItem
-from .utils import menu_labels
+from .utils import current_menu, menu_labels, ordering_open
 from datetime import date, timedelta
 from orders.models import Order, OrderItem, PickupPoint, PickupSlot
+from django.utils.text import slugify
 
 #views.py holds functions that run when someone vists an address
 def seed(request): #seed is a batch of starting data for empty database, 
@@ -19,23 +20,18 @@ def seed(request): #seed is a batch of starting data for empty database,
     MenuItem.objects.all().delete()
     WeeklyMenu.objects.all().delete()
     Meal.objects.all().delete()
-    MealCategory.objects.all().delete()
-    DietaryTag.objects.all().delete()
-    Allergen.objects.all().delete()
     PickupSlot.objects.all().delete()
     PickupPoint.objects.all().delete()
-
+    
+    # Reuse existing categories, tags and allergens so students' quiz answers stay linked.
     for name in ["High-Protein", "Asian Rice Bowls", "Vegetarian", "Low-Carb", "Western", "Comfort"]:
-        category = MealCategory(name=name)
-        category.save()
+        MealCategory.objects.get_or_create(name=name)
 
     for name in ["halal", "vegetarian", "vegan", "high-protein"]:
-        tag = DietaryTag(name=name)
-        tag.save()
+        DietaryTag.objects.get_or_create(name=name)
 
     for name in ["nuts", "dairy", "shellfish", "gluten", "egg", "fish", "soy"]:
-        allergen = Allergen(name=name)
-        allergen.save()
+        Allergen.objects.get_or_create(name=name)
 
     meals = [
         ["Chicken Rice Box", "Steamed chicken, rice, cucumber", 650, 520, 35, 70, 12, "Asian Rice Bowls", ["halal"], ["soy"]],
@@ -69,7 +65,7 @@ def seed(request): #seed is a batch of starting data for empty database,
             protein_g=m[4],
             carbs_g=m[5],
             fat_g=m[6],
-            image_url="https://via.placeholder.com/300",
+            image_url="/static/menu/meals/" + slugify(m[0]) + ".jpg",
             category=MealCategory.objects.get(name=m[7]),
             is_active=True,
         )
@@ -99,13 +95,14 @@ def seed(request): #seed is a batch of starting data for empty database,
         slot = PickupSlot(pickup_point=point, day=s[0], start_time=s[1], end_time=s[2], capacity=20)
         slot.save()
 
-    return HttpResponse("Seeded " + str(Meal.objects.count()) + " meals")
+    messages.success(request, "Seeded " + str(Meal.objects.count()) + " meals.")
+    return redirect("dashboard:home")
 
 
 def weekly_menu(request):
-    """Display the latest weekly menu and its active meals."""
+    """Display the current weekly menu and its active meals."""
 
-    menu = WeeklyMenu.objects.order_by('-week_start').first()
+    menu = current_menu()
     menu_dates, order_deadline = menu_labels(menu)
     categories = MealCategory.objects.order_by('name')
     tags = DietaryTag.objects.order_by('name')
@@ -117,23 +114,17 @@ def weekly_menu(request):
     hide_profile_allergens = False
     recommended_category_id = None
     recommended_category_name = None
-    if request.user.is_authenticated:
-        recommendation_profile = CustomerProfile.objects.filter(
-            user=request.user,
-        ).select_related('predicted_category').first()
-        if recommendation_profile and recommendation_profile.predicted_category is None:
-            # Re-run the model if the category was cleared (e.g. after re-seeding).
-            recommendation_profile.predicted_category = predict_preferred_category(recommendation_profile)
-            recommendation_profile.save(update_fields=['predicted_category'])
-        if recommendation_profile and recommendation_profile.predicted_category:
-            recommended_category_id = recommendation_profile.predicted_category_id
-            recommended_category_name = recommendation_profile.predicted_category.name
-    # Pre-hide the student's allergens until they submit the filter form themselves.
-    if request.user.is_authenticated and 'filtered' not in request.GET:
-        profile = CustomerProfile.objects.filter(user=request.user).first()
-        if profile:
-            avoid = [str(allergen_id) for allergen_id in profile.allergies.values_list('id', flat=True)]
-            hide_profile_allergens = bool(avoid)  # only show the note if they have allergies
+    profile = get_profile(request.user) if request.user.is_authenticated else None
+    if profile and profile.predicted_category:
+        recommended_category_id = profile.predicted_category_id
+        recommended_category_name = profile.predicted_category.name
+    # Pre-hide the student's allergens until they submit the filter form themselves,
+    # and once right after logging in, on top of any filters chosen before.
+    just_logged_in = request.session.pop('apply_allergens', False)
+    if profile and ('filtered' not in request.GET or just_logged_in):
+        saved = [str(allergen_id) for allergen_id in profile.allergies.values_list('id', flat=True)]
+        avoid = list(dict.fromkeys(avoid + saved))  # merge, no duplicates
+        hide_profile_allergens = bool(saved)  # only show the note if they have allergies
     max_price = request.GET.get('max_price', '')
     max_calories = request.GET.get('max_calories', '')
     min_protein = request.GET.get('min_protein', '')
@@ -148,7 +139,7 @@ def weekly_menu(request):
     else:
         active_items = menu.items.filter(
             meal__is_active=True,
-        ).select_related('meal', 'meal__category')
+        ).select_related('meal', 'meal__category').prefetch_related('meal__allergens')
         active_item_list = list(active_items)
         total_count = len(active_item_list)
         if active_item_list:
@@ -198,7 +189,8 @@ def weekly_menu(request):
         for item in items:
             item.price_dollars = f"{item.meal.price_cents / 100:.2f}"
             item.stock_left = item.quantity_available - item.quantity_sold
-
+            
+    mark_allergens(items, profile)
     return render(request, 'menu/weekly_menu.html', {
         'menu': menu,
         'menu_dates': menu_dates,
@@ -225,6 +217,7 @@ def weekly_menu(request):
         'hide_profile_allergens': hide_profile_allergens,
         'recommended_category_id': recommended_category_id,
         'recommended_category_name': recommended_category_name,
+        'ordering_open': ordering_open(menu),
     })
 
 
@@ -237,7 +230,7 @@ def meal_detail(request, meal_id):
         id=meal_id,
         is_active=True,
     )
-    menu = WeeklyMenu.objects.order_by('-week_start').first()
+    menu = current_menu()
     menu_item = None
     if menu:
         menu_item = menu.items.filter(meal=meal).first()
@@ -266,6 +259,8 @@ def meal_detail(request, meal_id):
     for item in suggestions:
         item.price_dollars = f"{item.meal.price_cents / 100:.2f}"
         item.stock_left = item.quantity_available - item.quantity_sold
+        
+    mark_allergens(suggestions, get_profile(request.user) if request.user.is_authenticated else None)
 
     return render(request, 'menu/meal_detail.html', {
         'meal': meal,
@@ -280,4 +275,5 @@ def meal_detail(request, meal_id):
         'review_count': review_count,
         'can_review': can_review,
         'suggestions': suggestions,
+        'ordering_open': ordering_open(menu),
     })

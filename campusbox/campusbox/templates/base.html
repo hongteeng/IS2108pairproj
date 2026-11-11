@@ -10,9 +10,6 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
-    body {
-      background: #f7f9f6;
-    }
     .card {
       border: 0;
       border-radius: 1rem;
@@ -21,11 +18,8 @@
     .btn {
       border-radius: .6rem;
     }
-    .navbar {
-      background: white;
-      border-bottom: 1px solid #198754;
-    }
     body {
+      background: #f7f9f6;
       font-family: "Plus Jakarta Sans", system-ui, sans-serif;
       font-weight: 500;
     }
@@ -36,20 +30,42 @@
       --bs-link-hover-color-rgb: 20, 108, 67;
     }
     a { text-decoration: none; }
-    a:hover { text-decoration: none; }
     a:not(.btn):not(.nav-link):not(.navbar-brand) { font-weight: 600; }
     .card-link { transition: transform .15s, box-shadow .15s; }
     .card-link:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,0,0,.10); }
     .navbar .nav-link.active { color: #198754; font-weight: 700; }
+    .navbar .nav-link:hover { color: #198754; }
     .list-group-item.active { background-color: #198754; border-color: #198754; }
+    .navbar .nav-link, .navbar .btn { white-space: nowrap; }
+    html { scroll-behavior: smooth; }
+    /* Category bar on the menu page stays at the top while scrolling */
+    .menu-jump {
+      position: sticky;
+      top: 0.75rem;
+      z-index: 10;
+      background: #fff;
+      border-radius: 0.75rem;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+      padding: 0.5rem 0.75rem;
+      margin-bottom: 0.5rem;
+      overflow-x: auto;
+      white-space: nowrap;
+    }
+    h2[id] { scroll-margin-top: 5rem; }
+    /* Green focus ring and ticked boxes instead of Bootstrap's blue */
+    .form-control:focus, .form-select:focus, .form-check-input:focus {
+      border-color: #75b798;
+      box-shadow: 0 0 0 .25rem rgba(25, 135, 84, .25);
+    }
+    .form-check-input:checked { background-color: #198754; border-color: #198754; }
   </style>
 </head>
 <body>
   {# Navbar: page links on the left, cart and account on the right #}
   <nav class="navbar navbar-expand bg-body-tertiary border-bottom">
     <div class="container">
-      <a class="navbar-brand fw-bold text-success" href="{% if user.is_staff %}{% url 'dashboard:home' %}{% else %}{% url 'index' %}{% endif %}">CampusBox</a>
-      <ul class="navbar-nav me-auto">
+      <a class="navbar-brand text-success" href="{% if user.is_staff %}{% url 'dashboard:home' %}{% else %}{% url 'index' %}{% endif %}">CampusBox</a>
+      <ul class="navbar-nav me-auto flex-wrap">
         {% if user.is_staff %}
           <li class="nav-item">
             <a class="nav-link {% if request.resolver_match.app_name == 'dashboard' %}active{% endif %}" href="{% url 'dashboard:home' %}"{% if request.resolver_match.app_name == 'dashboard' %} aria-current="page"{% endif %}>Staff panel</a>
@@ -91,8 +107,8 @@
             <button type="submit" class="btn btn-outline-secondary btn-sm">Log out</button>
           </form>
         {% else %}
-          <a class="btn btn-outline-secondary btn-sm" href="{% url 'accounts:login' %}">Log in</a>
-          <a class="btn btn-success btn-sm" href="{% url 'accounts:register' %}">Register</a>
+          <a class="nav-link {% if request.resolver_match.url_name == 'login' %}active{% endif %}" href="{% url 'accounts:login' %}{% if request.resolver_match.app_name != 'accounts' %}?next={{ request.get_full_path|urlencode }}{% endif %}">Log in</a>
+          <a class="btn btn-success btn-sm" href="{% url 'accounts:register' %}">Sign up</a>
         {% endif %}
       </div>
     </div>
@@ -101,7 +117,7 @@
   <main class="container py-4">
     {# Messages like "Added to your cart" #}
     {% for message in messages %}
-      <div class="alert {% if message.tags == 'error' %}alert-danger{% else %}alert-success{% endif %}">{{ message }}</div>
+      <div class="alert {% if message.tags == 'error' %}alert-danger{% elif message.tags == 'info' %}alert-info{% else %}alert-success{% endif %}">{{ message }}</div>
     {% endfor %}
     {% block content %}{% endblock %}
   </main>

@@ -1,5 +1,6 @@
 from django import forms
 from django.contrib.auth.models import User
+from django.contrib.auth.password_validation import validate_password
 
 from .models import CustomerProfile
 
@@ -9,7 +10,9 @@ class RegisterForm(forms.Form):
 
     username = forms.CharField(max_length=50,
                                widget=forms.TextInput(attrs={'class': 'form-control'}))
+    email = forms.EmailField(widget=forms.EmailInput(attrs={'class': 'form-control'}))
     password = forms.CharField(min_length=8,
+                               help_text='At least 8 characters. Not all numbers or a common password.',
                                widget=forms.PasswordInput(attrs={'class': 'form-control'}))
     confirm_password = forms.CharField(label='Confirm password',
                                        widget=forms.PasswordInput(attrs={'class': 'form-control'}))
@@ -17,14 +20,30 @@ class RegisterForm(forms.Form):
     def clean_username(self):
         """Reject usernames that are already taken."""
         username = self.cleaned_data['username']
-        if User.objects.filter(username=username).exists():
+        if User.objects.filter(username__iexact=username).exists():
             raise forms.ValidationError('This username is already taken.')
         return username
+
+    def clean_email(self):
+        """Reject email addresses that are already registered."""
+        email = self.cleaned_data['email']
+        if User.objects.filter(email__iexact=email).exists():
+            raise forms.ValidationError('An account with this email already exists.')
+        return email
+    
+    def clean_password(self):
+        """Apply the password rules from settings (too common, all numbers)."""
+        password = self.cleaned_data['password']
+        validate_password(password)
+        return password
+
 
     def clean(self):
         """Check that both passwords match."""
         cleaned_data = super().clean()
-        if cleaned_data.get('password') != cleaned_data.get('confirm_password'):
+        password = cleaned_data.get('password')
+        confirm = cleaned_data.get('confirm_password')
+        if password and confirm and password != confirm:
             raise forms.ValidationError('Passwords do not match.')
         return cleaned_data
 

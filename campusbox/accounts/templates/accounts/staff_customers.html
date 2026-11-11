@@ -1,6 +1,5 @@
 {% extends "staff_base.html" %}
 {% load money %}
-{% block title %}Customers · CampusBox{% endblock %}
 {% block staff_content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h1 class="h3 mb-0">Customers</h1>
@@ -27,7 +26,7 @@
         <th>Goal</th>
         <th>Predicted</th>
         <th>Orders</th>
-        <th>Spent ($)</th>
+        <th>Spent</th>
         <th></th>
       </tr>
     </thead>
@@ -36,7 +35,7 @@
         <tr>
           <td>{{ customer.username }}</td>
           <td>{{ customer.email }}</td>
-          <td>{{ customer.date_joined|date:"j M Y" }}</td>
+          <td class="text-nowrap">{{ customer.date_joined|date:"j M Y" }}</td>
           <td>{% if customer.profile %}{{ customer.profile.get_diet_display }}{% else %}—{% endif %}</td>
           <td>{% if customer.profile %}{{ customer.profile.get_fitness_goal_display }}{% else %}—{% endif %}</td>
           <td>{% if customer.profile.predicted_category %}{{ customer.profile.predicted_category.name }}{% else %}—{% endif %}</td>
@@ -45,7 +44,7 @@
           <td><div class="d-flex gap-2"><a href="{% url 'dashboard:customer_detail' customer.id %}" class="btn btn-sm btn-outline-success">View</a></div></td>
         </tr>
       {% empty %}
-        <tr><td colspan="9">No customers found.</td></tr>
+        <tr><td colspan="9" class="text-center text-muted py-4">No customers found.</td></tr>
       {% endfor %}
     </tbody>
   </table>

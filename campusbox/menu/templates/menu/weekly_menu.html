@@ -9,7 +9,7 @@
   {% endif %}
 </h1>
 {% if menu %}
-  <p class="small text-muted">Order by <strong>{{ order_deadline }}</strong></p>
+  <p class="small text-muted">{% if ordering_open %}Order by <strong>{{ order_deadline }}</strong>{% else %}Ordering closed on <strong>{{ order_deadline }}</strong>. Next week’s menu isn’t up yet.{% endif %}</p>
 {% endif %}
 
 <div class="card mb-4">
@@ -17,11 +17,11 @@
     <form method="get" action="{% url 'menu:weekly_menu' %}">
       <input type="hidden" name="filtered" value="1">
       <div class="row g-2 align-items-end">
-        <div class="col-md-5">
+        <div class="col-12 col-lg">
           <label class="form-label" for="q">Search</label>
           <input type="text" name="q" id="q" value="{{ selected_q }}" placeholder="Search meals, e.g. chicken" class="form-control">
         </div>
-        <div class="col-md-3">
+        <div class="col-md col-lg-3">
           <label class="form-label" for="category">Category</label>
           <select class="form-select" name="category" id="category">
             <option value="">All categories</option>
@@ -30,7 +30,7 @@
             {% endfor %}
           </select>
         </div>
-        <div class="col-md-2">
+        <div class="col-md col-lg-2">
           <label class="form-label" for="diet">Diet</label>
           <select class="form-select" name="diet" id="diet">
             <option value="">All diets</option>
@@ -39,9 +39,10 @@
             {% endfor %}
           </select>
         </div>
-        <div class="col-md-2">
+        <div class="col-md-auto">
+          {# Buttons take only the width they need, so they never overflow #}
           <div class="d-flex gap-2">
-            <button type="submit" class="btn btn-success flex-fill">Filter</button>
+            <button type="submit" class="btn btn-success">Filter</button>
             <a href="{% url 'menu:weekly_menu' %}" class="btn btn-outline-secondary">Clear</a>
           </div>
         </div>
@@ -90,36 +91,42 @@
   </div>
 </div>
 
-<p class="mb-3">
-  Showing {{ items|length }} of {{ total_count }} meals
-  {% if selected_q %} · Results for “{{ selected_q }}”{% endif %}
-</p>
-
-{% if hide_profile_allergens %}
-  <p class="small text-muted">
-    Hiding meals with your allergens ·
-    <a href="{% url 'menu:weekly_menu' %}?filtered=1">Show all meals</a> ·
-    <a href="{% url 'accounts:quiz' %}">Update your allergies</a>
-  </p>
-{% endif %}
-
-{% if recommended_category_name %}
-  <p class="small text-success">
-    Showing {{ recommended_category_name }} first, based on your taste quiz ·
-    <a href="{% url 'accounts:quiz' %}" class="text-success">Update your answers</a>
-  </p>
-{% endif %}
+<div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+  <span>Showing {{ items|length }} of {{ total_count }} meals{% if selected_q %} for “{{ selected_q }}”{% endif %}</span>
+  {% if recommended_category_name %}<span class="text-success">· {{ recommended_category_name }} shown first</span>{% endif %}
+  {% if hide_profile_allergens %}<span class="text-muted">· Your allergens hidden</span>{% endif %}
+  {# Actions sit on the right on wider screens #}
+  <div class="d-flex gap-2 ms-md-auto">
+    {% if hide_profile_allergens %}
+      <a href="{% url 'menu:weekly_menu' %}?filtered=1" class="btn btn-sm btn-outline-secondary">Show all meals</a>
+    {% endif %}
+    {% if recommended_category_name or hide_profile_allergens %}
+      <a href="{% url 'accounts:quiz' %}" class="btn btn-sm btn-outline-success">Edit preferences</a>
+    {% endif %}
+  </div>
+</div>
 
 {% if items %}
   {% regroup items by meal.category.name as category_groups %}
+  {% if category_groups|length > 1 %}
+    <nav class="menu-jump d-flex align-items-center gap-2" aria-label="Jump to category">
+      <span class="small fw-semibold">Jump to:</span>
+      {% for group in category_groups %}
+        <a href="#{{ group.grouper|slugify }}" class="btn btn-sm btn-outline-success">{{ group.grouper }}</a>
+      {% endfor %}
+      <a href="#" class="btn btn-sm btn-light text-success border-success ms-auto">↑ Top</a>
+    </nav>
+  {% endif %}
   {% for category_group in category_groups %}
-    <h2 class="h4 mt-4">{{ category_group.grouper }} <small class="text-muted">({{ category_group.list|length }} meals)</small></h2>
+    <h2 id="{{ category_group.grouper|slugify }}" class="h4 mt-4">{{ category_group.grouper }} <small class="text-muted">({{ category_group.list|length }} meal{{ category_group.list|length|pluralize }})</small></h2>
     <div class="row g-4">
       {% for item in category_group.list %}
         {% include "menu/meal_card.html" %}
       {% endfor %}
     </div>
   {% endfor %}
+{% elif total_count %}
+  <p>No meals match your filters. Try removing some.</p>
 {% else %}
   <p>No meals are available on the weekly menu yet. Please check back soon.</p>
 {% endif %}

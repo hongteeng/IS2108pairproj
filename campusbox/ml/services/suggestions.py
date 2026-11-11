@@ -4,7 +4,8 @@ import joblib
 from django.conf import settings
 from django.db.models import Case, F, IntegerField, When
 
-from menu.models import MenuItem, WeeklyMenu
+from menu.models import MenuItem
+from menu.utils import current_menu
 
 
 MODEL_PATH = settings.BASE_DIR / "ml" / "trained_models" / "meal_suggestions.joblib"
@@ -28,8 +29,8 @@ def suggest_for_meals(meal_names, exclude_names=(), limit=3):
                 suggested_names.append(suggested_name)
 
     suggested_names = suggested_names[:limit]
-    latest_menu = WeeklyMenu.objects.order_by("-week_start").first()
-    if not latest_menu or not suggested_names:
+    menu = current_menu()
+    if not menu or not suggested_names:
         return MenuItem.objects.none()
 
     ordering = Case(
@@ -41,7 +42,7 @@ def suggest_for_meals(meal_names, exclude_names=(), limit=3):
     )
     return (
         MenuItem.objects.filter(
-            weekly_menu=latest_menu,
+            weekly_menu=menu,
             meal__is_active=True,
             meal__name__in=suggested_names,
             quantity_sold__lt=F("quantity_available"),

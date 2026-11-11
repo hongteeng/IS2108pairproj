@@ -65,7 +65,7 @@
       <div class="card">
         <div class="card-body">
           <h2 class="h5">Order summary</h2>
-          <p class="d-flex justify-content-between mb-1"><span>Meals</span><span>{{ lines|length }} item{{ lines|length|pluralize }}</span></p>
+          <p class="d-flex justify-content-between mb-1"><span>Meals</span><span>{{ cart_count }} item{{ cart_count|pluralize }}</span></p>
           <p class="d-flex justify-content-between fw-bold"><span>Total</span><span>${{ total_dollars }}</span></p>
           <a href="{% url 'orders:checkout' %}" class="btn btn-success w-100 mb-2">Checkout</a>
           <a href="{% url 'menu:weekly_menu' %}" class="btn btn-outline-secondary w-100">Keep browsing</a>
@@ -74,7 +74,11 @@
     </div>
   </div>
 {% else %}
-  <p>Your cart is empty.</p>
-  <a href="{% url 'menu:weekly_menu' %}" class="btn btn-success">Browse the menu</a>
+  <div class="card">
+    <div class="card-body">
+      <p>Your cart is empty.</p>
+      <a href="{% url 'menu:weekly_menu' %}" class="btn btn-success">Browse the menu</a>
+    </div>
+  </div>
 {% endif %}
 {% endblock %}

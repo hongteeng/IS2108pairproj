@@ -1,10 +1,9 @@
 from django.db.models import F
 from django.shortcuts import redirect, render
 
-from accounts.models import CustomerProfile
-from accounts.services import predict_preferred_category
-from menu.models import MenuItem, WeeklyMenu
-from menu.utils import menu_labels
+from accounts.services import get_profile, mark_allergens
+from menu.models import MenuItem
+from menu.utils import current_menu, menu_labels, ordering_open
 from orders.models import Order
 
 
@@ -12,7 +11,7 @@ def index(request):
     # Staff don’t use the storefront home page.
     if request.user.is_authenticated and request.user.is_staff:
         return redirect("dashboard:home")
-    menu = WeeklyMenu.objects.order_by("-week_start").first()
+    menu = current_menu()
     menu_dates, order_deadline = menu_labels(menu)
     popular_meals = []
     if menu:
@@ -28,8 +27,7 @@ def index(request):
             item.stock_left = item.quantity_available - item.quantity_sold
 
     context = {
-        "order_cutoff": menu.order_cutoff if menu else None,
-        "menu_week_start": menu.week_start if menu else None,
+        "ordering_open": ordering_open(menu),
         "menu_dates": menu_dates,
         "order_deadline": order_deadline,
         "popular_meals": popular_meals,
@@ -39,15 +37,11 @@ def index(request):
         next_order = Order.objects.filter(
             user=request.user,
             status__in=["confirmed", "preparing", "ready"],
-        ).select_related("pickup_slot__pickup_point").order_by("-created_at").first()
+        ).select_related("pickup_slot__pickup_point").order_by(
+            "pickup_slot__day", "pickup_slot__start_time",
+        ).first()
         picked_for_you = []
-        profile = CustomerProfile.objects.filter(
-            user=request.user,
-        ).select_related("predicted_category").first()
-        if profile and profile.predicted_category is None:
-            # Re-run the model if the category was cleared (e.g. after re-seeding).
-            profile.predicted_category = predict_preferred_category(profile)
-            profile.save(update_fields=["predicted_category"])
+        profile = get_profile(request.user)
         if profile and menu:
             picked_for_you = list(
                 MenuItem.objects.filter(
@@ -55,11 +49,14 @@ def index(request):
                     meal__is_active=True,
                     meal__category=profile.predicted_category,
                     quantity_sold__lt=F("quantity_available"),
+                ).exclude(
+                    meal__allergens__in=profile.allergies.all(),
                 ).select_related("meal")[:3]
             )
             for item in picked_for_you:
                 item.price_dollars = f"{item.meal.price_cents / 100:.2f}"
                 item.stock_left = item.quantity_available - item.quantity_sold
+        mark_allergens(popular_meals + picked_for_you, profile)
         context.update({
             "next_order": next_order,
             "picked_for_you": picked_for_you,

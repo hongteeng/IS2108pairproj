@@ -1,15 +1,14 @@
 from django.contrib.auth import authenticate, login as auth_login
-from django.db.models import Count, F, Q, Sum, Value
+from django.db.models import Count, F, Sum, Value
 from django.db.models.functions import Coalesce
-from django.shortcuts import redirect, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from datetime import timedelta
 from accounts.models import CustomerProfile
 from accounts.forms import LoginForm
-from menu.models import Meal
-from .forms import MealForm
 from django.db.models import ProtectedError
 from menu.models import Meal, WeeklyMenu, MenuItem
+from menu.utils import current_menu, menu_labels
 from orders.models import Order, OrderItem, PickupPoint, PickupSlot
 from support.models import SupportTicket
 from .forms import MealForm, WeeklyMenuForm, MenuItemForm, PickupPointForm, PickupSlotForm
@@ -35,7 +34,7 @@ def staff_login(request): #function to authenticate user, runs when visiting /da
     return render(request, 'dashboard/staff_login.html', {'form': form, 'error': error})
 
 def home(request):
-    latest_menu = WeeklyMenu.objects.order_by("-week_start").first()
+    menu = current_menu()
     to_prepare = Order.objects.filter(
         status__in=["confirmed", "preparing"],
     ).count()
@@ -43,8 +42,8 @@ def home(request):
     open_tickets = SupportTicket.objects.filter(status="open").count()
     sold_out = 0
     low_stock = 0
-    if latest_menu:
-        stock_items = MenuItem.objects.filter(weekly_menu=latest_menu).annotate(
+    if menu:
+        stock_items = MenuItem.objects.filter(weekly_menu=menu).annotate(
             stock_remaining=F("quantity_available") - F("quantity_sold"),
         )
         sold_out = stock_items.filter(stock_remaining__lte=0).count()
@@ -101,60 +100,35 @@ def home(request):
     })
 
 def meal_list(request):
-    meals = Meal.objects.all()
+    meals = Meal.objects.select_related('category').order_by('category__name', 'name')
     return render(request, 'dashboard/meal_list.html', {'meals': meals})
-
-def meal_add(request):
-    if request.method == 'POST':
-        form = MealForm(request.POST)
-        if form.is_valid():
-            meal = Meal(
-                name=form.cleaned_data['name'],
-                description=form.cleaned_data['description'],
-                price_cents=form.cleaned_data['price_cents'],
-                calories=form.cleaned_data['calories'],
-                protein_g=form.cleaned_data['protein_g'],
-                carbs_g=form.cleaned_data['carbs_g'],
-                fat_g=form.cleaned_data['fat_g'],
-                image_url=form.cleaned_data['image_url'],
-                category=form.cleaned_data['category'],
-                is_active=form.cleaned_data['is_active'],
-            )
-            meal.save()
-            meal.dietary_tags.set(form.cleaned_data['dietary_tags'])
-            meal.allergens.set(form.cleaned_data['allergens'])
-            return redirect('dashboard:meal_list')
-    else:
-        form = MealForm()
-    return render(request, 'dashboard/meal_form.html', {'form': form, 'title': 'Add meal'})
 
 
 def meal_edit(request, meal_id):
-    meal = Meal.objects.get(pk=meal_id)
+    meal = get_object_or_404(Meal, pk=meal_id)
     if request.method == 'POST':
         form = MealForm(request.POST, instance=meal)
         if form.is_valid():
-            meal.name = form.cleaned_data['name']
-            meal.description = form.cleaned_data['description']
-            meal.price_cents = form.cleaned_data['price_cents']
-            meal.calories = form.cleaned_data['calories']
-            meal.protein_g = form.cleaned_data['protein_g']
-            meal.carbs_g = form.cleaned_data['carbs_g']
-            meal.fat_g = form.cleaned_data['fat_g']
-            meal.image_url = form.cleaned_data['image_url']
-            meal.category = form.cleaned_data['category']
-            meal.is_active = form.cleaned_data['is_active']
-            meal.save()
-            meal.dietary_tags.set(form.cleaned_data['dietary_tags'])
-            meal.allergens.set(form.cleaned_data['allergens'])
+            form.save()  # updates this meal because the form was given instance=meal
             return redirect('dashboard:meal_list')
     else:
         form = MealForm(instance=meal)
     return render(request, 'dashboard/meal_form.html', {'form': form, 'title': 'Edit meal'})
 
 
+def meal_add(request):
+    if request.method == 'POST':
+        form = MealForm(request.POST)
+        if form.is_valid():
+            form.save()  # saves the meal, its dietary tags and allergens
+            return redirect('dashboard:meal_list')
+    else:
+        form = MealForm()
+    return render(request, 'dashboard/meal_form.html', {'form': form, 'title': 'Add meal'})
+
+
 def meal_delete(request, meal_id):
-    meal = Meal.objects.get(pk=meal_id)
+    meal = get_object_or_404(Meal, pk=meal_id)
     error = None
     if request.method == 'POST':
         try:
@@ -166,7 +140,7 @@ def meal_delete(request, meal_id):
 
 
 def menu_list(request):
-    menus = WeeklyMenu.objects.all()
+    menus = WeeklyMenu.objects.order_by('-week_start')
     return render(request, 'dashboard/menu_list.html', {'menus': menus})
 
 
@@ -174,24 +148,33 @@ def menu_add(request):
     if request.method == 'POST':
         form = WeeklyMenuForm(request.POST)
         if form.is_valid():
-            menu = WeeklyMenu(
-                week_start=form.cleaned_data['week_start'],
-                order_cutoff=form.cleaned_data['order_cutoff'],
-            )
-            menu.save()
+            form.save()
             return redirect('dashboard:menu_list')
     else:
         form = WeeklyMenuForm()
     return render(request, 'dashboard/menu_form.html', {'form': form, 'title': 'New weekly menu'})
 
+
+def menu_edit(request, menu_id):
+    menu = get_object_or_404(WeeklyMenu, pk=menu_id)
+    if request.method == 'POST':
+        form = WeeklyMenuForm(request.POST, instance=menu)
+        if form.is_valid():
+            form.save()
+            return redirect('dashboard:menu_detail', menu_id=menu.id)
+    else:
+        form = WeeklyMenuForm(instance=menu)
+    return render(request, 'dashboard/menu_form.html', {'form': form, 'title': 'Edit weekly menu', 'menu': menu})
+
+
 def menu_detail(request, menu_id):
-    menu = WeeklyMenu.objects.get(pk=menu_id)
+    menu = get_object_or_404(WeeklyMenu, pk=menu_id)
     error = None
     form = MenuItemForm()
 
     if request.method == 'POST':
         if 'remove_id' in request.POST:
-            item = MenuItem.objects.get(pk=request.POST['remove_id'])
+            item = get_object_or_404(MenuItem, pk=request.POST.get('remove_id', ''))
             try:
                 item.delete()
             except ProtectedError:
@@ -213,8 +196,15 @@ def menu_detail(request, menu_id):
                     form = MenuItemForm()
 
     items = menu.items.all()
-    return render(request, 'dashboard/menu_detail.html',
-                  {'menu': menu, 'items': items, 'form': form, 'error': error})
+    menu_dates, order_deadline = menu_labels(menu)
+    return render(request, 'dashboard/menu_detail.html', {
+        'menu': menu,
+        'menu_dates': menu_dates,
+        'order_deadline': order_deadline,
+        'items': items,
+        'form': form,
+        'error': error,
+    })
 
 def pickup_list(request):
     points = PickupPoint.objects.all()
@@ -225,12 +215,7 @@ def pickup_add(request):
     if request.method == 'POST':
         form = PickupPointForm(request.POST)
         if form.is_valid():
-            point = PickupPoint(
-                name=form.cleaned_data['name'],
-                location=form.cleaned_data['location'],
-                is_active=form.cleaned_data['is_active'],
-            )
-            point.save()
+            point = form.save()
             return redirect('dashboard:pickup_detail', point_id=point.id)
     else:
         form = PickupPointForm()
@@ -238,7 +223,7 @@ def pickup_add(request):
 
 
 def pickup_detail(request, point_id):
-    point = PickupPoint.objects.get(pk=point_id)
+    point = get_object_or_404(PickupPoint, pk=point_id)
     error = None
     form = PickupSlotForm()
 
@@ -247,7 +232,7 @@ def pickup_detail(request, point_id):
             point.is_active = not point.is_active
             point.save()
         elif 'remove_id' in request.POST:
-            slot = PickupSlot.objects.get(pk=request.POST['remove_id'])
+            slot = get_object_or_404(PickupSlot, pk=request.POST.get('remove_id', ''))
             try:
                 slot.delete()
             except ProtectedError:
@@ -272,13 +257,34 @@ def pickup_detail(request, point_id):
     return render(request, 'dashboard/pickup_detail.html',
                   {'point': point, 'slots': slots, 'form': form, 'error': error})
 
+ORDER_FILTERS = [
+    ('', 'All'),
+    ('to_prepare', 'To prepare'),
+    ('ready', 'Ready for pickup'),
+    ('collected', 'Collected'),
+    ('cancelled', 'Cancelled'),
+]
+
+
 def order_list(request):
-    orders = Order.objects.all()
-    return render(request, 'dashboard/order_list.html', {'orders': orders})
+    status = request.GET.get('status', '')
+    orders = Order.objects.select_related(
+        'user',
+        'pickup_slot__pickup_point',
+    ).order_by('-created_at')
+    if status == 'to_prepare':
+        orders = orders.filter(status__in=['confirmed', 'preparing'])
+    elif status in ('ready', 'collected', 'cancelled'):
+        orders = orders.filter(status=status)
+    return render(request, 'dashboard/order_list.html', {
+        'orders': orders,
+        'status': status,
+        'filters': ORDER_FILTERS,
+    })
 
 
 def order_detail(request, order_id):
-    order = Order.objects.get(pk=order_id)
+    order = get_object_or_404(Order, pk=order_id)
 
     next_status = None
     next_label = None
@@ -292,7 +298,7 @@ def order_detail(request, order_id):
         next_status = 'collected'
         next_label = 'Mark as collected'
 
-    if request.method == 'POST' and next_status is not None:
+    if request.method == 'POST' and next_status is not None and request.POST.get('from_status') == order.status:
         order.status = next_status
         order.save()
         return redirect('dashboard:order_detail', order_id=order.id)
@@ -305,18 +311,28 @@ def inventory(request):
     error = None
 
     if request.method == 'POST':
-        item = MenuItem.objects.get(pk=request.POST['item_id'])
-        new_quantity = request.POST['quantity']
+        item = get_object_or_404(MenuItem, pk=request.POST.get('item_id', ''))
+        new_quantity = request.POST.get('quantity', '')
         if new_quantity.isdigit() and int(new_quantity) >= item.quantity_sold:
             item.quantity_available = int(new_quantity)
             item.save()
         else:
             error = 'Enter a whole number that is at least the number already sold.'
 
+    current = current_menu()
+    items = MenuItem.objects.none()
+    if current:
+        items = MenuItem.objects.filter(
+            weekly_menu=current,
+        ).select_related(
+            'meal',
+            'weekly_menu',
+        ).order_by('meal__name')
+
     rows = []
     sold_out_count = 0
     low_count = 0
-    for item in MenuItem.objects.all():
+    for item in items:
         left = item.quantity_available - item.quantity_sold
         if left <= 0:
             status = 'Sold out'
@@ -333,4 +349,5 @@ def inventory(request):
         'error': error,
         'sold_out_count': sold_out_count,
         'low_count': low_count,
+        'menu_dates': menu_labels(current)[0],
     })

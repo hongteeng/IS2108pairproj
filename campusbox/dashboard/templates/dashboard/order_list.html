@@ -5,6 +5,11 @@
   <div class="d-flex justify-content-between align-items-center mb-3">
     <h1 class="h3 mb-0">Orders</h1>
   </div>
+  <div class="d-flex flex-wrap gap-2 mb-3">
+    {% for value, label in filters %}
+      <a href="{% url 'dashboard:order_list' %}{% if value %}?status={{ value }}{% endif %}" class="btn btn-sm {% if value == status %}btn-success{% else %}btn-outline-success{% endif %}">{{ label }}</a>
+    {% endfor %}
+  </div>
   <div class="card"><div class="card-body p-0"><div class="table-responsive">
   <table class="table align-middle mb-0">
     <thead>
@@ -25,8 +30,10 @@
           <td>{{ order.pickup_slot.day|date:"D j M" }} {{ order.pickup_slot.start_time|time:"H:i" }}</td>
           <td>{{ order.total_cents|dollars }}</td>
           <td><span class="badge {% if order.status == 'cancelled' %}text-bg-secondary{% else %}text-bg-success{% endif %}">{{ order.get_status_display }}</span></td>
-          <td><div class="d-flex gap-2"><a href="{% url 'dashboard:order_detail' order.id %}" class="btn btn-sm btn-outline-success">Open</a></div></td>
+          <td><div class="d-flex gap-2"><a href="{% url 'dashboard:order_detail' order.id %}" class="btn btn-sm btn-outline-success">View</a></div></td>
         </tr>
+      {% empty %}
+        <tr><td colspan="6" class="text-center text-muted py-4">No orders to show.</td></tr>
       {% endfor %}
     </tbody>
   </table>

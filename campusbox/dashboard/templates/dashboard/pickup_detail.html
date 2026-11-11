@@ -1,5 +1,4 @@
 {% extends "staff_base.html" %}
-{% load money %}
 
 {% block staff_content %}
   <div class="d-flex justify-content-between align-items-center mb-3">
@@ -47,25 +46,25 @@
             </form>
           </td>
         </tr>
+      {% empty %}
+        <tr><td colspan="5" class="text-center text-muted py-4">No pickup slots yet.</td></tr>
       {% endfor %}
     </tbody>
   </table>
   </div></div></div>
 
-  <div class="d-flex justify-content-between align-items-center mt-4 mb-3">
-    <h2 class="h5 mb-0">Add a slot</h2>
-    <button type="submit" form="add-pickup-slot-form" class="btn btn-success">Add slot</button>
-  </div>
+  <h2 class="h5 mt-4 mb-3">Add a slot</h2>
   <div class="card"><div class="card-body">
-  <form method="post" id="add-pickup-slot-form">
+  <form method="post">
     {% csrf_token %}
     {% for field in form %}
       <div class="mb-3">
-        <label class="form-label">{{ field.label }}</label>
+        <label class="form-label"{% if field.id_for_label %} for="{{ field.id_for_label }}"{% endif %}>{{ field.label }}</label>
         {{ field }}
         {% if field.errors %}<div class="text-danger">{{ field.errors }}</div>{% endif %}
       </div>
     {% endfor %}
+    <button type="submit" class="btn btn-success">Add slot</button>
   </form>
   </div></div>
   <a href="{% url 'dashboard:pickup_list' %}" class="btn btn-outline-secondary mt-3">Back to pickup points</a>
