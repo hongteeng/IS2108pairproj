@@ -62,7 +62,7 @@
     <h2 class="h5">Reviews</h2>
     {% for review in reviews %}
       <div class="border-bottom py-2">
-        <strong>{{ review.meal.name }}</strong> · ★ {{ review.rating }} out of 5
+        <strong>{{ review.meal.name }}</strong> · <span class="text-warning">{% for star in "12345"|make_list %}{% if forloop.counter <= review.rating %}★{% else %}☆{% endif %}{% endfor %}</span>
         <span class="badge {% if review.is_hidden %}text-bg-secondary{% else %}text-bg-success{% endif %}">{% if review.is_hidden %}Hidden{% else %}Visible{% endif %}</span>
         <p class="mb-0">{{ review.comment }}</p>
       </div>

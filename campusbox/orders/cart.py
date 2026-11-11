@@ -43,9 +43,8 @@ def get_cart_lines(request):
         lines.append({
             "menu_item": menu_item,
             "quantity": quantity,
-            "price_dollars": f"{menu_item.meal.price_cents / 100:.2f}",
-            "subtotal_dollars": f"{subtotal_cents / 100:.2f}",
-            "stock_left": menu_item.quantity_available - menu_item.quantity_sold,
+            "subtotal_cents": subtotal_cents,
+            "stock_left": menu_item.stock_left,
         })
         total_cents += subtotal_cents
 

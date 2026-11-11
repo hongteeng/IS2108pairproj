@@ -5,7 +5,7 @@ from django.conf import settings
 from django.db.models import Case, F, IntegerField, When
 
 from menu.models import MenuItem
-from menu.utils import current_menu
+from menu.utils import current_menu, with_ratings
 
 
 MODEL_PATH = settings.BASE_DIR / "ml" / "trained_models" / "meal_suggestions.joblib"
@@ -41,12 +41,12 @@ def suggest_for_meals(meal_names, exclude_names=(), limit=3):
         output_field=IntegerField(),
     )
     return (
-        MenuItem.objects.filter(
+        with_ratings(MenuItem.objects.filter(
             weekly_menu=menu,
             meal__is_active=True,
             meal__name__in=suggested_names,
             quantity_sold__lt=F("quantity_available"),
-        )
+        ))
         .select_related("meal")
         .order_by(ordering)
     )

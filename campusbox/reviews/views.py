@@ -1,7 +1,10 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.core.paginator import Paginator
+from django.db.models import Q
 from django.views.decorators.http import require_POST
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils.http import url_has_allowed_host_and_scheme
 
 from menu.models import Meal
 from orders.models import OrderItem
@@ -40,12 +43,33 @@ def add_review(request, meal_id):
     })
 
 
+REVIEW_FILTERS = [("", "All"), ("visible", "Visible"), ("hidden", "Hidden")]
+
+
 def staff_reviews(request):
-    """List all reviews for staff."""
+    """List reviews for staff, with search, a visible/hidden filter and pages."""
     if not request.user.is_staff:
         return redirect("dashboard:staff_login")
-    reviews = Review.objects.select_related("user", "meal").order_by("-created_at")
-    return render(request, "reviews/staff_reviews.html", {"reviews": reviews})
+    status = request.GET.get("status", "")
+    q = request.GET.get("q", "").strip()
+    reviews = Review.objects.select_related("user", "meal").order_by("-created_at", "-id")
+    if status == "visible":
+        reviews = reviews.filter(is_hidden=False)
+    elif status == "hidden":
+        reviews = reviews.filter(is_hidden=True)
+    if q:
+        reviews = reviews.filter(Q(meal__name__icontains=q) | Q(user__username__icontains=q))
+
+    page_obj = Paginator(reviews, 20).get_page(request.GET.get("page"))
+    params = request.GET.copy()
+    params.pop("page", None)  # page links add their own page number
+    return render(request, "reviews/staff_reviews.html", {
+        "page_obj": page_obj,
+        "querystring": params.urlencode(),
+        "status": status,
+        "q": q,
+        "filters": REVIEW_FILTERS,
+    })
 
 
 @require_POST
@@ -58,4 +82,8 @@ def staff_toggle_review(request, review_id):
     review.save()
     message = "Review hidden." if review.is_hidden else "Review shown again."
     messages.success(request, message)
+    # Go back to the same page, search and filter, but only within this site.
+    next_url = request.POST.get("next", "")
+    if url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}):
+        return redirect(next_url)
     return redirect("dashboard:reviews")

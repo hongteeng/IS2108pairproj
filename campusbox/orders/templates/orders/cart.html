@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load money %}
 {% block title %}Your cart · CampusBox{% endblock %}
 {% block content %}
 <h1 class="mb-4">Your cart</h1>
@@ -6,8 +7,8 @@
 {% if lines %}
   <div class="row g-4">
     <div class="col-lg-8">
-      <div class="table-responsive">
-        <table class="table align-middle">
+      <div class="card"><div class="card-body p-0"><div class="table-responsive">
+        <table class="table align-middle mb-0">
           <thead>
             <tr><th>Meal</th><th>Price</th><th>Quantity</th><th class="text-end">Subtotal</th><th></th></tr>
           </thead>
@@ -15,7 +16,7 @@
             {% for line in lines %}
               <tr>
                 <td><a href="{% url 'menu:meal_detail' line.menu_item.meal.id %}">{{ line.menu_item.meal.name }}</a></td>
-                <td>${{ line.price_dollars }}</td>
+                <td>{{ line.menu_item.meal.price_cents|dollars }}</td>
                 <td>
                   <form method="post" action="{% url 'orders:update_cart' line.menu_item.id %}" class="d-flex gap-2">
                     {% csrf_token %}
@@ -23,7 +24,7 @@
                     <button type="submit" class="btn btn-outline-secondary btn-sm">Update</button>
                   </form>
                 </td>
-                <td class="text-end">${{ line.subtotal_dollars }}</td>
+                <td class="text-end">{{ line.subtotal_cents|dollars }}</td>
                 <td class="text-end">
                   {# Remove = set quantity to 0 #}
                   <form method="post" action="{% url 'orders:update_cart' line.menu_item.id %}">
@@ -36,31 +37,37 @@
             {% endfor %}
           </tbody>
         </table>
-      </div>
+      </div></div></div>
+
       {% if suggestions %}
         <h2 class="h5 mt-4">You might also like</h2>
-        <div class="list-group">
-          {% for item in suggestions %}
-            <div class="list-group-item py-3 d-flex justify-content-between align-items-center">
-              <div class="d-flex align-items-center">
-                <img src="{{ item.meal.image_url }}" alt="{{ item.meal.name }}" class="rounded object-fit-cover me-3" width="64" height="48">
-                <div>
-                  <a href="{% url 'menu:meal_detail' item.meal.id %}">{{ item.meal.name }}</a>
-                  <div class="small text-muted">${{ item.price_dollars }} · {{ item.meal.calories }} kcal</div>
-                  <div class="small text-muted">${{ item.price_dollars }} · {{ item.meal.calories }} kcal</div>
-                  {% if item.your_allergens %}
-                    <span class="badge text-bg-danger">Contains {{ item.your_allergens|join:", " }}</span>
-                  {% endif %}
+        <div class="card">
+          <div class="list-group list-group-flush">
+            {% for item in suggestions %}
+              <div class="list-group-item py-3 d-flex justify-content-between align-items-center">
+                <div class="d-flex align-items-center">
+                  <img src="{{ item.meal.image_url }}" alt="{{ item.meal.name }}" class="rounded object-fit-cover me-3" width="64" height="48">
+                  <div>
+                    <a href="{% url 'menu:meal_detail' item.meal.id %}">{{ item.meal.name }}</a>
+                    <div class="small text-muted">
+                      {{ item.meal.price_cents|dollars }}
+                      {% if item.review_count %} · <span class="text-warning">★</span> {{ item.avg_rating|floatformat:1 }} ({{ item.review_count }}){% endif %}
+                      · {{ item.meal.calories }} kcal
+                    </div>
+                    {% if item.your_allergens %}
+                      <span class="badge text-bg-danger">Contains {{ item.your_allergens|join:", "|title }}</span>
+                    {% endif %}
+                  </div>
                 </div>
+                <form method="post" action="{% url 'orders:add_to_cart' item.id %}" class="m-0">
+                  {% csrf_token %}
+                  <input type="hidden" name="quantity" value="1">
+                  <input type="hidden" name="next" value="cart">
+                  <button type="submit" class="btn btn-success btn-sm">Add</button>
+                </form>
               </div>
-              <form method="post" action="{% url 'orders:add_to_cart' item.id %}">
-                {% csrf_token %}
-                <input type="hidden" name="quantity" value="1">
-                <input type="hidden" name="next" value="cart">
-                <button type="submit" class="btn btn-success btn-sm">Add</button>
-              </form>
-            </div>
-          {% endfor %}
+            {% endfor %}
+          </div>
         </div>
       {% endif %}
     </div>
@@ -70,7 +77,7 @@
         <div class="card-body">
           <h2 class="h5">Order summary</h2>
           <p class="d-flex justify-content-between mb-1"><span>Meals</span><span>{{ cart_count }} item{{ cart_count|pluralize }}</span></p>
-          <p class="d-flex justify-content-between fw-bold"><span>Total</span><span>${{ total_dollars }}</span></p>
+          <p class="d-flex justify-content-between fw-bold"><span>Total</span><span>{{ total_cents|dollars }}</span></p>
           <a href="{% url 'orders:checkout' %}" class="btn btn-success w-100 mb-2">Checkout</a>
           <a href="{% url 'menu:weekly_menu' %}" class="btn btn-outline-secondary w-100">Keep browsing</a>
         </div>

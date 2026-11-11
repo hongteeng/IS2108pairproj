@@ -26,7 +26,7 @@ TICKET_MESSAGES = {
 }
 STAFF_REPLIES = {
     "open": "",
-    "resolved": "Sorry about that. We've refunded part of your order.",
+    "resolved": "Sorry about that. We’ve refunded part of your order.",
     "rejected": "We checked with the kitchen and your order was complete.",
 }
 REVIEW_COMMENTS = {

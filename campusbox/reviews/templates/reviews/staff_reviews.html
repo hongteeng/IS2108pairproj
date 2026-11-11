@@ -4,6 +4,23 @@
   <div class="d-flex justify-content-between align-items-center mb-3">
     <h1 class="h3 mb-0">Reviews</h1>
   </div>
+  <div class="card mb-3"><div class="card-body">
+    <form method="get" class="row g-2">
+      {% if status %}<input type="hidden" name="status" value="{{ status }}">{% endif %}
+      <div class="col">
+        <input type="search" name="q" value="{{ q }}" class="form-control" placeholder="Search meal or username">
+      </div>
+      <div class="col-auto">
+        <button type="submit" class="btn btn-success">Search</button>
+        <a href="{% url 'dashboard:reviews' %}" class="btn btn-outline-secondary">Clear</a>
+      </div>
+    </form>
+    <div class="d-flex flex-wrap gap-2 mt-3">
+      {% for value, label in filters %}
+        <a href="{% url 'dashboard:reviews' %}?status={{ value }}{% if q %}&amp;q={{ q|urlencode }}{% endif %}" class="btn btn-sm {% if value == status %}btn-success{% else %}btn-outline-success{% endif %}">{{ label }}</a>
+      {% endfor %}
+    </div>
+  </div></div>
   <div class="card"><div class="card-body p-0"><div class="table-responsive">
   <table class="table align-middle mb-0">
     <thead>
@@ -18,13 +35,13 @@
       </tr>
     </thead>
     <tbody>
-      {% for review in reviews %}
+      {% for review in page_obj %}
         <tr>
           <td>{{ review.meal.name }}</td>
           <td>{{ review.user.username }}</td>
-          <td><span class="text-warning">{% for star in "12345"|make_list %}{% if forloop.counter <= review.rating %}★{% else %}☆{% endif %}{% endfor %}</span></td>
+          <td class="text-nowrap"><span class="text-warning">{% for star in "12345"|make_list %}{% if forloop.counter <= review.rating %}★{% else %}☆{% endif %}{% endfor %}</span></td>
           <td>{{ review.comment }}</td>
-          <td>{{ review.created_at|date:"D j M" }}</td>
+          <td class="text-nowrap">{{ review.created_at|date:"D j M" }}</td>
           <td>
             {% if review.is_hidden %}
               <span class="badge text-bg-secondary">Hidden</span>
@@ -33,8 +50,9 @@
             {% endif %}
           </td>
           <td>
-            <form method="post" action="{% url 'dashboard:review_toggle' review.id %}">
+            <form method="post" action="{% url 'dashboard:review_toggle' review.id %}" class="m-0">
               {% csrf_token %}
+              <input type="hidden" name="next" value="{{ request.get_full_path }}">
               {% if review.is_hidden %}
                 <button type="submit" class="btn btn-outline-secondary btn-sm">Show</button>
               {% else %}
@@ -45,10 +63,11 @@
         </tr>
       {% empty %}
         <tr>
-          <td colspan="7" class="text-center text-muted py-4">No reviews yet.</td>
+          <td colspan="7" class="text-center text-muted py-4">{% if q or status %}No reviews match.{% else %}No reviews yet.{% endif %}</td>
         </tr>
       {% endfor %}
     </tbody>
   </table>
   </div></div></div>
+  {% include "pagination.html" with noun="review" %}
 {% endblock %}

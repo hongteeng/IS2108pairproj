@@ -1,9 +1,10 @@
 {% extends "base.html" %}
+{% load money %}
 {% block title %}{{ meal.name }} · CampusBox{% endblock %}
 {% block content %}
 <div class="row g-4">
   <div class="col-md-6">
-    <div class="ratio ratio-4x3">
+    <div class="ratio ratio-3x2">
       <img src="{{ meal.image_url }}" class="rounded object-fit-cover" alt="{{ meal.name }}">
     </div>
   </div>
@@ -11,7 +12,7 @@
     <p class="text-muted mb-1">{{ category.name }}</p>
     <h1>{{ meal.name }}</h1>
     <p>{{ meal.description }}</p>
-    <p class="h4">${{ price_dollars }}</p>
+    <p class="h4">{{ meal.price_cents|dollars }}</p>
 
     {# Shown only to logged-in students whose allergies match this meal #}
     {% if warning_allergens %}
@@ -93,7 +94,7 @@
   {% if avg_rating is None %}
     <p class="text-muted">No reviews yet.</p>
   {% else %}
-    <p>★ {{ avg_rating }} ({{ review_count }} review{{ review_count|pluralize }})</p>
+    <p><span class="text-warning">★</span> {{ avg_rating }} <span class="text-muted">({{ review_count }} review{{ review_count|pluralize }})</span></p>
   {% endif %}
   {% if can_review %}
     <a href="{% url 'reviews:add_review' meal.id %}" class="btn btn-success btn-sm">Write a review</a>

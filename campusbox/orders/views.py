@@ -11,6 +11,7 @@ from django.db.models import F
 from accounts.services import get_profile, mark_allergens
 from ml.services.suggestions import suggest_for_meals
 from menu.models import MenuItem
+from menu.utils import menu_labels
 from . import cart
 from .models import Order, OrderItem, PickupSlot
 
@@ -99,7 +100,7 @@ def checkout(request):
         elif slot.spaces_left <= 0:
             problem = "That pickup slot is full. Please choose another."
         elif any(line["menu_item"].weekly_menu.order_cutoff < timezone.now() for line in lines):
-            problem = "Ordering for this week's menu has closed."
+            problem = "Ordering for this week’s menu has closed."
         elif any(line["quantity"] > line["stock_left"] for line in lines):
             problem = "Some meals no longer have enough stock. Please update your cart."
 
@@ -117,7 +118,7 @@ def checkout(request):
 
     return render(request, "orders/checkout.html", {
         "lines": lines,
-        "total_dollars": f"{total_cents / 100:.2f}",
+        "total_cents": total_cents,
         "slots": slots,
     })
 
@@ -136,7 +137,7 @@ def order_detail(request, order_id):
         "menu_item__weekly_menu",
     )
     for item in items:
-        item.subtotal_dollars = f"{item.price_at_purchase_cents * item.quantity / 100:.2f}"
+        item.subtotal_cents = item.price_at_purchase_cents * item.quantity
     # Steps up to and including the current status are done.
     tracker = []
     if order.status != "cancelled":
@@ -151,9 +152,9 @@ def order_detail(request, order_id):
     return render(request, "orders/order_detail.html", {
         "order": order,
         "items": items,
-        "total_dollars": f"{order.total_cents / 100:.2f}",
         "tracker": tracker,
         "can_cancel": can_cancel(order, items),
+        "cancel_deadline": menu_labels(items[0].menu_item.weekly_menu)[1] if items else "",
     })
 
 
@@ -190,8 +191,6 @@ def order_history(request):
     orders = request.user.orders.select_related(
         "pickup_slot__pickup_point",
     ).order_by("-created_at")
-    for order in orders:
-        order.total_dollars = f"{order.total_cents / 100:.2f}"
     return render(request, "orders/order_history.html", {"orders": orders})
     
     
@@ -203,13 +202,16 @@ def add_to_cart(request, menu_item_id):
         quantity_text = request.POST.get("quantity", "")
         quantity = int(quantity_text) if quantity_text.isdigit() else 0
         in_cart = cart.get_cart(request).get(str(menu_item.id), 0)
-        stock_left = menu_item.quantity_available - menu_item.quantity_sold
+        stock_left = menu_item.stock_left
         if quantity < 1:
             messages.error(request, "Please choose at least 1.")
         elif menu_item.weekly_menu.order_cutoff < timezone.now():
             messages.error(request, "Ordering for this week’s menu has closed.")
         elif in_cart + quantity > stock_left:
-            messages.error(request, f"Only {stock_left} left, and you already have {in_cart} in your cart.")
+            if in_cart:
+                messages.error(request, f"Only {stock_left} left, and you already have {in_cart} in your cart.")
+            else:
+                messages.error(request, f"Only {stock_left} left.")
         else:
             cart.set_quantity(request, menu_item.id, in_cart + quantity)
             messages.success(request, f"Added {quantity} x {menu_item.meal.name} to your cart.")
@@ -224,13 +226,10 @@ def cart_detail(request):
     lines, total_cents = cart.get_cart_lines(request)
     names = [line["menu_item"].meal.name for line in lines]
     suggestions = suggest_for_meals(names, exclude_names=names)
-    for item in suggestions:
-        item.price_dollars = f"{item.meal.price_cents / 100:.2f}"
-        item.stock_left = item.quantity_available - item.quantity_sold
     mark_allergens(suggestions, get_profile(request.user))
     return render(request, "orders/cart.html", {
         "lines": lines,
-        "total_dollars": f"{total_cents / 100:.2f}",
+        "total_cents": total_cents,
         "suggestions": suggestions,
     })
 
@@ -241,7 +240,7 @@ def update_cart(request, menu_item_id):
     menu_item = get_object_or_404(MenuItem, id=menu_item_id)
     if request.method == "POST":
         quantity_text = request.POST.get("quantity", "")
-        stock_left = menu_item.quantity_available - menu_item.quantity_sold
+        stock_left = menu_item.stock_left
         if not quantity_text.isdigit():
             messages.error(request, "Please enter a whole number.")
         elif int(quantity_text) > stock_left:

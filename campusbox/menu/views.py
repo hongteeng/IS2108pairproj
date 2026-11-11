@@ -3,7 +3,6 @@ import math
 from django.db.models import Avg, Case, Q, When
 from django.contrib import messages
 from django.shortcuts import get_object_or_404, redirect, render
-from accounts.models import CustomerProfile
 from accounts.services import get_profile, mark_allergens
 from ml.services.suggestions import suggest_for_meals
 from .models import MealCategory, DietaryTag, Allergen, Meal, WeeklyMenu, MenuItem
@@ -188,10 +187,6 @@ def weekly_menu(request):
         else:
             items = items.order_by('meal__category__name', 'meal__name')
 
-        for item in items:
-            item.price_dollars = f"{item.meal.price_cents / 100:.2f}"
-            item.stock_left = item.quantity_available - item.quantity_sold
-            
     mark_allergens(items, profile)
     return render(request, 'menu/weekly_menu.html', {
         'menu': menu,
@@ -236,17 +231,14 @@ def meal_detail(request, meal_id):
     menu_item = None
     if menu:
         menu_item = menu.items.filter(meal=meal).first()
-        if menu_item:
-            menu_item.stock_left = menu_item.quantity_available - menu_item.quantity_sold
 
+    profile = get_profile(request.user) if request.user.is_authenticated else None
     warning_allergens = Allergen.objects.none()
-    if request.user.is_authenticated:
-        profile = CustomerProfile.objects.filter(user=request.user).first()
-        if profile:
-            # Only the allergens this student told us about in the quiz.
-            warning_allergens = meal.allergens.filter(
-                id__in=profile.allergies.values('id'),
-            )
+    if profile:
+        # Only the allergens this student told us about in the quiz.
+        warning_allergens = meal.allergens.filter(
+            id__in=profile.allergies.values('id'),
+        )
 
     reviews = meal.reviews.filter(is_hidden=False).select_related('user')
     review_count = reviews.count()
@@ -258,15 +250,10 @@ def meal_detail(request, meal_id):
         menu_item__meal=meal,
     ).exists()
     suggestions = suggest_for_meals([meal.name])
-    for item in suggestions:
-        item.price_dollars = f"{item.meal.price_cents / 100:.2f}"
-        item.stock_left = item.quantity_available - item.quantity_sold
-        
-    mark_allergens(suggestions, get_profile(request.user) if request.user.is_authenticated else None)
+    mark_allergens(suggestions, profile)
 
     return render(request, 'menu/meal_detail.html', {
         'meal': meal,
-        'price_dollars': f"{meal.price_cents / 100:.2f}",
         'category': meal.category,
         'dietary_tags': meal.dietary_tags.all(),
         'allergens': meal.allergens.all(),

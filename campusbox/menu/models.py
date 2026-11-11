@@ -53,6 +53,11 @@ class MenuItem(models.Model): #its a meal with stockcount
     quantity_available = models.IntegerField()
     quantity_sold = models.IntegerField(default=0)
 
+    @property
+    def stock_left(self):
+        """How many can still be ordered."""
+        return self.quantity_available - self.quantity_sold
+
     def __str__(self):
         return self.meal.name + " (" + str(self.weekly_menu) + ")"
 

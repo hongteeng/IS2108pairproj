@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load money %}
 {% block title %}My orders · CampusBox{% endblock %}
 {% block content %}
 <h1 class="mb-4">My orders</h1>
@@ -26,7 +27,7 @@
               {{ order.pickup_slot.day|date:"D j M" }}
               {{ order.pickup_slot.start_time|time:"H:i" }}
             </td>
-            <td>${{ order.total_dollars }}</td>
+            <td>{{ order.total_cents|dollars }}</td>
             <td>
               <span class="badge {% if order.status == 'cancelled' %}text-bg-secondary{% else %}text-bg-success{% endif %}">
                 {{ order.get_status_display }}
