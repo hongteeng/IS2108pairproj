@@ -2,6 +2,7 @@ from decimal import Decimal
 
 from django import forms
 from django.core.validators import MinValueValidator
+from django.utils import timezone
 from django.utils.timezone import localtime
 from menu.models import Meal, WeeklyMenu, MenuItem
 from orders.models import PickupPoint, PickupSlot
@@ -86,6 +87,7 @@ class MenuItemForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields['meal'].queryset = Meal.objects.filter(is_active=True).order_by('name')  # only meals students can buy
         self.fields['quantity_available'].validators.append(MinValueValidator(0))
         self.fields['quantity_available'].widget.attrs['min'] = 0
 
@@ -114,3 +116,18 @@ class PickupSlotForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields['capacity'].validators.append(MinValueValidator(1))
         self.fields['capacity'].widget.attrs['min'] = 1
+
+    def clean(self):
+        """A slot is on a weekday, not in the past, and ends after it starts."""
+        cleaned_data = super().clean()
+        day = cleaned_data.get('day')
+        start_time = cleaned_data.get('start_time')
+        end_time = cleaned_data.get('end_time')
+        if day:
+            if day < timezone.localdate():
+                self.add_error('day', 'Pick today or a later date.')
+            elif day.weekday() > 4:
+                self.add_error('day', 'Pickups run Monday to Friday, like the menu.')
+        if start_time and end_time and end_time <= start_time:
+            self.add_error('end_time', 'The end time must be after the start time.')
+        return cleaned_data

@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load money %}
 {% block title %}Checkout · CampusBox{% endblock %}
 {% block content %}
 <h1 class="mb-4">Checkout</h1>
@@ -27,7 +28,7 @@
 
       <h2 class="h4 mt-4">2. Pay</h2>
       <p class="small text-muted">Payment is simulated for this project. No card is charged.</p>
-      <button type="submit" class="btn btn-success" {% if not slots %}disabled{% endif %}>Pay ${{ total_dollars }}</button>
+      <button type="submit" class="btn btn-success" {% if not slots %}disabled{% endif %}>Pay {{ total_cents|dollars }}</button>
       <a href="{% url 'orders:cart' %}" class="btn btn-outline-secondary">Back to cart</a>
     </form>
     </div></div>
@@ -40,13 +41,13 @@
         {% for line in lines %}
           <div class="d-flex justify-content-between">
             <span>{{ line.quantity }} x {{ line.menu_item.meal.name }}</span>
-            <span>${{ line.subtotal_dollars }}</span>
+            <span>{{ line.subtotal_cents|dollars }}</span>
           </div>
         {% endfor %}
         <hr>
         <div class="d-flex justify-content-between fw-bold">
           <span>Total</span>
-          <span>${{ total_dollars }}</span>
+          <span>{{ total_cents|dollars }}</span>
         </div>
       </div>
     </div>

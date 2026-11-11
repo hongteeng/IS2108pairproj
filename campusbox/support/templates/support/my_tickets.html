@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load money %}
 
 {% block title %}My reports · CampusBox{% endblock %}
 
@@ -29,7 +30,7 @@
         </div>
       {% endif %}
       {% if ticket.refund_amount_cents > 0 %}
-        <p class="text-success mb-0 mt-2">Refund: ${{ ticket.refund_dollars }}</p>
+        <p class="text-success mb-0 mt-2">Refund: {{ ticket.refund_amount_cents|dollars }}</p>
       {% endif %}
       </div>
     </div>

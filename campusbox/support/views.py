@@ -40,8 +40,6 @@ def report_problem(request, order_id):
 def my_tickets(request):
     """List the student's support tickets."""
     tickets = request.user.tickets.select_related("order")
-    for ticket in tickets:
-        ticket.refund_dollars = f"{ticket.refund_amount_cents / 100:.2f}"
     return render(request, "support/my_tickets.html", {"tickets": tickets})
 
 
@@ -100,5 +98,4 @@ def staff_ticket_detail(request, ticket_id):
     return render(request, "support/staff_ticket_detail.html", {
         "ticket": ticket,
         "form": form,
-        "order_total_dollars": f"{ticket.order.total_cents / 100:.2f}",
     })

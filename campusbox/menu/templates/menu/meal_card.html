@@ -1,3 +1,4 @@
+{% load money %}
 <div class="{{ col_class|default:"col-12 col-sm-6 col-md-4 col-lg-3" }}">
   <div class="card card-link h-100">
     <div class="ratio ratio-3x2">
@@ -9,10 +10,10 @@
         <span class="badge text-bg-success align-self-start mb-2">Recommended</span>
       {% endif %}
       {% if item.your_allergens %}
-        <span class="badge text-bg-danger align-self-start mb-2">Contains {{ item.your_allergens|join:", " }}</span>
+        <span class="badge text-bg-danger align-self-start mb-2">Contains {{ item.your_allergens|join:", "|title }}</span>
       {% endif %}
       <p class="card-text mb-1">
-        ${{ item.price_dollars }}
+        {{ item.meal.price_cents|dollars }}
         {% if item.review_count %}
           · <span class="text-warning">★</span> {{ item.avg_rating|floatformat:1 }} <span class="text-muted small">({{ item.review_count }})</span>
         {% endif %}

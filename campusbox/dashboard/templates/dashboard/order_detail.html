@@ -7,8 +7,8 @@
   </div>
   <div class="card mb-3"><div class="card-body">
   <p class="text-muted mb-2">
-    {{ order.user.username }} · {{ order.pickup_slot.pickup_point.name }},
-    {{ order.pickup_slot.day|date:"D j M" }} {{ order.pickup_slot.start_time|time:"H:i" }} to {{ order.pickup_slot.end_time|time:"H:i" }}
+    <a href="{% url 'dashboard:customer_detail' order.user.id %}">{{ order.user.username }}</a> · {{ order.pickup_slot.pickup_point.name }},
+    {{ order.pickup_slot.day|date:"D j M" }} {{ order.pickup_slot.start_time|time:"H:i" }}–{{ order.pickup_slot.end_time|time:"H:i" }}
   </p>
   <p class="mb-0">Status: <span class="badge {% if order.status == 'cancelled' %}text-bg-secondary{% else %}text-bg-success{% endif %}">{{ order.get_status_display }}</span></p>
   </div></div>

@@ -240,19 +240,11 @@ def pickup_detail(request, point_id):
                 error = 'This slot already has orders, so it cannot be removed.'
         else:
             form = PickupSlotForm(request.POST)
-            if form.is_valid():
-                if form.cleaned_data['end_time'] <= form.cleaned_data['start_time']:
-                    error = 'The end time must be after the start time.'
-                else:
-                    slot = PickupSlot(
-                        pickup_point=point,
-                        day=form.cleaned_data['day'],
-                        start_time=form.cleaned_data['start_time'],
-                        end_time=form.cleaned_data['end_time'],
-                        capacity=form.cleaned_data['capacity'],
-                    )
-                    slot.save()
-                    form = PickupSlotForm()
+            if form.is_valid():  # the form checks the day and times
+                slot = form.save(commit=False)
+                slot.pickup_point = point
+                slot.save()
+                form = PickupSlotForm()
 
     slots = point.slots.all()
     return render(request, 'dashboard/pickup_detail.html',

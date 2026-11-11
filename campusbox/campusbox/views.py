@@ -1,5 +1,6 @@
 from django.db.models import F
 from django.shortcuts import redirect, render
+from django.utils import timezone
 
 from accounts.services import get_profile, mark_allergens
 from menu.models import MenuItem
@@ -23,9 +24,6 @@ def index(request):
                 quantity_sold__lt=F("quantity_available"),
             )).select_related("meal").order_by("-quantity_sold", "meal__name")[:8]
         )
-        for item in popular_meals:
-            item.price_dollars = f"{item.meal.price_cents / 100:.2f}"
-            item.stock_left = item.quantity_available - item.quantity_sold
 
     context = {
         "ordering_open": ordering_open(menu),
@@ -38,6 +36,7 @@ def index(request):
         next_order = Order.objects.filter(
             user=request.user,
             status__in=["confirmed", "preparing", "ready"],
+            pickup_slot__day__gte=timezone.localdate(),  # ignore old orders never marked collected
         ).select_related("pickup_slot__pickup_point").order_by(
             "pickup_slot__day", "pickup_slot__start_time",
         ).first()
@@ -60,9 +59,6 @@ def index(request):
                     meal__allergens__in=profile.allergies.all(),
                 )).select_related("meal")[:4]
             )
-            for item in picked_for_you:
-                item.price_dollars = f"{item.meal.price_cents / 100:.2f}"
-                item.stock_left = item.quantity_available - item.quantity_sold
         # Don't repeat meals that are already in Picked for you.
         picked_ids = {item.id for item in picked_for_you}
         popular_meals = [item for item in popular_meals if item.id not in picked_ids][:4]
