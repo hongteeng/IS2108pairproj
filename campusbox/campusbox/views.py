@@ -5,6 +5,7 @@ from accounts.services import get_profile, mark_allergens
 from menu.models import MenuItem
 from menu.utils import current_menu, menu_labels, ordering_open
 from orders.models import Order
+from orders.views import can_cancel
 
 
 def index(request):
@@ -40,6 +41,12 @@ def index(request):
         ).select_related("pickup_slot__pickup_point").order_by(
             "pickup_slot__day", "pickup_slot__start_time",
         ).first()
+        if next_order:
+            # Same cancel rule as the order page, plus that menu's cutoff for the note.
+            items = list(next_order.items.select_related("menu_item__weekly_menu"))
+            next_order.can_cancel = can_cancel(next_order, items)
+            if items:
+                next_order.cancel_deadline = menu_labels(items[0].menu_item.weekly_menu)[1]
         picked_for_you = []
         profile = get_profile(request.user)
         if profile and menu:

@@ -6,13 +6,23 @@
     {% if next_order %}
       <div class="card mb-4">
         <div class="card-body">
-          <h2 class="h5">Your next order</h2>
-          <p class="mb-2">Order #{{ next_order.id }}</p>
-          <p class="mb-2"><span class="badge text-bg-success">{{ next_order.get_status_display }}</span></p>
-          <p class="mb-3">
-            {{ next_order.pickup_slot.pickup_point.name }} ·
-            {{ next_order.pickup_slot.day|date:"D j M" }} ·
-            {{ next_order.pickup_slot.start_time|time:"H:i" }}
+          <div class="d-flex align-items-center gap-2">
+            <h2 class="h5 mb-0">Your next pickup</h2>
+            <span class="badge {% if next_order.status == 'ready' %}text-bg-success{% else %}text-bg-secondary{% endif %}">{{ next_order.get_status_display }}</span>
+          </div>
+          <div class="small text-muted mt-1 mb-2">Order #{{ next_order.id }}</div>
+          <p class="fs-5 fw-bold mb-1">
+            {{ next_order.pickup_slot.day|date:"l j M" }}, {{ next_order.pickup_slot.start_time|time:"H:i" }}–{{ next_order.pickup_slot.end_time|time:"H:i" }}
+          </p>
+          <p class="mb-2">
+            {{ next_order.pickup_slot.pickup_point.name }}
+            {% if next_order.pickup_slot.pickup_point.location %}<span class="text-muted">· {{ next_order.pickup_slot.pickup_point.location }}</span>{% endif %}
+          </p>
+          <p class="small text-muted mb-3">
+            {% if next_order.status == 'ready' %}Your meals are ready. Collect them during your pickup time.
+            {% elif next_order.status == 'preparing' %}Your meals are being prepared.
+            {% elif next_order.can_cancel %}You can cancel this order until {{ next_order.cancel_deadline }}.
+            {% else %}We’ve got your order. We’ll prepare it before your pickup day.{% endif %}
           </p>
           <a href="{% url 'orders:order_detail' next_order.id %}" class="btn btn-success">View order</a>
         </div>
