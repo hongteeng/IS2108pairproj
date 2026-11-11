@@ -12,7 +12,7 @@
         <span class="badge text-bg-danger align-self-start mb-2">Contains {{ item.your_allergens|join:", " }}</span>
       {% endif %}
       <p class="card-text mb-1">${{ item.price_dollars }}</p>
-      <p class="card-text mb-3">{{ item.meal.calories }} calories · {{ item.meal.protein_g }}g protein</p>
+      <p class="card-text mb-3">{{ item.meal.calories }} kcal · {{ item.meal.protein_g }}g protein</p>
       {% if item.stock_left <= 0 %}
         <span class="badge text-bg-secondary align-self-start mb-3">Sold out</span>
       {% endif %}
