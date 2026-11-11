@@ -1,5 +1,6 @@
 from django.contrib.auth import authenticate, login as auth_login
-from django.db.models import Count, F, Sum, Value
+from django.core.paginator import Paginator
+from django.db.models import Count, F, Q, Sum, Value
 from django.db.models.functions import Coalesce
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -268,6 +269,7 @@ ORDER_FILTERS = [
 
 def order_list(request):
     status = request.GET.get('status', '')
+    q = request.GET.get('q', '').strip()
     orders = Order.objects.select_related(
         'user',
         'pickup_slot__pickup_point',
@@ -276,9 +278,22 @@ def order_list(request):
         orders = orders.filter(status__in=['confirmed', 'preparing'])
     elif status in ('ready', 'collected', 'cancelled'):
         orders = orders.filter(status=status)
+    if q:
+        # "12" or "#12" finds order 12; any text also matches usernames
+        number = q.lstrip('#')
+        match = Q(user__username__icontains=q)
+        if number.isdigit():
+            match |= Q(id=number)
+        orders = orders.filter(match)
+
+    page_obj = Paginator(orders, 20).get_page(request.GET.get('page'))
+    params = request.GET.copy()
+    params.pop('page', None)  # page links add their own page number
     return render(request, 'dashboard/order_list.html', {
-        'orders': orders,
+        'page_obj': page_obj,
+        'querystring': params.urlencode(),
         'status': status,
+        'q': q,
         'filters': ORDER_FILTERS,
     })
 

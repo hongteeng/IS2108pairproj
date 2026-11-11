@@ -1,0 +1,20 @@
+{% if page_obj.paginator.count %}
+  <nav class="d-flex justify-content-between align-items-center mt-3" aria-label="Pages">
+    <span class="small text-muted">Showing {{ page_obj.start_index }}–{{ page_obj.end_index }} of {{ page_obj.paginator.count }} {{ noun }}{{ page_obj.paginator.count|pluralize }}</span>
+    {% if page_obj.paginator.num_pages > 1 %}
+      <div class="d-flex align-items-center gap-2">
+        {% if page_obj.has_previous %}
+          <a href="?{% if querystring %}{{ querystring }}&amp;{% endif %}page={{ page_obj.previous_page_number }}" class="btn btn-sm btn-outline-success">← Previous</a>
+        {% else %}
+          <span class="btn btn-sm btn-outline-secondary disabled">← Previous</span>
+        {% endif %}
+        <span class="small text-muted text-nowrap">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+        {% if page_obj.has_next %}
+          <a href="?{% if querystring %}{{ querystring }}&amp;{% endif %}page={{ page_obj.next_page_number }}" class="btn btn-sm btn-outline-success">Next →</a>
+        {% else %}
+          <span class="btn btn-sm btn-outline-secondary disabled">Next →</span>
+        {% endif %}
+      </div>
+    {% endif %}
+  </nav>
+{% endif %}

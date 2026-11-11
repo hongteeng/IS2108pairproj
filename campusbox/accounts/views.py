@@ -8,6 +8,7 @@ from django.db.models import Count, Q, Sum, Value
 from django.db.models.functions import Coalesce
 from django.shortcuts import get_object_or_404
 from django.shortcuts import redirect, render
+from django.core.paginator import Paginator
 
 from django.utils.http import url_has_allowed_host_and_scheme
 
@@ -111,8 +112,13 @@ def staff_customers(request):
     ).order_by("-date_joined")
     if q:
         customers = customers.filter(Q(username__icontains=q) | Q(email__icontains=q))
+
+    page_obj = Paginator(customers, 20).get_page(request.GET.get("page"))
+    params = request.GET.copy()
+    params.pop("page", None)  # page links add their own page number
     return render(request, "accounts/staff_customers.html", {
-        "customers": customers,
+        "page_obj": page_obj,
+        "querystring": params.urlencode(),
         "q": q,
     })
 
