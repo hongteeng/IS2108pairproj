@@ -52,6 +52,12 @@
       white-space: nowrap;
     }
     h2[id] { scroll-margin-top: 5rem; }
+    /* Green focus ring and ticked boxes instead of Bootstrap's blue */
+    .form-control:focus, .form-select:focus, .form-check-input:focus {
+      border-color: #75b798;
+      box-shadow: 0 0 0 .25rem rgba(25, 135, 84, .25);
+    }
+    .form-check-input:checked { background-color: #198754; border-color: #198754; }
   </style>
 </head>
 <body>

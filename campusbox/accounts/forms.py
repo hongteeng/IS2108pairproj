@@ -12,6 +12,7 @@ class RegisterForm(forms.Form):
                                widget=forms.TextInput(attrs={'class': 'form-control'}))
     email = forms.EmailField(widget=forms.EmailInput(attrs={'class': 'form-control'}))
     password = forms.CharField(min_length=8,
+                               help_text='At least 8 characters. Not all numbers or a common password.',
                                widget=forms.PasswordInput(attrs={'class': 'form-control'}))
     confirm_password = forms.CharField(label='Confirm password',
                                        widget=forms.PasswordInput(attrs={'class': 'form-control'}))
