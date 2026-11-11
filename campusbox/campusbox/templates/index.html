@@ -32,7 +32,7 @@
     {% if user.profile.predicted_category %}
       <div class="alert alert-success d-flex justify-content-between align-items-center">
         <span>Recommended for you: <strong>{{ user.profile.predicted_category.name }}</strong></span>
-        <a href="{% url 'accounts:quiz' %}" class="btn btn-sm btn-outline-success">Update your answers</a>
+        <a href="{% url 'accounts:quiz' %}" class="btn btn-sm btn-light text-success border-success">Edit preferences</a>
       </div>
     {% else %}
       <div class="alert alert-info d-flex justify-content-between align-items-center">
