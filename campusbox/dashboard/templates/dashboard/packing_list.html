@@ -1,0 +1,30 @@
+{% extends "staff_base.html" %}
+
+{% block staff_content %}
+  <h1 class="h3 mb-3">Packing list</h1>
+  {% for group in groups %}
+    <div class="card mb-3">
+      <div class="card-header">
+        <strong>{{ group.slot.pickup_point.name }}</strong>
+        · {{ group.slot.day|date:"D j M" }}, {{ group.slot.start_time|time:"H:i" }}–{{ group.slot.end_time|time:"H:i" }}
+      </div>
+      <div class="card-body p-0">
+        <table class="table mb-0">
+          <thead>
+            <tr><th>Meal</th><th>Quantity</th></tr>
+          </thead>
+          <tbody>
+            {% for item in group.items %}
+              <tr>
+                <td>{{ item.menu_item__meal__name }}</td>
+                <td>{{ item.total }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  {% empty %}
+    <div class="card"><div class="card-body text-center text-muted py-4">Nothing to pack right now.</div></div>
+  {% endfor %}
+{% endblock %}

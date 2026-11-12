@@ -16,6 +16,7 @@
         <a class="list-group-item list-group-item-action {% if request.resolver_match.url_name == 'customers' or request.resolver_match.url_name == 'customer_detail' %}active{% endif %}" href="{% url 'dashboard:customers' %}">Customers</a>
         <a class="list-group-item list-group-item-action {% if request.resolver_match.url_name == 'reviews' %}active{% endif %}" href="{% url 'dashboard:reviews' %}">Reviews</a>
         <a class="list-group-item list-group-item-action {% if request.resolver_match.url_name == 'tickets' or request.resolver_match.url_name == 'ticket_detail' %}active{% endif %}" href="{% url 'dashboard:tickets' %}">Support</a>
+                <a class="list-group-item list-group-item-action {% if request.resolver_match.url_name == 'packing_list' %}active{% endif %}" href="{% url 'dashboard:packing_list' %}">Packing list</a>
       </div>
     </div>
   </div>

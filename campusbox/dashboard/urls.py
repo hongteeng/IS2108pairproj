@@ -31,4 +31,5 @@ urlpatterns = [
     path('reviews/<int:review_id>/toggle/', review_views.staff_toggle_review, name='review_toggle'),
     path('support/', support_views.staff_tickets, name='tickets'),
     path('support/<int:ticket_id>/', support_views.staff_ticket_detail, name='ticket_detail'),
+    path('packing/', views.packing_list, name='packing_list'),
 ]
