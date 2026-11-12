@@ -24,6 +24,8 @@ TRACKING_STEPS = [
 class OutOfStock(Exception):
     """A meal sold out while the order was being placed."""
 
+class SlotFull(Exception):
+    """The pickup slot filled up while the order was being placed."""
 
 def can_cancel(order, items):
     """Return whether an order can still be cancelled."""
@@ -55,6 +57,10 @@ def place_order(user, slot, lines, total_cents):
     """Create the order and its items, and take the meals out of stock."""
     # All or nothing: if any step fails, nothing is saved.
     with transaction.atomic():
+         # Lock the slot and count its orders again, now that we are inside the transaction.
+        slot = PickupSlot.objects.select_for_update().get(pk=slot.pk)
+        if slot.orders.exclude(status="cancelled").count() >= slot.capacity:
+            raise SlotFull()  # nothing has been saved yet
         order = Order.objects.create(
             user=user,
             pickup_slot=slot,
@@ -112,6 +118,9 @@ def checkout(request):
             except OutOfStock:
                 messages.error(request, "Some meals no longer have enough stock. Please update your cart.")
                 return redirect("orders:cart")
+            except SlotFull:
+                messages.error(request, "That pickup slot has just filled up. Please choose another.")
+                return redirect("orders:checkout")
             cart.clear_cart(request)
             messages.success(request, f"Payment received. Order #{order.id} is confirmed.")
             return redirect("orders:order_detail", order_id=order.id)
