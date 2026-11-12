@@ -101,3 +101,40 @@ class MealFormTests(TestCase):
         form = MealForm(self.form_data(calories=-100))
         self.assertFalse(form.is_valid())
         self.assertIn('calories', form.errors)
+
+class MealDeleteTests(TestCase):
+    def setUp(self):
+        User.objects.create_user('staff1', password='Pass1234!', is_staff=True)
+        self.client.login(username='staff1', password='Pass1234!')
+        self.category = MealCategory.objects.create(name='Rice')
+
+    def make_meal(self, name):
+        return Meal.objects.create(
+            name=name, description='Test', price_cents=500,
+            calories=500, protein_g=30, carbs_g=60, fat_g=10,
+            image_url='', category=self.category,
+        )
+
+    def test_meal_with_no_orders_can_be_deleted(self):
+        meal = self.make_meal('Unordered Meal')
+        response = self.client.post(reverse('dashboard:meal_delete', args=[meal.id]))
+        self.assertRedirects(response, reverse('dashboard:meal_list'))
+        self.assertFalse(Meal.objects.filter(id=meal.id).exists())
+
+    def test_meal_with_orders_cannot_be_deleted(self):
+        meal = self.make_meal('Ordered Meal')
+        menu = WeeklyMenu.objects.create(week_start=timezone.localdate(), order_cutoff=timezone.now())
+        item = MenuItem.objects.create(weekly_menu=menu, meal=meal, quantity_available=10)
+        point = PickupPoint.objects.create(name='Library', location='Level 1')
+        slot = PickupSlot.objects.create(
+            pickup_point=point, day=timezone.localdate() + timedelta(days=1),
+            start_time=time(12, 0), end_time=time(12, 30), capacity=20,
+        )
+        customer = User.objects.create_user('student1', password='Pass1234!')
+        order = Order.objects.create(user=customer, pickup_slot=slot, total_cents=500)
+        OrderItem.objects.create(order=order, menu_item=item, quantity=1, price_at_purchase_cents=500)
+
+        response = self.client.post(reverse('dashboard:meal_delete', args=[meal.id]))
+        self.assertEqual(response.status_code, 200) #stays on the page, no redirect
+        self.assertIn('cannot be deleted', response.context['error'])
+        self.assertTrue(Meal.objects.filter(id=meal.id).exists())
