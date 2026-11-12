@@ -43,3 +43,26 @@ class PackingListTests(TestCase):
         rows = list(groups[0]['items'])
         self.assertEqual(rows[0]['menu_item__meal__name'], 'Chicken Rice Box')
         self.assertEqual(rows[0]['total'], 5) #2 confirmed + 3 preparing, the 5 cancelled are left out
+
+class StaffMiddlewareTests(TestCase): #create 2 fake users, staff and stuydent to test dashboard access
+    def setUp(self):
+        self.staff = User.objects.create_user('staff1', password='Pass1234!', is_staff=True)
+        self.student = User.objects.create_user('student1', password='Pass1234!')
+
+    def test_anonymous_visitor_is_sent_to_staff_login(self):
+        response = self.client.get('/dashboard/')
+        self.assertRedirects(response, reverse('dashboard:staff_login'))
+
+    def test_logged_in_student_is_sent_to_staff_login(self):
+        self.client.login(username='student1', password='Pass1234!')
+        response = self.client.get('/dashboard/')
+        self.assertRedirects(response, reverse('dashboard:staff_login'))
+
+    def test_staff_can_open_the_dashboard(self):
+        self.client.login(username='staff1', password='Pass1234!')
+        response = self.client.get('/dashboard/')
+        self.assertEqual(response.status_code, 200)
+
+    def test_staff_login_page_is_open_to_everyone(self):
+        response = self.client.get('/dashboard/login/')
+        self.assertEqual(response.status_code, 200)
