@@ -380,3 +380,17 @@ def inventory(request):
         'low_count': low_count,
         'menu_dates': menu_labels(current)[0],
     })
+
+def packing_list(request): #runs when staff visit /dashboard/packing/ 
+    today = timezone.localdate()
+    slots = PickupSlot.objects.filter(day__gte=today).select_related('pickup_point').order_by('day', 'start_time')
+    groups = []
+    for slot in slots:
+        items = (OrderItem.objects
+                 .filter(order__pickup_slot=slot, order__status__in=['confirmed', 'preparing'])
+                 .values('menu_item__meal__name')
+                 .annotate(total=Sum('quantity'))
+                 .order_by('menu_item__meal__name'))
+        if items:
+            groups.append({'slot': slot, 'items': items})
+    return render(request, 'dashboard/packing_list.html', {'groups': groups})
