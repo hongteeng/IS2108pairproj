@@ -87,6 +87,8 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': BASE_DIR / 'db.sqlite3',
+        # Start each transaction by locking the database for writing, so two checkouts run one after the other.
+        'OPTIONS': {'transaction_mode': 'IMMEDIATE'},
     }
 }
 
