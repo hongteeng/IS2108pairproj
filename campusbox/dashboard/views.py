@@ -136,7 +136,7 @@ def meal_delete(request, meal_id):
             meal.delete()
             return redirect('dashboard:meal_list')
         except ProtectedError:
-            error = 'This meal has orders, so it cannot be deleted. Edit it and untick Active instead.'
+            error = 'This meal has orders, so it cannot be deleted. Edit it and switch off "Show on the storefront" instead.'
     return render(request, 'dashboard/meal_confirm_delete.html', {'meal': meal, 'error': error})
 
 
