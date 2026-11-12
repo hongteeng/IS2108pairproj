@@ -59,6 +59,10 @@
     }
     .form-check-input:checked { background-color: #198754; border-color: #198754; }
     .ratio-3x2 { --bs-aspect-ratio: 66.6667%; }  /* height is 2/3 of the width */
+    /* Sortable staff tables keep the same column widths when sorted or paged */
+    .table-fixed { table-layout: fixed; }
+    .table-fixed td { overflow-wrap: break-word; }  /* wrap between words; only split a word that can't fit at all */
+    .sort-arrow { display: inline-block; width: 1em; text-align: center; }
   </style>
 </head>
 <body>

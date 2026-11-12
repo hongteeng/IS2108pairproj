@@ -24,7 +24,12 @@
     </div>
   </div></div>
   <div class="card"><div class="card-body p-0"><div class="table-responsive">
-  <table class="table align-middle mb-0">
+  <table class="table table-fixed align-middle mb-0" style="min-width: 40rem;">
+    {# Fixed column widths, so sorting or changing page doesn't resize the table #}
+    <colgroup>
+      <col style="width: 12%"><col style="width: 24%"><col style="width: 22%">
+      <col style="width: 14%"><col style="width: 18%"><col style="width: 10%">
+    </colgroup>
     <thead>
       <tr>
         {% include "sort_header.html" with key="order" label="Order" first="-" %}
