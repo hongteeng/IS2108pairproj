@@ -8,6 +8,7 @@ from django.utils import timezone
 from menu.models import Meal, MealCategory, MenuItem, WeeklyMenu
 from orders.models import Order, OrderItem, PickupPoint, PickupSlot
 
+from .forms import MealForm
 
 class PackingListTests(TestCase):
     def setUp(self): #runs before every test, builds a small fake database
@@ -66,3 +67,37 @@ class StaffMiddlewareTests(TestCase): #create 2 fake users, staff and stuydent t
     def test_staff_login_page_is_open_to_everyone(self):
         response = self.client.get('/dashboard/login/')
         self.assertEqual(response.status_code, 200)
+
+class MealFormTests(TestCase):
+    def setUp(self):
+        self.category = MealCategory.objects.create(name='Rice')
+
+    def form_data(self, **changes): #a valid set of answers, we change one thing per test
+        data = {
+            'name': 'Chicken Rice Box', 'description': 'Test', 'price': '6.50',
+            'calories': 500, 'protein_g': 30, 'carbs_g': 60, 'fat_g': 10,
+            'image_url': 'x', 'category': self.category.id, 'is_active': True,
+        }
+        data.update(changes)
+        return data
+
+    def test_price_in_dollars_is_saved_as_cents(self):
+        form = MealForm(self.form_data())
+        self.assertTrue(form.is_valid())
+        meal = form.save()
+        self.assertEqual(meal.price_cents, 650)
+
+    def test_zero_price_is_rejected(self):
+        form = MealForm(self.form_data(price='0'))
+        self.assertFalse(form.is_valid())
+        self.assertIn('price', form.errors)
+
+    def test_negative_price_is_rejected(self):
+        form = MealForm(self.form_data(price='-3'))
+        self.assertFalse(form.is_valid())
+        self.assertIn('price', form.errors)
+
+    def test_negative_calories_are_rejected(self):
+        form = MealForm(self.form_data(calories=-100))
+        self.assertFalse(form.is_valid())
+        self.assertIn('calories', form.errors)
