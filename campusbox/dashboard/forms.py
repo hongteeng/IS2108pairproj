@@ -10,7 +10,7 @@ from orders.models import PickupPoint, PickupSlot
 class MealForm(forms.ModelForm):
     # Staff type dollars; the database still stores whole cents.
     price = forms.DecimalField(
-        label='Price ($)',
+        label='Price',
         min_value=Decimal('0.01'),
         max_digits=6,
         decimal_places=2,
@@ -24,8 +24,11 @@ class MealForm(forms.ModelForm):
                   'carbs_g', 'fat_g', 'image_url', 'category', 'dietary_tags',
                   'allergens', 'is_active']
         widgets = {
-            'dietary_tags': forms.CheckboxSelectMultiple,
-            'allergens': forms.CheckboxSelectMultiple,
+            'description': forms.Textarea(attrs={'rows': 3}),
+            # btn-check turns each tick-box into a pill toggle, like the menu filters
+            'dietary_tags': forms.CheckboxSelectMultiple(attrs={'class': 'btn-check'}),
+            'allergens': forms.CheckboxSelectMultiple(attrs={'class': 'btn-check'}),
+            'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input', 'role': 'switch'}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -40,11 +43,19 @@ class MealForm(forms.ModelForm):
             self.fields[name].validators.append(MinValueValidator(0))
             self.fields[name].widget.attrs['min'] = 0
         self.fields['category'].widget.attrs['class'] = 'form-select'
-        self.fields['protein_g'].label = 'Protein (g)'
-        self.fields['carbs_g'].label = 'Carbs (g)'
-        self.fields['fat_g'].label = 'Fat (g)'
+        self.fields['category'].empty_label = 'Choose a category'
+        self.fields['protein_g'].label = 'Protein'
+        self.fields['carbs_g'].label = 'Carbs'
+        self.fields['fat_g'].label = 'Fat'
+        self.fields['is_active'].label = 'Show on the storefront'
+        self.fields['is_active'].help_text = 'Untick to hide this meal from students without deleting it.'
         self.fields['image_url'].label = 'Image URL'
         self.fields['image_url'].help_text = 'A photo in menu/static/menu/meals/, e.g. /static/menu/meals/chicken-rice-box.jpg, or a full https:// link'
+
+    def nutrition_fields(self):
+        """The four nutrition fields with their units, for one row in the template."""
+        return [(self['calories'], 'kcal'), (self['protein_g'], 'g'),
+                (self['carbs_g'], 'g'), (self['fat_g'], 'g')]
 
     def save(self, commit=True):
         # Convert dollars back to cents before saving, e.g. 6.50 -> 650

@@ -122,10 +122,10 @@ def staff_customers(request):
         customers = customers.filter(Q(username__icontains=q) | Q(email__icontains=q))
 
     # ?sort=spent is low to high, ?sort=-spent is high to low. Only the keys above are allowed.
-    sort = request.GET.get("sort", "-joined")
+    sort = request.GET.get("sort", "username")  # default: A to Z by username
     key = sort.lstrip("-")
     if key not in CUSTOMER_SORTS:
-        sort, key = "-joined", "joined"
+        sort, key = "username", "username"
     direction = "-" if sort.startswith("-") else ""
     sort = direction + key
     customers = customers.order_by(direction + CUSTOMER_SORTS[key], "id")  # id keeps ties in a fixed order

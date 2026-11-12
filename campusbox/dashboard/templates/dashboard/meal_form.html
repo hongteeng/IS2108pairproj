@@ -2,21 +2,93 @@
 
 {% block staff_content %}
   <h1 class="h3 mb-3">{{ title }}</h1>
-  <div class="card"><div class="card-body">
   <form method="post">
     {% csrf_token %}
-    {% for field in form %}
+    {% for error in form.non_field_errors %}<div class="alert alert-danger">{{ error }}</div>{% endfor %}
+
+    <div class="card mb-3"><div class="card-body">
+      <h2 class="h6 mb-3">Basics</h2>
       <div class="mb-3">
-        <label class="form-label"{% if field.id_for_label %} for="{{ field.id_for_label }}"{% endif %}>{{ field.label }}</label>
-        {{ field }}
-        {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
-        {% for error in field.errors %}<div class="small text-danger">{{ error }}</div>{% endfor %}
+        <label class="form-label" for="{{ form.name.id_for_label }}">{{ form.name.label }}</label>
+        {{ form.name }}
+        {% for error in form.name.errors %}<div class="small text-danger">{{ error }}</div>{% endfor %}
       </div>
-    {% endfor %}
+      <div class="row g-3 mb-3">
+        <div class="col-md-8">
+          <label class="form-label" for="{{ form.category.id_for_label }}">{{ form.category.label }}</label>
+          {{ form.category }}
+          {% for error in form.category.errors %}<div class="small text-danger">{{ error }}</div>{% endfor %}
+        </div>
+        <div class="col-md-4">
+          <label class="form-label" for="{{ form.price.id_for_label }}">{{ form.price.label }}</label>
+          <div class="input-group">
+            <span class="input-group-text">$</span>
+            {{ form.price }}
+          </div>
+          <div class="form-text">{{ form.price.help_text }}</div>
+          {% for error in form.price.errors %}<div class="small text-danger">{{ error }}</div>{% endfor %}
+        </div>
+      </div>
+      <div>
+        <label class="form-label" for="{{ form.description.id_for_label }}">{{ form.description.label }}</label>
+        {{ form.description }}
+        {% for error in form.description.errors %}<div class="small text-danger">{{ error }}</div>{% endfor %}
+      </div>
+    </div></div>
+
+    <div class="card mb-3"><div class="card-body">
+      <h2 class="h6 mb-3">Nutrition per meal</h2>
+      <div class="row g-3">
+        {% for field, unit in form.nutrition_fields %}
+          <div class="col-6 col-md-3">
+            <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+            <div class="input-group">
+              {{ field }}
+              <span class="input-group-text">{{ unit }}</span>
+            </div>
+            {% for error in field.errors %}<div class="small text-danger">{{ error }}</div>{% endfor %}
+          </div>
+        {% endfor %}
+      </div>
+    </div></div>
+
+    <div class="card mb-3"><div class="card-body">
+      <h2 class="h6 mb-3">Photo, tags and allergens</h2>
+      <div class="mb-3">
+        <label class="form-label" for="{{ form.image_url.id_for_label }}">{{ form.image_url.label }}</label>
+        {{ form.image_url }}
+        <div class="form-text">{{ form.image_url.help_text }}</div>
+        {% for error in form.image_url.errors %}<div class="small text-danger">{{ error }}</div>{% endfor %}
+      </div>
+      <div class="mb-3">
+        <span class="form-label d-block">Dietary tags</span>
+        <div class="d-flex flex-wrap gap-2">
+          {% for checkbox in form.dietary_tags %}
+            {{ checkbox.tag }}
+            <label class="btn btn-outline-success btn-sm rounded-pill" for="{{ checkbox.id_for_label }}">{{ checkbox.choice_label|title }}</label>
+          {% endfor %}
+        </div>
+      </div>
+      <div class="mb-3">
+        <span class="form-label d-block">Allergens</span>
+        <div class="d-flex flex-wrap gap-2">
+          {% for checkbox in form.allergens %}
+            {{ checkbox.tag }}
+            <label class="btn btn-outline-danger btn-sm rounded-pill" for="{{ checkbox.id_for_label }}">{{ checkbox.choice_label|title }}</label>
+          {% endfor %}
+        </div>
+        <div class="form-text">Tick every allergen in this meal. Students with these allergies will see a warning.</div>
+      </div>
+      <div class="form-check form-switch">
+        {{ form.is_active }}
+        <label class="form-check-label" for="{{ form.is_active.id_for_label }}">{{ form.is_active.label }}</label>
+        <div class="form-text">{{ form.is_active.help_text }}</div>
+      </div>
+    </div></div>
+
     <div class="d-flex gap-2">
       <button type="submit" class="btn btn-success">Save</button>
       <a href="{% url 'dashboard:meal_list' %}" class="btn btn-outline-secondary">Cancel</a>
     </div>
   </form>
-  </div></div>
 {% endblock %}
