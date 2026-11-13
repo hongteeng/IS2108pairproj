@@ -209,3 +209,78 @@ class PickupSlotFormTests(TestCase):
         form = PickupSlotForm(self.form_data(capacity=0))
         self.assertFalse(form.is_valid())
         self.assertIn('capacity', form.errors)
+
+
+class StaffAccountsTests(TestCase):
+    def setUp(self):
+        self.owner = User.objects.create_user('owner1', password='Pass1234!', is_staff=True, is_superuser=True)
+        self.staff = User.objects.create_user('staff1', password='Pass1234!', is_staff=True)
+        self.student = User.objects.create_user('student1', password='Pass1234!')
+        self.url = reverse('dashboard:staff_accounts')
+
+    def new_staff_data(self, **changes):
+        data = {
+            'username': 'newstaff', 'email': 'newstaff@example.com',
+            'password': 'Sup3rSecret!x', 'confirm_password': 'Sup3rSecret!x',
+        }
+        data.update(changes)
+        return data
+
+    def test_owner_can_open_the_page(self):
+        self.client.login(username='owner1', password='Pass1234!')
+        self.assertEqual(self.client.get(self.url).status_code, 200)
+
+    def test_normal_staff_is_sent_back_to_the_dashboard(self):
+        self.client.login(username='staff1', password='Pass1234!')
+        self.assertRedirects(self.client.get(self.url), reverse('dashboard:home'))
+
+    def test_student_is_sent_to_staff_login(self):
+        self.client.login(username='student1', password='Pass1234!')
+        self.assertRedirects(self.client.get(self.url), reverse('dashboard:staff_login'))
+
+    def test_owner_can_add_a_staff_account(self):
+        self.client.login(username='owner1', password='Pass1234!')
+        response = self.client.post(self.url, self.new_staff_data())
+        self.assertRedirects(response, self.url)
+        member = User.objects.get(username='newstaff')
+        self.assertTrue(member.is_staff)
+        self.assertFalse(member.is_superuser)
+        self.assertTrue(member.check_password('Sup3rSecret!x')) #stored hashed, not as plain text
+        self.assertNotEqual(member.password, 'Sup3rSecret!x')
+
+    def test_normal_staff_cannot_add_a_staff_account(self):
+        self.client.login(username='staff1', password='Pass1234!')
+        self.client.post(self.url, self.new_staff_data())
+        self.assertFalse(User.objects.filter(username='newstaff').exists())
+
+    def test_duplicate_username_is_rejected(self):
+        self.client.login(username='owner1', password='Pass1234!')
+        response = self.client.post(self.url, self.new_staff_data(username='staff1'))
+        self.assertEqual(response.status_code, 200) #stays on the page and shows the error
+        self.assertEqual(User.objects.filter(username__iexact='staff1').count(), 1)
+
+    def test_owner_can_deactivate_and_reactivate_staff(self):
+        self.client.login(username='owner1', password='Pass1234!')
+        self.client.post(self.url, {'toggle_id': self.staff.id})
+        self.staff.refresh_from_db()
+        self.assertFalse(self.staff.is_active)
+        self.client.post(self.url, {'toggle_id': self.staff.id})
+        self.staff.refresh_from_db()
+        self.assertTrue(self.staff.is_active)
+
+    def test_deactivated_staff_cannot_log_in(self):
+        self.client.login(username='owner1', password='Pass1234!')
+        self.client.post(self.url, {'toggle_id': self.staff.id})
+        self.client.logout()
+        self.assertFalse(self.client.login(username='staff1', password='Pass1234!'))
+
+    def test_owner_cannot_be_deactivated(self):
+        self.client.login(username='owner1', password='Pass1234!')
+        response = self.client.post(self.url, {'toggle_id': self.owner.id})
+        self.assertEqual(response.status_code, 404)
+        self.owner.refresh_from_db()
+        self.assertTrue(self.owner.is_active)
+
+    def test_bad_id_gives_404_not_a_crash(self):
+        self.client.login(username='owner1', password='Pass1234!')
+        self.assertEqual(self.client.post(self.url, {'toggle_id': 'abc'}).status_code, 404)
