@@ -1,4 +1,7 @@
 from django.contrib.auth import authenticate, login as auth_login
+from django.contrib import messages
+from django.contrib.auth.models import User
+from django.http import Http404
 from django.core.paginator import Paginator
 from django.db.models import Count, F, Q, Sum, Value
 from django.db.models.functions import Coalesce
@@ -6,7 +9,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from datetime import timedelta
 from accounts.models import CustomerProfile
-from accounts.forms import LoginForm
+from accounts.forms import LoginForm, RegisterForm
 from django.db.models import ProtectedError
 from menu.models import Meal, WeeklyMenu, MenuItem
 from menu.utils import current_menu, menu_labels
@@ -394,3 +397,33 @@ def packing_list(request): #runs when staff visit /dashboard/packing/
         if items:
             groups.append({'slot': slot, 'items': items})
     return render(request, 'dashboard/packing_list.html', {'groups': groups})
+
+
+def staff_accounts(request): #runs when the owner opens /dashboard/staff-accounts/
+    if not request.user.is_superuser: #the middleware already checked is_staff, this keeps normal staff out too
+        messages.error(request, 'Only the owner can manage staff accounts.')
+        return redirect('dashboard:home')
+
+    form = RegisterForm()
+    if request.method == 'POST':
+        if 'toggle_id' in request.POST: #the Deactivate / Reactivate buttons
+            toggle_id = request.POST['toggle_id']
+            if not toggle_id.isdigit():
+                raise Http404
+            member = get_object_or_404(User, pk=int(toggle_id), is_staff=True, is_superuser=False) #owners can't be switched off
+            member.is_active = not member.is_active
+            member.save()
+            return redirect('dashboard:staff_accounts')
+        form = RegisterForm(request.POST) #the Add staff form
+        if form.is_valid():
+            User.objects.create_user(
+                username=form.cleaned_data['username'],
+                email=form.cleaned_data['email'],
+                password=form.cleaned_data['password'], #create_user hashes it
+                is_staff=True,
+            )
+            messages.success(request, 'Staff account created.')
+            return redirect('dashboard:staff_accounts')
+
+    staff = User.objects.filter(is_staff=True).order_by('-is_superuser', 'username')
+    return render(request, 'dashboard/staff_accounts.html', {'staff': staff, 'form': form})
