@@ -1,0 +1,58 @@
+{% extends "staff_base.html" %}
+
+{% block staff_content %}
+  <h1 class="h3 mb-3">Staff accounts</h1>
+  <div class="card mb-4"><div class="card-body p-0"><div class="table-responsive">
+  <table class="table align-middle mb-0">
+    <thead>
+      <tr>
+        <th>Username</th>
+        <th>Email</th>
+        <th>Role</th>
+        <th>Status</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for member in staff %}
+        <tr>
+          <td>{{ member.username }}</td>
+          <td>{{ member.email }}</td>
+          <td>{% if member.is_superuser %}Owner{% else %}Staff{% endif %}</td>
+          <td>{% if member.is_active %}<span class="badge text-bg-success">Active</span>{% else %}<span class="badge text-bg-secondary">Inactive</span>{% endif %}</td>
+          <td>
+            {% if not member.is_superuser %}
+              <form method="post" class="m-0">
+                {% csrf_token %}
+                <input type="hidden" name="toggle_id" value="{{ member.id }}">
+                {% if member.is_active %}
+                  <button type="submit" class="btn btn-sm btn-outline-secondary">Deactivate</button>
+                {% else %}
+                  <button type="submit" class="btn btn-sm btn-outline-success">Reactivate</button>
+                {% endif %}
+              </form>
+            {% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div></div></div>
+
+  <h2 class="h5 mb-3">Add a staff account</h2>
+  <div class="card"><div class="card-body">
+  <form method="post">
+    {% csrf_token %}
+    {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors.0 }}</div>{% endif %}
+    {% for field in form %}
+      <div class="mb-3">
+        <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
+        {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+        {% for error in field.errors %}<div class="small text-danger">{{ error }}</div>{% endfor %}
+      </div>
+    {% endfor %}
+    <button type="submit" class="btn btn-success">Add staff</button>
+  </form>
+  </div></div>
+{% endblock %}
