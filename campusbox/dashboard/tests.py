@@ -284,3 +284,25 @@ class StaffAccountsTests(TestCase):
     def test_bad_id_gives_404_not_a_crash(self):
         self.client.login(username='owner1', password='Pass1234!')
         self.assertEqual(self.client.post(self.url, {'toggle_id': 'abc'}).status_code, 404)
+
+
+class NewMenuDefaultsTests(TestCase):
+    def setUp(self):
+        User.objects.create_user('staff1', password='Pass1234!', is_staff=True)
+        self.client.login(username='staff1', password='Pass1234!')
+        self.form = self.client.get(reverse('dashboard:menu_add')).context['form']
+
+    def test_new_menu_form_suggests_the_next_monday_and_a_night_before_cutoff(self):
+        week_start = self.form.initial['week_start']
+        cutoff = self.form.initial['order_cutoff']
+        self.assertEqual(week_start.weekday(), 0) #a Monday
+        self.assertGreater(week_start, timezone.localdate()) #in the future
+        self.assertEqual(cutoff.date(), week_start - timedelta(days=1)) #the night before
+        self.assertEqual((cutoff.hour, cutoff.minute), (23, 59))
+
+    def test_the_suggested_dates_are_accepted_as_they_are(self):
+        data = {
+            'week_start': self.form.initial['week_start'].isoformat(),
+            'order_cutoff': self.form.initial['order_cutoff'].strftime('%Y-%m-%d %H:%M'),
+        }
+        self.assertRedirects(self.client.post(reverse('dashboard:menu_add'), data), reverse('dashboard:menu_list'))
