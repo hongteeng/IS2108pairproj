@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Deactivate account · CampusBox{% endblock %}
+{% block content %}
+<div class="row justify-content-center mt-4">
+  <div class="col-md-5">
+    <div class="card">
+      <div class="card-body p-4">
+        <h1 class="h3 mb-3">Deactivate my account</h1>
+        {% if open_orders %}
+          <div class="alert alert-warning">
+            You still have {{ open_orders }} order{{ open_orders|pluralize }} that {{ open_orders|pluralize:"is,are" }} not collected or cancelled yet.
+            Collect or cancel {{ open_orders|pluralize:"it,them" }} first, then come back.
+          </div>
+          <a href="{% url 'orders:order_history' %}" class="btn btn-outline-success">View my orders</a>
+        {% else %}
+          <p>You will be logged out and won't be able to log in again. Your past orders and reviews are kept for our records.</p>
+          <form method="post" class="d-flex gap-2 m-0">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-danger">Deactivate</button>
+            <a href="{% url 'accounts:quiz' %}" class="btn btn-outline-secondary">Cancel</a>
+          </form>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
