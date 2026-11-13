@@ -73,3 +73,34 @@ class DeactivateAccountTests(TestCase):
         self.client.login(username='staff1', password='Pass1234!')
         self.assertRedirects(self.client.post(self.url), reverse('dashboard:home'))
         self.assertTrue(User.objects.get(username='staff1').is_active)
+
+class ChangePasswordTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user('amy', password='OldPass123!')
+        self.url = reverse('accounts:change_password')
+        self.good = {'old_password': 'OldPass123!',
+                     'new_password1': 'NewPass456!', 'new_password2': 'NewPass456!'}
+
+    def test_must_be_logged_in(self):
+        self.assertRedirects(self.client.get(self.url), f"{reverse('accounts:login')}?next={self.url}")
+
+    def test_changes_password_and_stays_logged_in(self):
+        self.client.login(username='amy', password='OldPass123!')
+        self.assertRedirects(self.client.post(self.url, self.good), reverse('accounts:quiz'))
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password('NewPass456!'))
+        self.assertEqual(self.client.get(reverse('accounts:quiz')).status_code, 200)
+
+    def test_wrong_old_password_is_refused(self):
+        self.client.login(username='amy', password='OldPass123!')
+        data = {**self.good, 'old_password': 'wrong'}
+        self.assertEqual(self.client.post(self.url, data).status_code, 200)
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password('OldPass123!'))
+
+    def test_mismatched_new_passwords_are_refused(self):
+        self.client.login(username='amy', password='OldPass123!')
+        data = {**self.good, 'new_password2': 'Different789!'}
+        self.assertEqual(self.client.post(self.url, data).status_code, 200)
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password('OldPass123!'))
