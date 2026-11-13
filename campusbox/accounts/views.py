@@ -75,6 +75,25 @@ def logout(request):
     response["Clear-Site-Data"] = '"cache"'
     return response
 
+OPEN_ORDER_STATUSES = ['confirmed', 'preparing', 'ready'] #orders that still need to be made or collected
+
+
+@login_required
+def deactivate_account(request):
+    """Ask the customer to confirm, then switch their account off (is_active False). Nothing is deleted."""
+
+    if request.user.is_staff:
+        return redirect('dashboard:home') #staff accounts are handled by the owner in the dashboard
+    open_orders = request.user.orders.filter(status__in=OPEN_ORDER_STATUSES).count()
+    if request.method == 'POST' and open_orders == 0:
+        request.user.is_active = False
+        request.user.save()
+        auth_logout(request)
+        messages.success(request, 'Your account has been deactivated.')
+        response = redirect('index')
+        response["Clear-Site-Data"] = '"cache"'
+        return response
+    return render(request, 'accounts/deactivate.html', {'open_orders': open_orders})
 @login_required
 def quiz(request):
     """Show or save the logged-in user's taste preferences."""
@@ -165,3 +184,4 @@ def staff_customer_detail(request, user_id):
         "reviews": reviews,
         "tickets": tickets,
     })
+
