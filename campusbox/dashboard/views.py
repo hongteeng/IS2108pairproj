@@ -7,7 +7,7 @@ from django.db.models import Count, F, Q, Sum, Value
 from django.db.models.functions import Coalesce
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
-from datetime import timedelta
+from datetime import datetime, time, timedelta
 from accounts.models import CustomerProfile
 from accounts.forms import LoginForm, RegisterForm
 from django.db.models import ProtectedError
@@ -155,7 +155,12 @@ def menu_add(request):
             form.save()
             return redirect('dashboard:menu_list')
     else:
-        form = WeeklyMenuForm()
+        today = timezone.localdate()
+        next_monday = today + timedelta(days=7 - today.weekday()) #the next week that has not started yet
+        form = WeeklyMenuForm(initial={
+            'week_start': next_monday,
+            'order_cutoff': datetime.combine(next_monday - timedelta(days=1), time(23, 59)), #Sunday 23:59, the night before
+        })
     return render(request, 'dashboard/menu_form.html', {'form': form, 'title': 'New weekly menu'})
 
 
