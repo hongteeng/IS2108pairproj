@@ -9,6 +9,8 @@ from django.db.models.functions import Coalesce
 from django.shortcuts import get_object_or_404
 from django.shortcuts import redirect, render
 from django.core.paginator import Paginator
+from django.contrib.auth import update_session_auth_hash
+from django.contrib.auth.forms import PasswordChangeForm
 
 from django.utils.http import url_has_allowed_host_and_scheme
 
@@ -185,3 +187,13 @@ def staff_customer_detail(request, user_id):
         "tickets": tickets,
     })
 
+@login_required
+def change_password(request):
+    """Let a logged-in user set a new password (they must type the old one first)."""
+    form = PasswordChangeForm(request.user, request.POST or None)
+    if request.method == 'POST' and form.is_valid():
+        user = form.save()                      # hashes and saves the new password
+        update_session_auth_hash(request, user) # keeps them logged in
+        messages.success(request, 'Your password has been changed.')
+        return redirect('accounts:quiz')
+    return render(request, 'accounts/change_password.html', {'form': form})
