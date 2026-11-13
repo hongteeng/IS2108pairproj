@@ -8,7 +8,7 @@ from django.utils import timezone
 from menu.models import Meal, MealCategory, MenuItem, WeeklyMenu
 from orders.models import Order, OrderItem, PickupPoint, PickupSlot
 
-from .forms import MealForm
+from .forms import MealForm, PickupSlotForm, WeeklyMenuForm
 
 class PackingListTests(TestCase):
     def setUp(self): #runs before every test, builds a small fake database
@@ -138,3 +138,74 @@ class MealDeleteTests(TestCase):
         self.assertEqual(response.status_code, 200) #stays on the page, no redirect
         self.assertIn('cannot be deleted', response.context['error'])
         self.assertTrue(Meal.objects.filter(id=meal.id).exists())
+
+def next_monday():
+    today = timezone.localdate()
+    return today + timedelta(days=7 - today.weekday()) #always a Monday in the future
+
+
+class WeeklyMenuFormTests(TestCase):
+    def form_data(self, **changes):
+        monday = next_monday()
+        data = {
+            'week_start': monday.isoformat(),
+            'order_cutoff': (monday - timedelta(days=1)).isoformat() + ' 23:59', #Sunday night before
+        }
+        data.update(changes)
+        return data
+
+    def test_valid_menu_is_accepted(self):
+        self.assertTrue(WeeklyMenuForm(self.form_data()).is_valid())
+
+    def test_start_date_must_be_a_monday(self):
+        tuesday = next_monday() + timedelta(days=1)
+        form = WeeklyMenuForm(self.form_data(week_start=tuesday.isoformat()))
+        self.assertFalse(form.is_valid())
+        self.assertIn('week_start', form.errors)
+
+    def test_cutoff_must_be_before_the_week_starts(self):
+        monday = next_monday()
+        form = WeeklyMenuForm(self.form_data(order_cutoff=monday.isoformat() + ' 09:00'))
+        self.assertFalse(form.is_valid())
+        self.assertIn('order_cutoff', form.errors)
+
+    def test_only_one_menu_per_week(self):
+        WeeklyMenu.objects.create(week_start=next_monday(), order_cutoff=timezone.now())
+        form = WeeklyMenuForm(self.form_data())
+        self.assertFalse(form.is_valid())
+        self.assertIn('week_start', form.errors)
+
+
+class PickupSlotFormTests(TestCase):
+    def form_data(self, **changes):
+        data = {
+            'day': next_monday().isoformat(), 'start_time': '12:00',
+            'end_time': '12:30', 'capacity': 10,
+        }
+        data.update(changes)
+        return data
+
+    def test_valid_slot_is_accepted(self):
+        self.assertTrue(PickupSlotForm(self.form_data()).is_valid())
+
+    def test_weekend_is_rejected(self):
+        saturday = next_monday() + timedelta(days=5)
+        form = PickupSlotForm(self.form_data(day=saturday.isoformat()))
+        self.assertFalse(form.is_valid())
+        self.assertIn('day', form.errors)
+
+    def test_past_date_is_rejected(self):
+        yesterday = timezone.localdate() - timedelta(days=1)
+        form = PickupSlotForm(self.form_data(day=yesterday.isoformat()))
+        self.assertFalse(form.is_valid())
+        self.assertIn('day', form.errors)
+
+    def test_end_time_must_be_after_start_time(self):
+        form = PickupSlotForm(self.form_data(start_time='13:00', end_time='12:00'))
+        self.assertFalse(form.is_valid())
+        self.assertIn('end_time', form.errors)
+
+    def test_capacity_must_be_at_least_one(self):
+        form = PickupSlotForm(self.form_data(capacity=0))
+        self.assertFalse(form.is_valid())
+        self.assertIn('capacity', form.errors)
