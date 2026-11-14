@@ -11,7 +11,7 @@ from datetime import date, datetime, time, timedelta
 from accounts.models import CustomerProfile
 from accounts.forms import LoginForm
 from django.db.models import ProtectedError
-from menu.models import Meal, WeeklyMenu, MenuItem
+from menu.models import Meal, WeeklyMenu, MenuItem, this_monday
 from menu.utils import current_menu, menu_labels
 from orders.models import Order, OrderItem, PickupPoint, PickupSlot
 from support.models import SupportTicket
@@ -111,26 +111,78 @@ def home(request):
         "demand_total": demand_total,
     })
 
-def meal_list(request):
-    meals = Meal.objects.select_related('category').order_by('category__name', 'name')
-    return render(request, 'dashboard/meal_list.html', {'meals': meals})
+MEAL_FILTERS = [('', 'All'), ('active', 'Active'), ('inactive', 'Inactive')]
+
+MEAL_SORTS = {
+    'name': ['name'],
+    'category': ['category__name', 'name'],
+    'price': ['price_cents'],
+    'calories': ['calories'],
+}
+
+
+def meal_list(request): #search, filter, sort and pages, the same way as the Orders list
+    show = request.GET.get('show', '')
+    q = request.GET.get('q', '').strip()
+    meals = Meal.objects.select_related('category')
+    if show == 'active':
+        meals = meals.filter(is_active=True)
+    elif show == 'inactive':
+        meals = meals.filter(is_active=False)
+    if q:
+        meals = meals.filter(Q(name__icontains=q) | Q(category__name__icontains=q))
+
+    # ?sort=price is low to high, ?sort=-price is high to low. Only the keys above are allowed.
+    sort = request.GET.get('sort', 'category')
+    key = sort.lstrip('-')
+    if key not in MEAL_SORTS:
+        sort, key = 'category', 'category'
+    direction = '-' if sort.startswith('-') else ''
+    sort = direction + key
+    meals = meals.order_by(*[direction + field for field in MEAL_SORTS[key]], 'id')  # id keeps ties in a fixed order
+
+    page_obj = Paginator(meals, 20).get_page(request.GET.get('page'))
+    params = request.GET.copy()
+    params.pop('page', None)  # page links add their own page number
+    querystring = params.urlencode()
+    params.pop('sort', None)  # sort links add their own sort
+    return render(request, 'dashboard/meal_list.html', {
+        'page_obj': page_obj,
+        'querystring': querystring,
+        'sort_querystring': params.urlencode(),
+        'sort': sort,
+        'show': show,
+        'q': q,
+        'filters': MEAL_FILTERS,
+    })
+
+
+def delete_photo_file(photo):
+    """Delete an uploaded photo's file, so replaced and removed photos don't pile up in media/."""
+    if photo:
+        photo.storage.delete(photo.name)
 
 
 def meal_edit(request, meal_id):
     meal = get_object_or_404(Meal, pk=meal_id)
+    old_photo, current_photo = meal.photo.name, meal.photo_url  # read before the form changes the meal
     if request.method == 'POST':
-        form = MealForm(request.POST, instance=meal)
+        form = MealForm(request.POST, request.FILES, instance=meal)  # request.FILES holds the uploaded photo
         if form.is_valid():
             form.save()  # updates this meal because the form was given instance=meal
+            if old_photo and old_photo != meal.photo.name:  # replaced or removed
+                meal.photo.storage.delete(old_photo)
             return redirect('dashboard:meal_list')
     else:
         form = MealForm(instance=meal)
-    return render(request, 'dashboard/meal_form.html', {'form': form, 'title': 'Edit meal'})
+    return render(request, 'dashboard/meal_form.html', {
+        'form': form, 'title': 'Edit meal', 'current_photo': current_photo, 'has_upload': bool(old_photo),
+    })
 
 
 def meal_add(request):
     if request.method == 'POST':
-        form = MealForm(request.POST)
+        form = MealForm(request.POST, request.FILES)
         if form.is_valid():
             form.save()  # saves the meal, its dietary tags and allergens
             return redirect('dashboard:meal_list')
@@ -144,16 +196,40 @@ def meal_delete(request, meal_id):
     error = None
     if request.method == 'POST':
         try:
+            photo = meal.photo
             meal.delete()
+            delete_photo_file(photo)  # only once the meal is really gone
             return redirect('dashboard:meal_list')
         except ProtectedError:
             error = 'This meal has orders, so it cannot be deleted. Edit it and switch off "Show on the storefront" instead.'
     return render(request, 'dashboard/meal_confirm_delete.html', {'meal': meal, 'error': error})
 
 
-def menu_list(request):
-    menus = WeeklyMenu.objects.order_by('-week_start')
-    return render(request, 'dashboard/menu_list.html', {'menus': menus})
+MENU_FILTERS = [('', 'All'), ('upcoming', 'This week and later'), ('past', 'Past')]
+
+
+def menu_list(request): #newest week first, with each week's status and how much of it sold
+    show = request.GET.get('show', '')
+    # One query for the whole page: the counts are added up by the database, not once per row
+    menus = WeeklyMenu.objects.annotate(
+        meal_count=Count('items'),
+        sold=Coalesce(Sum('items__quantity_sold'), 0),
+        available=Coalesce(Sum('items__quantity_available'), 0),
+    ).order_by('-week_start')
+    if show == 'upcoming':
+        menus = menus.filter(week_start__gte=this_monday())
+    elif show == 'past':
+        menus = menus.filter(week_start__lt=this_monday())
+
+    page_obj = Paginator(menus, 20).get_page(request.GET.get('page'))
+    params = request.GET.copy()
+    params.pop('page', None)  # page links add their own page number
+    return render(request, 'dashboard/menu_list.html', {
+        'page_obj': page_obj,
+        'querystring': params.urlencode(),
+        'show': show,
+        'filters': MENU_FILTERS,
+    })
 
 
 def menu_add(request):

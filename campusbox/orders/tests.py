@@ -97,3 +97,39 @@ class CancelOrderTests(TestCase):
         self.assertEqual(response.status_code, 302)
         self.item.refresh_from_db()
         self.assertEqual(self.item.quantity_sold, 0) #not -2
+
+
+class MyOrdersListTests(TestCase): #filters and pages on the student's My orders page
+    def setUp(self):
+        self.student = User.objects.create_user('student1', password='Pass1234!')
+        other = User.objects.create_user('student2', password='Pass1234!')
+        point = PickupPoint.objects.create(name='Library', location='Level 1')
+        self.slot = PickupSlot.objects.create(pickup_point=point, day=timezone.localdate() + timedelta(days=1),
+                                              start_time=time(12, 0), end_time=time(13, 0), capacity=50)
+        for status in ['confirmed', 'preparing', 'ready', 'collected', 'cancelled']:
+            Order.objects.create(user=self.student, pickup_slot=self.slot, status=status, total_cents=500)
+        Order.objects.create(user=other, pickup_slot=self.slot, total_cents=500) #someone else's order
+        self.client.login(username='student1', password='Pass1234!')
+
+    def statuses(self, **params):
+        return [order.status for order in self.client.get(reverse('orders:order_history'), params).context['page_obj']]
+
+    def test_only_my_orders_newest_first(self):
+        self.assertEqual(self.statuses(), ['cancelled', 'collected', 'ready', 'preparing', 'confirmed'])
+
+    def test_filters(self):
+        self.assertEqual(self.statuses(show='upcoming'), ['ready', 'preparing', 'confirmed'])
+        self.assertEqual(self.statuses(show='collected'), ['collected'])
+        self.assertEqual(self.statuses(show='cancelled'), ['cancelled'])
+
+    def test_ten_per_page(self):
+        for _ in range(7):
+            Order.objects.create(user=self.student, pickup_slot=self.slot, total_cents=500)
+        self.assertEqual(len(self.statuses()), 10)
+        self.assertEqual(len(self.statuses(page=2)), 2)
+
+    def test_empty_filter_and_no_orders_say_different_things(self):
+        Order.objects.filter(user=self.student, status='cancelled').delete()
+        self.assertContains(self.client.get(reverse('orders:order_history'), {'show': 'cancelled'}), 'No orders here.')
+        Order.objects.filter(user=self.student).delete()
+        self.assertContains(self.client.get(reverse('orders:order_history')), 'Browse the menu')

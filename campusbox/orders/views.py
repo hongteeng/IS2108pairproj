@@ -3,6 +3,7 @@ from datetime import timedelta
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.core.paginator import Paginator
 from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -203,13 +204,31 @@ def cancel_order(request, order_id):
     return redirect("orders:order_detail", order_id=order.id)
 
 
+MY_ORDER_FILTERS = [("", "All"), ("upcoming", "Upcoming"), ("collected", "Collected"), ("cancelled", "Cancelled")]
+UPCOMING_STATUSES = ["confirmed", "preparing", "ready"]  # not collected or cancelled yet
+
+
 @login_required
 def order_history(request):
-    """Show the logged-in user's previous orders."""
+    """Show the logged-in user's orders, newest first, 10 to a page, with status filters."""
+    show = request.GET.get("show", "")
     orders = request.user.orders.select_related(
         "pickup_slot__pickup_point",
-    ).order_by("-created_at")
-    return render(request, "orders/order_history.html", {"orders": orders})
+    ).order_by("-created_at", "-id")  # id keeps the pages in a fixed order
+    if show == "upcoming":
+        orders = orders.filter(status__in=UPCOMING_STATUSES)
+    elif show in ("collected", "cancelled"):
+        orders = orders.filter(status=show)
+    page_obj = Paginator(orders, 10).get_page(request.GET.get("page"))
+    params = request.GET.copy()
+    params.pop("page", None)  # page links add their own page number
+    return render(request, "orders/order_history.html", {
+        "page_obj": page_obj,
+        "querystring": params.urlencode(),
+        "show": show,
+        "filters": MY_ORDER_FILTERS,
+        "has_orders": request.user.orders.exists(),  # no orders at all, or none matching the filter
+    })
     
     
 @login_required

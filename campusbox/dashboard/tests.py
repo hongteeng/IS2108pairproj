@@ -1,8 +1,13 @@
+import shutil
+import tempfile
 from datetime import time, timedelta
+from io import BytesIO
 
+from PIL import Image
 from django.contrib.auth.models import User
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import connection
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from django.utils import timezone
@@ -729,3 +734,194 @@ class StaffMyAccountTests(TestCase): #staff open My account from the avatar or t
         response = self.client.get(reverse('dashboard:home'))
         self.assertContains(response, f'class="account-link d-inline-flex align-items-center gap-2" href="{self.url}"')
         self.assertContains(response, f'href="{self.url}">My account</a>')
+
+
+def image_upload(name='photo.png', fmt='PNG', extra=b''):
+    """A small real image as an uploaded file; extra bytes make it bigger."""
+    buffer = BytesIO()
+    Image.new('RGB', (30, 20), 'green').save(buffer, fmt)
+    return SimpleUploadedFile(name, buffer.getvalue() + extra, content_type='image/' + fmt.lower())
+
+
+TEST_MEDIA = tempfile.mkdtemp()  # uploads in these tests never touch the real media/ folder
+
+
+@override_settings(MEDIA_ROOT=TEST_MEDIA)
+class MealPhotoTests(TestCase): #uploading a photo on the Add and Edit meal pages
+    @classmethod
+    def tearDownClass(cls):
+        super().tearDownClass()
+        shutil.rmtree(TEST_MEDIA, ignore_errors=True)
+
+    def setUp(self):
+        User.objects.create_user('staff1', password='Pass1234!', is_staff=True)
+        self.client.login(username='staff1', password='Pass1234!')
+        self.category = MealCategory.objects.create(name='Rice')
+
+    def data(self, **changes):
+        data = {'name': 'Chicken Rice Box', 'description': 'Test', 'price': '6.50', 'calories': 500,
+                'protein_g': 30, 'carbs_g': 60, 'fat_g': 10, 'image_url': '', 'category': self.category.id,
+                'is_active': True}
+        data.update(changes)
+        return data
+
+    def add(self, photo):
+        return self.client.post(reverse('dashboard:meal_add'), self.data(photo=photo))
+
+    def edit(self, meal, **changes):
+        return self.client.post(reverse('dashboard:meal_edit', args=[meal.id]), self.data(**changes))
+
+    def test_upload_is_saved_under_a_random_name(self):
+        self.assertRedirects(self.add(image_upload('my cat.png')), reverse('dashboard:meal_list'))
+        meal = Meal.objects.get()
+        self.assertTrue(meal.photo.name.startswith('meals/') and meal.photo.name.endswith('.png'))
+        self.assertNotIn('cat', meal.photo.name) #the name staff gave the file is not used
+        self.assertTrue(meal.photo.storage.exists(meal.photo.name))
+        self.assertEqual(meal.photo_url, meal.photo.url)
+
+    def test_extension_follows_the_real_format(self):
+        self.add(image_upload('photo.png', fmt='JPEG')) #a JPEG named .png is saved as .jpg
+        self.assertTrue(Meal.objects.get().photo.name.endswith('.jpg'))
+
+    def test_a_file_that_is_not_an_image_is_refused(self):
+        self.assertEqual(self.add(SimpleUploadedFile('menu.png', b'not really a picture')).status_code, 200)
+        self.assertFalse(Meal.objects.exists())
+
+    def test_other_image_formats_are_refused(self):
+        self.assertContains(self.add(image_upload('photo.gif', fmt='GIF')), 'must be a JPG, PNG or WebP image')
+        self.assertFalse(Meal.objects.exists())
+
+    def test_photo_over_the_size_limit_is_refused(self):
+        big = image_upload('big.jpg', fmt='JPEG', extra=b'0' * (2 * 1024 * 1024))
+        self.assertContains(self.add(big), 'at most 2 MB')
+        self.assertFalse(Meal.objects.exists())
+
+    def test_new_photo_replaces_and_deletes_the_old_file(self):
+        self.add(image_upload())
+        meal = Meal.objects.get()
+        old = meal.photo.name
+        self.edit(meal, photo=image_upload('new.png'))
+        meal.refresh_from_db()
+        self.assertNotEqual(meal.photo.name, old)
+        self.assertFalse(meal.photo.storage.exists(old))
+        self.assertTrue(meal.photo.storage.exists(meal.photo.name))
+
+    def test_editing_without_a_new_photo_keeps_it(self):
+        self.add(image_upload())
+        meal = Meal.objects.get()
+        old = meal.photo.name
+        self.edit(meal, name='Renamed')
+        meal.refresh_from_db()
+        self.assertEqual(meal.photo.name, old)
+        self.assertTrue(meal.photo.storage.exists(old))
+
+    def test_removing_the_photo_falls_back_to_the_link(self):
+        self.add(image_upload())
+        meal = Meal.objects.get()
+        old = meal.photo.name
+        self.edit(meal, remove_photo='on', image_url='/static/menu/meals/chicken-rice-box.jpg')
+        meal.refresh_from_db()
+        self.assertFalse(meal.photo)
+        self.assertFalse(meal.photo.storage.exists(old))
+        self.assertEqual(meal.photo_url, '/static/menu/meals/chicken-rice-box.jpg')
+
+    def test_missing_file_shows_the_placeholder(self):
+        meal = Meal.objects.create(name='Gone', description='Test', price_cents=500, calories=500, protein_g=30,
+                                   carbs_g=60, fat_g=10, category=self.category, photo='meals/deleted.png')
+        self.assertTrue(meal.photo_url.endswith('menu/meal-placeholder.svg'))
+
+    def test_deleting_a_meal_deletes_its_photo(self):
+        self.add(image_upload())
+        meal = Meal.objects.get()
+        name = meal.photo.name
+        self.client.post(reverse('dashboard:meal_delete', args=[meal.id]))
+        self.assertFalse(Meal.objects.exists())
+        self.assertFalse(meal.photo.storage.exists(name))
+
+
+class MealListTests(TestCase): #search, filter, sort and pages on the staff Meals list
+    def setUp(self):
+        User.objects.create_user('staff1', password='Pass1234!', is_staff=True)
+        self.client.login(username='staff1', password='Pass1234!')
+        rice = MealCategory.objects.create(name='Rice')
+        noodles = MealCategory.objects.create(name='Noodles')
+        for name, category, price, active in [('Chicken Rice Box', rice, 650, True), ('Laksa Bowl', noodles, 720, True),
+                                              ('Egg Fried Rice', rice, 520, False)]:
+            Meal.objects.create(name=name, description='Test', price_cents=price, calories=500, protein_g=20,
+                                carbs_g=60, fat_g=10, category=category, is_active=active)
+
+    def names(self, **params):
+        response = self.client.get(reverse('dashboard:meal_list'), params)
+        return [meal.name for meal in response.context['page_obj']]
+
+    def test_default_is_by_category_then_name(self):
+        self.assertEqual(self.names(), ['Laksa Bowl', 'Chicken Rice Box', 'Egg Fried Rice'])
+
+    def test_search_matches_name_or_category(self):
+        self.assertEqual(self.names(q='laksa'), ['Laksa Bowl'])
+        self.assertEqual(self.names(q='rice'), ['Chicken Rice Box', 'Egg Fried Rice']) #both names and the category
+
+    def test_filter_by_active(self):
+        self.assertEqual(self.names(show='inactive'), ['Egg Fried Rice'])
+        self.assertEqual(len(self.names(show='active')), 2)
+
+    def test_sort_by_price_both_ways_and_ignore_unknown_keys(self):
+        self.assertEqual(self.names(sort='price'), ['Egg Fried Rice', 'Chicken Rice Box', 'Laksa Bowl'])
+        self.assertEqual(self.names(sort='-price'), ['Laksa Bowl', 'Chicken Rice Box', 'Egg Fried Rice'])
+        self.assertEqual(self.names(sort='password'), self.names()) #not in the list, so the default sort
+
+    def test_twenty_meals_per_page(self):
+        category = MealCategory.objects.get(name='Rice')
+        for number in range(20):
+            Meal.objects.create(name='Meal ' + str(number), description='Test', price_cents=500, calories=500,
+                                protein_g=20, carbs_g=60, fat_g=10, category=category)
+        self.assertEqual(len(self.names()), 20)
+        self.assertEqual(len(self.names(page=2)), 3)
+
+
+class MenuListTests(TestCase): #status, filters, sold totals and one query on the Weekly menus list
+    def setUp(self):
+        User.objects.create_user('staff1', password='Pass1234!', is_staff=True)
+        self.client.login(username='staff1', password='Pass1234!')
+        now, today = timezone.now(), timezone.localdate()
+        monday = today - timedelta(days=today.weekday())
+        self.past = WeeklyMenu.objects.create(week_start=monday - timedelta(days=21), order_cutoff=now - timedelta(days=22))
+        self.current = WeeklyMenu.objects.create(week_start=monday, order_cutoff=now - timedelta(hours=1))
+        self.next = WeeklyMenu.objects.create(week_start=monday + timedelta(days=7), order_cutoff=now + timedelta(days=1))
+        category = MealCategory.objects.create(name='Rice')
+        self.meal = Meal.objects.create(name='Chicken Rice Box', description='Test', price_cents=500, calories=500,
+                                        protein_g=30, carbs_g=60, fat_g=10, category=category)
+
+    def page(self, **params):
+        return self.client.get(reverse('dashboard:menu_list'), params)
+
+    def test_status_of_each_week(self):
+        self.assertEqual((self.next.status, self.current.status, self.past.status), ('open', 'closed', 'past'))
+        response = self.page()
+        for label in ['Open for orders', 'Ordering closed', 'Past']:
+            self.assertContains(response, label)
+
+    def test_newest_week_first_and_filters(self):
+        self.assertEqual(list(self.page().context['page_obj']), [self.next, self.current, self.past])
+        self.assertEqual(list(self.page(show='upcoming').context['page_obj']), [self.next, self.current])
+        self.assertEqual(list(self.page(show='past').context['page_obj']), [self.past])
+
+    def test_sold_and_meal_counts_are_added_up(self):
+        MenuItem.objects.create(weekly_menu=self.current, meal=self.meal, quantity_available=30, quantity_sold=12)
+        other = Meal.objects.create(name='Laksa', description='Test', price_cents=500, calories=500, protein_g=30,
+                                    carbs_g=60, fat_g=10, category=self.meal.category)
+        MenuItem.objects.create(weekly_menu=self.current, meal=other, quantity_available=20, quantity_sold=5)
+        menu = [m for m in self.page().context['page_obj'] if m.pk == self.current.pk][0]
+        self.assertEqual((menu.meal_count, menu.sold, menu.available), (2, 17, 50))
+        self.assertContains(self.page(), '17 / 50')
+
+    def test_more_menus_do_not_mean_more_queries(self):
+        with CaptureQueriesContext(connection) as three:
+            self.page()
+        for weeks in range(2, 6):
+            menu = WeeklyMenu.objects.create(week_start=self.next.week_start + timedelta(days=7 * weeks),
+                                             order_cutoff=timezone.now() + timedelta(days=7 * weeks))
+            MenuItem.objects.create(weekly_menu=menu, meal=self.meal, quantity_available=10)
+        with CaptureQueriesContext(connection) as seven:
+            self.page()
+        self.assertEqual(len(seven), len(three)) #the counts come from one annotated query, not one per row

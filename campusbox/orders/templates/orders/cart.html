@@ -30,7 +30,7 @@
                   <form method="post" action="{% url 'orders:update_cart' line.menu_item.id %}">
                     {% csrf_token %}
                     <input type="hidden" name="quantity" value="0">
-                    <button type="submit" class="btn btn-link btn-sm text-danger text-decoration-none p-0">Remove</button>
+                    <button type="submit" class="btn btn-sm btn-outline-danger">Remove</button>
                   </form>
                 </td>
               </tr>
@@ -46,7 +46,7 @@
             {% for item in suggestions %}
               <div class="list-group-item py-3 d-flex justify-content-between align-items-center">
                 <div class="d-flex align-items-center">
-                  <img src="{{ item.meal.image_url }}" alt="{{ item.meal.name }}" class="rounded object-fit-cover me-3" width="64" height="48">
+                  <img src="{{ item.meal.photo_url }}" alt="{{ item.meal.name }}" class="rounded object-fit-cover me-3" width="64" height="48">
                   <div>
                     <a href="{% url 'menu:meal_detail' item.meal.id %}">{{ item.meal.name }}</a>
                     <div class="small text-muted">

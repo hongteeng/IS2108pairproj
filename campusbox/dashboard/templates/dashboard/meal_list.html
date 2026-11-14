@@ -8,20 +8,43 @@
     <h1 class="h3 mb-0">Meals</h1>
     <a class="btn btn-success" href="{% url 'dashboard:meal_add' %}">Add meal</a>
   </div>
+  <div class="card mb-3"><div class="card-body">
+    <form method="get" class="row g-2">
+      {% if show %}<input type="hidden" name="show" value="{{ show }}">{% endif %}
+      {% if request.GET.sort %}<input type="hidden" name="sort" value="{{ sort }}">{% endif %}
+      <div class="col">
+        <input type="search" name="q" value="{{ q }}" class="form-control" placeholder="Search meal name or category">
+      </div>
+      <div class="col-auto">
+        <button type="submit" class="btn btn-success">Search</button>
+        <a href="{% url 'dashboard:meal_list' %}" class="btn btn-outline-secondary">Clear</a>
+      </div>
+    </form>
+    <div class="d-flex flex-wrap gap-2 mt-3">
+      {% for value, label in filters %}
+        <a href="{% url 'dashboard:meal_list' %}?show={{ value }}{% if q %}&amp;q={{ q|urlencode }}{% endif %}{% if request.GET.sort %}&amp;sort={{ sort }}{% endif %}" class="btn btn-sm {% if value == show %}btn-success{% else %}btn-outline-success{% endif %}">{{ label }}</a>
+      {% endfor %}
+    </div>
+  </div></div>
   <div class="card"><div class="card-body p-0"><div class="table-responsive">
-  <table class="table align-middle mb-0">
+  <table class="table table-fixed align-middle mb-0" style="min-width: 40rem;">
+    {# Fixed column widths, so sorting or changing page doesn't resize the table #}
+    <colgroup>
+      <col style="width: 31%"><col style="width: 19%"><col style="width: 12%">
+      <col style="width: 13%"><col style="width: 11%"><col style="width: 14%">
+    </colgroup>
     <thead>
       <tr>
-        <th>Name</th>
-        <th>Category</th>
-        <th>Price</th>
-        <th>Calories</th>
+        {% include "sort_header.html" with key="name" label="Name" %}
+        {% include "sort_header.html" with key="category" label="Category" %}
+        {% include "sort_header.html" with key="price" label="Price" %}
+        {% include "sort_header.html" with key="calories" label="Calories" %}
         <th>Active</th>
         <th></th>
       </tr>
     </thead>
     <tbody>
-      {% for meal in meals %}
+      {% for meal in page_obj %}
         <tr>
           <td>{{ meal.name }}</td>
           <td>{{ meal.category.name }}</td>
@@ -36,9 +59,10 @@
           </td>
         </tr>
       {% empty %}
-        <tr><td colspan="6" class="text-center text-muted py-4">No meals yet.</td></tr>
+        <tr><td colspan="6" class="text-center text-muted py-4">{% if q %}No meals match “{{ q }}”.{% else %}No meals to show.{% endif %}</td></tr>
       {% endfor %}
     </tbody>
   </table>
   </div></div></div>
+  {% include "pagination.html" with noun="meal" %}
 {% endblock %}

@@ -2,6 +2,7 @@ from datetime import time, timedelta
 from decimal import Decimal
 
 from django import forms
+from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
 from django.utils import timezone
 from django.utils.timezone import localtime
@@ -9,6 +10,10 @@ from accounts.forms import RegisterForm
 from menu.models import Meal, WeeklyMenu, MenuItem
 from orders.models import PickupPoint, PickupSlot
 from .roles import ROLE_CHOICES, STAFF
+
+MAX_PHOTO_MB = 2
+PHOTO_FORMATS = {'JPEG': 'jpg', 'PNG': 'png', 'WEBP': 'webp'}  # what Pillow calls each format -> file extension
+
 
 class MealForm(forms.ModelForm):
     # Staff type dollars; the database still stores whole cents.
@@ -20,11 +25,12 @@ class MealForm(forms.ModelForm):
         help_text='e.g. 6.50',
         widget=forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'min': '0.01'}),
     )
+    remove_photo = forms.BooleanField(required=False, label='Remove the uploaded photo')
 
     class Meta:
         model = Meal
         fields = ['name', 'description', 'price', 'calories', 'protein_g',
-                  'carbs_g', 'fat_g', 'image_url', 'category', 'dietary_tags',
+                  'carbs_g', 'fat_g', 'photo', 'image_url', 'category', 'dietary_tags',
                   'allergens', 'is_active']
         widgets = {
             'description': forms.Textarea(attrs={'rows': 3}),
@@ -32,6 +38,7 @@ class MealForm(forms.ModelForm):
             'dietary_tags': forms.CheckboxSelectMultiple(attrs={'class': 'btn-check'}),
             'allergens': forms.CheckboxSelectMultiple(attrs={'class': 'btn-check'}),
             'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input', 'role': 'switch'}),
+            'photo': forms.FileInput(attrs={'class': 'form-control', 'accept': 'image/jpeg,image/png,image/webp'}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -52,17 +59,32 @@ class MealForm(forms.ModelForm):
         self.fields['fat_g'].label = 'Fat'
         self.fields['is_active'].label = 'Show on the storefront'
         self.fields['is_active'].help_text = 'Untick to hide this meal from students without deleting it.'
-        self.fields['image_url'].label = 'Image URL'
-        self.fields['image_url'].help_text = 'A photo in menu/static/menu/meals/, e.g. /static/menu/meals/chicken-rice-box.jpg, or a full https:// link'
+        self.fields['photo'].label = 'Upload a photo'
+        self.fields['photo'].help_text = 'JPG, PNG or WebP, up to ' + str(MAX_PHOTO_MB) + ' MB.'
+        self.fields['image_url'].label = 'Or an image link'
+        self.fields['image_url'].help_text = 'Used when there is no uploaded photo, e.g. /static/menu/meals/chicken-rice-box.jpg or a full https:// link.'
 
     def nutrition_fields(self):
         """The four nutrition fields with their units, for one row in the template."""
         return [(self['calories'], 'kcal'), (self['protein_g'], 'g'),
                 (self['carbs_g'], 'g'), (self['fat_g'], 'g')]
 
+    def clean_photo(self):
+        """Accept only real JPG, PNG or WebP images up to the size limit."""
+        photo = self.cleaned_data.get('photo')
+        if photo and hasattr(photo, 'image'):  # a new upload, which Django has already opened with Pillow
+            if photo.size > MAX_PHOTO_MB * 1024 * 1024:
+                raise ValidationError('The photo must be at most ' + str(MAX_PHOTO_MB) + ' MB.')
+            if photo.image.format not in PHOTO_FORMATS:
+                raise ValidationError('The photo must be a JPG, PNG or WebP image.')
+            photo.name = 'photo.' + PHOTO_FORMATS[photo.image.format]  # the extension follows the real format, not the name typed
+        return photo
+
     def save(self, commit=True):
         # Convert dollars back to cents before saving, e.g. 6.50 -> 650
         self.instance.price_cents = int(self.cleaned_data['price'] * 100)
+        if self.cleaned_data.get('remove_photo') and 'photo' not in self.files:
+            self.instance.photo = ''  # the view deletes the old file
         return super().save(commit)
 
 
