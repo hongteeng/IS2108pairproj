@@ -129,6 +129,7 @@ def checkout(request):
         "lines": lines,
         "total_cents": total_cents,
         "slots": slots,
+        "selected_slot": request.POST.get("pickup_slot", ""),  # keep the choice if the page shows an error
     })
 
 

@@ -89,17 +89,21 @@ def seed(request): #seed is a batch of starting data for empty database,
     for meal in Meal.objects.all():
         item = MenuItem(weekly_menu=week, meal=meal, quantity_available=30, quantity_sold=0)
         item.save()
-    # One pickup point with three slots
-    point = PickupPoint(name="Sheares Hall Lobby", location="Ground floor, near the mailboxes", is_active=True)
-    point.save()
-    slots = [
-        [next_monday + timedelta(days=1), "12:00", "13:00"],
-        [next_monday + timedelta(days=1), "18:00", "19:00"],
-        [next_monday + timedelta(days=2), "12:00", "13:00"],
+    # Three pickup points, each with a lunch and a dinner slot from Monday to Friday
+    points = [
+        ["Sheares Hall Lobby", "Ground floor, near the mailboxes"],
+        ["UTown Town Plaza", "Outside the food court, by the bus stop"],
+        ["Central Library", "Ground floor, main entrance"],
     ]
-    for s in slots:
-        slot = PickupSlot(pickup_point=point, day=s[0], start_time=s[1], end_time=s[2], capacity=20)
-        slot.save()
+    times = [["12:00", "13:00"], ["18:00", "19:00"]]
+    for p in points:
+        point = PickupPoint(name=p[0], location=p[1], is_active=True)
+        point.save()
+        for day in range(5):  # Monday to Friday
+            for t in times:
+                slot = PickupSlot(pickup_point=point, day=next_monday + timedelta(days=day),
+                                  start_time=t[0], end_time=t[1], capacity=20)
+                slot.save()
 
     messages.success(request, "Seeded " + str(Meal.objects.count()) + " meals.")
     return redirect("dashboard:home")

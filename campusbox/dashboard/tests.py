@@ -478,3 +478,14 @@ class StaffAccountsListTests(TestCase): #filters, search and pages on Staff acco
         staff1 = User.objects.get(username='staff1')
         response = self.client.post(self.url + '?show=staff', {'toggle_id': staff1.id})
         self.assertRedirects(response, self.url + '?show=staff')
+
+
+class ResetDemoDataTests(TestCase):
+    def test_owner_reset_loads_the_starter_menu_and_slots(self):
+        User.objects.create_user('owner1', password='Pass1234!', is_staff=True, is_superuser=True)
+        self.client.login(username='owner1', password='Pass1234!')
+        self.client.post(reverse('dashboard:seed'))
+        self.assertEqual(Meal.objects.count(), 20)
+        self.assertEqual(MenuItem.objects.count(), 20)
+        self.assertEqual(PickupPoint.objects.count(), 3)
+        self.assertEqual(PickupSlot.objects.count(), 30) #3 points x 5 days x lunch and dinner
