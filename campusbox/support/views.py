@@ -38,9 +38,21 @@ def report_problem(request, order_id):
 
 @login_required
 def my_tickets(request):
-    """List the student's support tickets."""
-    tickets = request.user.tickets.select_related("order")
-    return render(request, "support/my_tickets.html", {"tickets": tickets})
+    """List the student's support tickets, newest first, 10 to a page, with status filters."""
+    show = request.GET.get("show", "")
+    tickets = request.user.tickets.select_related("order").order_by("-created_at", "-id")  # id keeps the pages in a fixed order
+    if show in dict(SupportTicket.STATUS_CHOICES):
+        tickets = tickets.filter(status=show)
+    page_obj = Paginator(tickets, 10).get_page(request.GET.get("page"))
+    params = request.GET.copy()
+    params.pop("page", None)  # page links add their own page number
+    return render(request, "support/my_tickets.html", {
+        "page_obj": page_obj,
+        "querystring": params.urlencode(),
+        "show": show,
+        "filters": TICKET_FILTERS,
+        "has_tickets": request.user.tickets.exists(),  # no reports at all, or none matching the filter
+    })
 
 
 TICKET_FILTERS = [("", "All")] + SupportTicket.STATUS_CHOICES

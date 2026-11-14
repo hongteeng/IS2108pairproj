@@ -21,6 +21,8 @@ def seed(request): #seed is a batch of starting data for empty database,
     Order.objects.all().delete()
     MenuItem.objects.all().delete()
     WeeklyMenu.objects.all().delete()
+    for meal in Meal.objects.exclude(photo=''):
+        meal.photo.delete(save=False)  # remove uploaded photo files as well
     Meal.objects.all().delete()
     PickupSlot.objects.all().delete()
     PickupPoint.objects.all().delete()

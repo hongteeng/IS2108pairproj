@@ -7,28 +7,47 @@
     <h1 class="h3 mb-0">Weekly menus</h1>
     <a class="btn btn-success" href="{% url 'dashboard:menu_add' %}">Add weekly menu</a>
   </div>
+  <div class="d-flex flex-wrap gap-2 mb-3">
+    {% for value, label in filters %}
+      <a href="{% url 'dashboard:menu_list' %}?show={{ value }}" class="btn btn-sm {% if value == show %}btn-success{% else %}btn-outline-success{% endif %}">{{ label }}</a>
+    {% endfor %}
+  </div>
   <div class="card"><div class="card-body p-0"><div class="table-responsive">
-  <table class="table align-middle mb-0">
+  <table class="table table-fixed align-middle mb-0" style="min-width: 40rem;">
+    {# Fixed column widths, so changing page or filter doesn't resize the table #}
+    <colgroup>
+      <col style="width: 18%"><col style="width: 22%"><col style="width: 20%">
+      <col style="width: 10%"><col style="width: 18%"><col style="width: 12%">
+    </colgroup>
     <thead>
       <tr>
         <th>Week starting</th>
         <th>Order cutoff</th>
+        <th>Status</th>
         <th>Meals</th>
+        <th>Sold</th>
         <th></th>
       </tr>
     </thead>
     <tbody>
-      {% for menu in menus %}
+      {% for menu in page_obj %}
         <tr>
-          <td>{{ menu.week_start|date:"D j M" }}</td>
+          <td>{{ menu.week_start|date:"D j M Y" }}</td>
           <td>{{ menu.order_cutoff|date:"D j M, H:i" }}</td>
-          <td>{{ menu.items.count }}</td>
+          <td>
+            {% if menu.status == 'open' %}<span class="badge text-bg-success">Open for orders</span>
+            {% elif menu.status == 'closed' %}<span class="badge bg-warning-subtle text-warning-emphasis">Ordering closed</span>
+            {% else %}<span class="badge bg-secondary-subtle text-secondary-emphasis">Past</span>{% endif %}
+          </td>
+          <td>{{ menu.meal_count }}</td>
+          <td>{% if menu.available %}{{ menu.sold }} / {{ menu.available }}{% else %}–{% endif %}</td>
           <td><div class="d-flex gap-2"><a href="{% url 'dashboard:menu_detail' menu.id %}" class="btn btn-sm btn-outline-success">View</a></div></td>
         </tr>
       {% empty %}
-        <tr><td colspan="4" class="text-center text-muted py-4">No weekly menus yet.</td></tr>
+        <tr><td colspan="6" class="text-center text-muted py-4">{% if show %}No weekly menus here.{% else %}No weekly menus yet.{% endif %}</td></tr>
       {% endfor %}
     </tbody>
   </table>
   </div></div></div>
+  {% include "pagination.html" with noun="weekly menu" %}
 {% endblock %}

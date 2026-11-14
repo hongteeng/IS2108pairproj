@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="400" viewBox="0 0 600 400">
+  <rect width="600" height="400" fill="#e9ecef"/>
+  <circle cx="300" cy="185" r="70" fill="none" stroke="#adb5bd" stroke-width="10"/>
+  <circle cx="300" cy="185" r="40" fill="none" stroke="#ced4da" stroke-width="6"/>
+  <text x="300" y="305" font-family="Arial, sans-serif" font-size="28" fill="#6c757d" text-anchor="middle">No photo yet</text>
+</svg>

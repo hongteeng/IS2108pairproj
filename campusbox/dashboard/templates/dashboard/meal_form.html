@@ -4,7 +4,7 @@
 
 {% block staff_content %}
   <h1 class="h3 mb-3">{{ title }}</h1>
-  <form method="post">
+  <form method="post" enctype="multipart/form-data">{# multipart is needed to send a file #}
     {% csrf_token %}
     {% for error in form.non_field_errors %}<div class="alert alert-danger">{{ error }}</div>{% endfor %}
 
@@ -56,6 +56,26 @@
 
     <div class="card mb-3"><div class="card-body">
       <h2 class="h6 mb-3">Photo, tags and allergens</h2>
+      <div class="row g-3 mb-3">
+        {% if current_photo %}
+          <div class="col-sm-auto">
+            <span class="form-label d-block">Current photo</span>
+            <img src="{{ current_photo }}" alt="Current photo" class="rounded border object-fit-cover" width="150" height="100">
+          </div>
+        {% endif %}
+        <div class="col">
+          <label class="form-label" for="{{ form.photo.id_for_label }}">{{ form.photo.label }}</label>
+          {{ form.photo }}
+          <div class="form-text">{{ form.photo.help_text }}{% if has_upload %} A new upload replaces the current photo.{% endif %}</div>
+          {% for error in form.photo.errors %}<div class="small text-danger">{{ error }}</div>{% endfor %}
+          {% if has_upload %}
+            <div class="form-check mt-2">
+              <input type="checkbox" class="form-check-input" name="{{ form.remove_photo.html_name }}" id="{{ form.remove_photo.id_for_label }}"{% if form.remove_photo.value %} checked{% endif %}>
+              <label class="form-check-label" for="{{ form.remove_photo.id_for_label }}">{{ form.remove_photo.label }}</label>
+            </div>
+          {% endif %}
+        </div>
+      </div>
       <div class="mb-3">
         <label class="form-label" for="{{ form.image_url.id_for_label }}">{{ form.image_url.label }}</label>
         {{ form.image_url }}
