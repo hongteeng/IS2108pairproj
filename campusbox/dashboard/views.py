@@ -16,7 +16,7 @@ from menu.utils import current_menu, menu_labels
 from orders.models import Order, OrderItem, PickupPoint, PickupSlot
 from support.models import SupportTicket
 from .forms import MealForm, WeeklyMenuForm, MenuItemForm, PickupPointForm, PickupSlotForm, StaffAccountForm
-from .roles import ROLE_CHOICES, ROLE_NAMES, STAFF, can_manage, role_of, set_role
+from .roles import HR, OWNER, ROLE_CHOICES, ROLE_NAMES, STAFF, can_manage, role_of, set_role
 
 
 def posted_id(request, field): #an id typed into a form arrives as text, so refuse anything that is not a number
@@ -414,6 +414,9 @@ def packing_list(request): #runs when staff visit /dashboard/packing/
     return render(request, 'dashboard/packing_list.html', {'groups': groups})
 
 
+STAFF_FILTERS = [('', 'All'), (OWNER, 'Owners'), (HR, 'HR'), (STAFF, 'Staff'), ('inactive', 'Inactive')]
+
+
 def staff_accounts(request): #owners and HR, the middleware already checked the manage_staff permission
     is_owner = request.user.is_superuser
 
@@ -432,17 +435,36 @@ def staff_accounts(request): #owners and HR, the middleware already checked the 
                 raise Http404
             set_role(member, role)
             messages.success(request, member.username + ' is now ' + ROLE_NAMES[role] + '.')
-        return redirect('dashboard:staff_accounts')
+        return redirect(request.get_full_path()) #back to the same filter, search and page
 
-    staff = User.objects.filter(is_staff=True).prefetch_related('groups').order_by('-is_superuser', 'username')
+    show = request.GET.get('show', '')
+    q = request.GET.get('q', '').strip()
+    staff = User.objects.filter(is_staff=True).prefetch_related('groups')
+    if show == OWNER:
+        staff = staff.filter(is_superuser=True)
+    elif show == HR:
+        staff = staff.filter(is_superuser=False, groups__name='HR')
+    elif show == STAFF:
+        staff = staff.filter(is_superuser=False).exclude(groups__name='HR')
+    elif show == 'inactive':
+        staff = staff.filter(is_active=False)
+    if q:
+        staff = staff.filter(Q(username__icontains=q) | Q(email__icontains=q))
+    staff = staff.order_by('-is_superuser', 'username') #owners first, then A to Z
+
+    page_obj = Paginator(staff, 20).get_page(request.GET.get('page'))
     rows = [{
         'member': member,
         'role': role_of(member),
         'role_name': ROLE_NAMES[role_of(member)],
         'can_manage': can_manage(request.user, member),
-    } for member in staff]
+    } for member in page_obj]
+    params = request.GET.copy()
+    params.pop('page', None) #page links add their own page number
     return render(request, 'dashboard/staff_accounts.html', {
-        'rows': rows, 'is_owner': is_owner, 'role_choices': ROLE_CHOICES,
+        'rows': rows, 'page_obj': page_obj, 'querystring': params.urlencode(),
+        'is_owner': is_owner, 'role_choices': ROLE_CHOICES,
+        'show': show, 'q': q, 'filters': STAFF_FILTERS,
     })
 
 

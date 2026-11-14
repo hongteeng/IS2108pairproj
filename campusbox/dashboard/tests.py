@@ -439,3 +439,42 @@ class StaffRoleTests(TestCase): #Owner, HR and Staff, see dashboard/roles.py
             self.login(username)
             self.assertRedirects(self.client.post(reverse('dashboard:seed')), reverse('dashboard:home'))
             self.assertTrue(Meal.objects.filter(name='Chicken Rice Box').exists()) #nothing was wiped
+
+
+class StaffAccountsListTests(TestCase): #filters, search and pages on Staff accounts
+    def setUp(self):
+        User.objects.create_user('owner1', password='Pass1234!', email='owner1@example.com', is_staff=True, is_superuser=True)
+        hr = User.objects.create_user('hr1', password='Pass1234!', email='hr1@example.com')
+        set_role(hr, HR)
+        User.objects.create_user('staff1', password='Pass1234!', email='staff1@example.com', is_staff=True)
+        User.objects.create_user('staff2', password='Pass1234!', email='kitchen@example.com', is_staff=True, is_active=False)
+        self.client.login(username='owner1', password='Pass1234!')
+        self.url = reverse('dashboard:staff_accounts')
+
+    def usernames(self, **params):
+        response = self.client.get(self.url, params)
+        return [row['member'].username for row in response.context['rows']]
+
+    def test_all_staff_owners_first(self):
+        self.assertEqual(self.usernames(), ['owner1', 'hr1', 'staff1', 'staff2'])
+
+    def test_role_filters(self):
+        self.assertEqual(self.usernames(show=OWNER), ['owner1'])
+        self.assertEqual(self.usernames(show=HR), ['hr1'])
+        self.assertEqual(self.usernames(show=STAFF), ['staff1', 'staff2'])
+        self.assertEqual(self.usernames(show='inactive'), ['staff2'])
+
+    def test_search_by_username_or_email(self):
+        self.assertEqual(self.usernames(q='hr'), ['hr1'])
+        self.assertEqual(self.usernames(q='kitchen'), ['staff2'])
+
+    def test_twenty_per_page(self):
+        for n in range(25):
+            User.objects.create_user(f'extra{n:02d}', password='Pass1234!', is_staff=True)
+        self.assertEqual(len(self.usernames()), 20)
+        self.assertEqual(len(self.usernames(page=2)), 9) #29 staff in total
+
+    def test_a_button_keeps_the_filter(self):
+        staff1 = User.objects.get(username='staff1')
+        response = self.client.post(self.url + '?show=staff', {'toggle_id': staff1.id})
+        self.assertRedirects(response, self.url + '?show=staff')
