@@ -17,6 +17,13 @@ from orders.models import Order, OrderItem, PickupPoint, PickupSlot
 from support.models import SupportTicket
 from .forms import MealForm, WeeklyMenuForm, MenuItemForm, PickupPointForm, PickupSlotForm
 
+
+def posted_id(request, field): #an id typed into a form arrives as text, so refuse anything that is not a number
+    value = request.POST.get(field, '')
+    if not value.isdigit():
+        raise Http404
+    return int(value)
+
 def staff_login(request): #function to authenticate user, runs when visiting /dashboard/login
     error = None
     if request.method == 'POST': #post vs GET. POST means clicking on login button. GET means view, clicking on link going to website
@@ -183,7 +190,7 @@ def menu_detail(request, menu_id):
 
     if request.method == 'POST':
         if 'remove_id' in request.POST:
-            item = get_object_or_404(MenuItem, pk=request.POST.get('remove_id', ''))
+            item = get_object_or_404(MenuItem, pk=posted_id(request, 'remove_id'))
             try:
                 item.delete()
             except ProtectedError:
@@ -241,7 +248,7 @@ def pickup_detail(request, point_id):
             point.is_active = not point.is_active
             point.save()
         elif 'remove_id' in request.POST:
-            slot = get_object_or_404(PickupSlot, pk=request.POST.get('remove_id', ''))
+            slot = get_object_or_404(PickupSlot, pk=posted_id(request, 'remove_id'))
             try:
                 slot.delete()
             except ProtectedError:
@@ -348,11 +355,13 @@ def inventory(request):
     error = None
 
     if request.method == 'POST':
-        item = get_object_or_404(MenuItem, pk=request.POST.get('item_id', ''))
+        item = get_object_or_404(MenuItem, pk=posted_id(request, 'item_id'))
         new_quantity = request.POST.get('quantity', '')
         if new_quantity.isdigit() and int(new_quantity) >= item.quantity_sold:
             item.quantity_available = int(new_quantity)
             item.save()
+            messages.success(request, item.meal.name + ' set to ' + new_quantity + '.')
+            return redirect('dashboard:inventory') #redirect so a refresh doesn't save again
         else:
             error = 'Enter a whole number that is at least the number already sold.'
 
