@@ -28,7 +28,7 @@ def suggest_for_meals(meal_names, exclude_names=(), limit=3):
             ):
                 suggested_names.append(suggested_name)
 
-    suggested_names = suggested_names[:limit]
+    # Keep every candidate for now: some may be sold out or not on this week's menu.
     menu = current_menu()
     if not menu or not suggested_names:
         return MenuItem.objects.none()
@@ -48,5 +48,5 @@ def suggest_for_meals(meal_names, exclude_names=(), limit=3):
             quantity_sold__lt=F("quantity_available"),
         ))
         .select_related("meal")
-        .order_by(ordering)
+        .order_by(ordering)[:limit]  # the best ones that are actually available
     )

@@ -180,12 +180,17 @@ def cancel_order(request, order_id):
         return redirect("orders:order_detail", order_id=order.id)
 
     with transaction.atomic():
-        order.status = "cancelled"
-        order.save(update_fields=["status"])
-        for item in items:
-            MenuItem.objects.filter(id=item.menu_item_id).update(
-                quantity_sold=F("quantity_sold") - item.quantity,
-            )
+        # Changing the status is also the check: it only works while the order is still confirmed,
+        # so a double click or a second tab can't put the meals back into stock twice.
+        cancelled = Order.objects.filter(id=order.id, status="confirmed").update(status="cancelled")
+        if cancelled:
+            for item in items:
+                MenuItem.objects.filter(id=item.menu_item_id).update(
+                    quantity_sold=F("quantity_sold") - item.quantity,
+                )
+    if not cancelled:
+        messages.error(request, "This order can no longer be cancelled.")
+        return redirect("orders:order_detail", order_id=order.id)
 
     messages.success(
         request,
