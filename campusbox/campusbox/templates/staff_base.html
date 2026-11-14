@@ -17,7 +17,7 @@
         <a class="list-group-item list-group-item-action {% if request.resolver_match.url_name == 'reviews' %}active{% endif %}" href="{% url 'dashboard:reviews' %}">Reviews</a>
         <a class="list-group-item list-group-item-action {% if request.resolver_match.url_name == 'tickets' or request.resolver_match.url_name == 'ticket_detail' %}active{% endif %}" href="{% url 'dashboard:tickets' %}">Support</a>
         <a class="list-group-item list-group-item-action {% if request.resolver_match.url_name == 'packing_list' %}active{% endif %}" href="{% url 'dashboard:packing_list' %}">Packing list</a>
-        {% if perms.dashboard.manage_staff %}<a class="list-group-item list-group-item-action {% if request.resolver_match.url_name == 'staff_accounts' %}active{% endif %}" href="{% url 'dashboard:staff_accounts' %}">Staff accounts</a>{% endif %}
+        {% if perms.dashboard.manage_staff %}<a class="list-group-item list-group-item-action {% if request.resolver_match.url_name == 'staff_accounts' or request.resolver_match.url_name == 'staff_account_add' %}active{% endif %}" href="{% url 'dashboard:staff_accounts' %}">Staff accounts</a>{% endif %}
         <a class="list-group-item list-group-item-action" href="{% url 'accounts:change_password' %}">Change password</a>
       </div>
     </div>

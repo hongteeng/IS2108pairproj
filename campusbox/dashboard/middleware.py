@@ -2,7 +2,10 @@ from django.contrib import messages
 from django.shortcuts import redirect
 
 OWNER_ONLY = ['/dashboard/seed/']  #Reset demo data wipes everything, so only owners may use it
-NEEDS_PERMISSION = {'/dashboard/staff-accounts/': 'dashboard.manage_staff'}  #owners and HR
+NEEDS_PERMISSION = {  #owners and HR
+    '/dashboard/staff-accounts/': 'dashboard.manage_staff',
+    '/dashboard/staff-accounts/add/': 'dashboard.manage_staff',
+}
 
 #guard that stands at door of whole website. every request goes through it before reaching any view
 def staff_only_middleware(get_response):

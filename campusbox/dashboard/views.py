@@ -416,36 +416,23 @@ def packing_list(request): #runs when staff visit /dashboard/packing/
 
 def staff_accounts(request): #owners and HR, the middleware already checked the manage_staff permission
     is_owner = request.user.is_superuser
-    form = StaffAccountForm(can_choose_role=is_owner)
 
-    if request.method == 'POST':
-        if 'toggle_id' in request.POST or 'role_id' in request.POST: #the buttons on each row
-            field = 'toggle_id' if 'toggle_id' in request.POST else 'role_id'
-            member = get_object_or_404(User, pk=posted_id(request, field), is_staff=True)
-            if not can_manage(request.user, member): #your own account, or HR touching an owner or HR
+    if request.method == 'POST' and ('toggle_id' in request.POST or 'role_id' in request.POST): #the buttons on each row
+        field = 'toggle_id' if 'toggle_id' in request.POST else 'role_id'
+        member = get_object_or_404(User, pk=posted_id(request, field), is_staff=True)
+        if not can_manage(request.user, member): #your own account, or HR touching an owner or HR
+            raise Http404
+        if field == 'toggle_id': #Deactivate / Reactivate
+            member.is_active = not member.is_active
+            member.save()
+            messages.success(request, member.username + (' reactivated.' if member.is_active else ' deactivated.'))
+        else: #promote or demote
+            role = request.POST.get('role', '')
+            if not is_owner or role not in ROLE_NAMES: #only owners can change roles
                 raise Http404
-            if field == 'toggle_id': #Deactivate / Reactivate
-                member.is_active = not member.is_active
-                member.save()
-                messages.success(request, member.username + (' reactivated.' if member.is_active else ' deactivated.'))
-            else: #promote or demote
-                role = request.POST.get('role', '')
-                if not is_owner or role not in ROLE_NAMES: #only owners can change roles
-                    raise Http404
-                set_role(member, role)
-                messages.success(request, member.username + ' is now ' + ROLE_NAMES[role] + '.')
-            return redirect('dashboard:staff_accounts')
-
-        form = StaffAccountForm(request.POST, can_choose_role=is_owner) #the Add staff form
-        if form.is_valid():
-            member = User.objects.create_user(
-                username=form.cleaned_data['username'],
-                email=form.cleaned_data['email'],
-                password=form.cleaned_data['password'], #create_user hashes it
-            )
-            set_role(member, form.cleaned_data.get('role') or STAFF) #HR's form has no role field, so always Staff
-            messages.success(request, 'Staff account created.')
-            return redirect('dashboard:staff_accounts')
+            set_role(member, role)
+            messages.success(request, member.username + ' is now ' + ROLE_NAMES[role] + '.')
+        return redirect('dashboard:staff_accounts')
 
     staff = User.objects.filter(is_staff=True).prefetch_related('groups').order_by('-is_superuser', 'username')
     rows = [{
@@ -455,5 +442,20 @@ def staff_accounts(request): #owners and HR, the middleware already checked the 
         'can_manage': can_manage(request.user, member),
     } for member in staff]
     return render(request, 'dashboard/staff_accounts.html', {
-        'rows': rows, 'form': form, 'is_owner': is_owner, 'role_choices': ROLE_CHOICES,
+        'rows': rows, 'is_owner': is_owner, 'role_choices': ROLE_CHOICES,
     })
+
+
+def staff_account_add(request): #runs when owners or HR open /dashboard/staff-accounts/add/
+    is_owner = request.user.is_superuser
+    form = StaffAccountForm(request.POST or None, can_choose_role=is_owner) #HR's form has no role field
+    if request.method == 'POST' and form.is_valid():
+        member = User.objects.create_user(
+            username=form.cleaned_data['username'],
+            email=form.cleaned_data['email'],
+            password=form.cleaned_data['password'], #create_user hashes it
+        )
+        set_role(member, form.cleaned_data.get('role') or STAFF) #no role field means plain Staff
+        messages.success(request, member.username + ' added as ' + ROLE_NAMES[role_of(member)] + '.')
+        return redirect('dashboard:staff_accounts')
+    return render(request, 'dashboard/staff_account_form.html', {'form': form, 'is_owner': is_owner})

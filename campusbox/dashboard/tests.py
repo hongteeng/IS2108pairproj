@@ -218,6 +218,7 @@ class StaffAccountsTests(TestCase):
         self.staff = User.objects.create_user('staff1', password='Pass1234!', is_staff=True)
         self.student = User.objects.create_user('student1', password='Pass1234!')
         self.url = reverse('dashboard:staff_accounts')
+        self.add_url = reverse('dashboard:staff_account_add')
 
     def new_staff_data(self, **changes):
         data = {
@@ -241,7 +242,7 @@ class StaffAccountsTests(TestCase):
 
     def test_owner_can_add_a_staff_account(self):
         self.client.login(username='owner1', password='Pass1234!')
-        response = self.client.post(self.url, self.new_staff_data())
+        response = self.client.post(self.add_url, self.new_staff_data())
         self.assertRedirects(response, self.url)
         member = User.objects.get(username='newstaff')
         self.assertTrue(member.is_staff)
@@ -251,12 +252,12 @@ class StaffAccountsTests(TestCase):
 
     def test_normal_staff_cannot_add_a_staff_account(self):
         self.client.login(username='staff1', password='Pass1234!')
-        self.client.post(self.url, self.new_staff_data())
+        self.client.post(self.add_url, self.new_staff_data())
         self.assertFalse(User.objects.filter(username='newstaff').exists())
 
     def test_duplicate_username_is_rejected(self):
         self.client.login(username='owner1', password='Pass1234!')
-        response = self.client.post(self.url, self.new_staff_data(username='staff1'))
+        response = self.client.post(self.add_url, self.new_staff_data(username='staff1'))
         self.assertEqual(response.status_code, 200) #stays on the page and shows the error
         self.assertEqual(User.objects.filter(username__iexact='staff1').count(), 1)
 
@@ -342,6 +343,7 @@ class StaffRoleTests(TestCase): #Owner, HR and Staff, see dashboard/roles.py
         set_role(self.hr, HR)
         self.staff = User.objects.create_user('staff1', password='Pass1234!', is_staff=True)
         self.url = reverse('dashboard:staff_accounts')
+        self.add_url = reverse('dashboard:staff_account_add')
 
     def login(self, username):
         self.client.login(username=username, password='Pass1234!')
@@ -357,18 +359,28 @@ class StaffRoleTests(TestCase): #Owner, HR and Staff, see dashboard/roles.py
         self.assertEqual(self.client.get(self.url).status_code, 200)
         self.assertContains(self.client.get(reverse('dashboard:home')), 'Staff accounts')
 
+    def test_plain_staff_cannot_open_the_add_page(self):
+        self.login('staff1')
+        self.assertRedirects(self.client.get(self.add_url), reverse('dashboard:home'))
+
+    def test_hr_add_page_has_no_role_choice(self):
+        self.login('hr1')
+        response = self.client.get(self.add_url)
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn('role', response.context['form'].fields)
+
     def test_plain_staff_do_not_see_the_link(self):
         self.login('staff1')
         self.assertNotContains(self.client.get(reverse('dashboard:home')), 'Staff accounts')
 
     def test_hr_always_adds_plain_staff(self):
         self.login('hr1')
-        self.client.post(self.url, self.new_staff_data(role=OWNER)) #HR's form has no role field, so this is ignored
+        self.client.post(self.add_url, self.new_staff_data(role=OWNER)) #HR's form has no role field, so this is ignored
         self.assertEqual(role_of(User.objects.get(username='newstaff')), STAFF)
 
     def test_owner_can_add_hr(self):
         self.login('owner1')
-        self.client.post(self.url, self.new_staff_data(role=HR))
+        self.client.post(self.add_url, self.new_staff_data(role=HR))
         member = User.objects.get(username='newstaff')
         self.assertEqual(role_of(member), HR)
         self.assertTrue(member.has_perm('dashboard.manage_staff'))
