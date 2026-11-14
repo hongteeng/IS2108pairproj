@@ -190,7 +190,7 @@ def menu_detail(request, menu_id):
 
     if request.method == 'POST':
         if 'remove_id' in request.POST:
-            item = get_object_or_404(MenuItem, pk=posted_id(request, 'remove_id'))
+            item = get_object_or_404(MenuItem, pk=posted_id(request, 'remove_id'), weekly_menu=menu) #only items on this menu
             try:
                 item.delete()
             except ProtectedError:
@@ -248,7 +248,7 @@ def pickup_detail(request, point_id):
             point.is_active = not point.is_active
             point.save()
         elif 'remove_id' in request.POST:
-            slot = get_object_or_404(PickupSlot, pk=posted_id(request, 'remove_id'))
+            slot = get_object_or_404(PickupSlot, pk=posted_id(request, 'remove_id'), pickup_point=point) #only this point's slots
             try:
                 slot.delete()
             except ProtectedError:

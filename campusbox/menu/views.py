@@ -105,6 +105,17 @@ def seed(request): #seed is a batch of starting data for empty database,
     return redirect("dashboard:home")
 
 
+def to_cents(text):
+    """Turn a dollar amount from the URL, such as "6.5", into cents, or None if it isn't a valid amount."""
+    try:
+        dollars = float(text)
+    except ValueError:
+        return None
+    if not math.isfinite(dollars) or dollars < 0:  # rejects "nan", "inf" and negatives
+        return None
+    return round(dollars * 100)
+
+
 def weekly_menu(request):
     """Display the current weekly menu and its active meals."""
 
@@ -174,8 +185,9 @@ def weekly_menu(request):
         avoid_ids = [a for a in avoid if a.isdigit()]
         if avoid_ids:
             items = items.exclude(meal__allergens__id__in=avoid_ids)
-        if max_price.isdigit():
-            items = items.filter(meal__price_cents__lte=int(max_price) * 100)
+        max_price_cents = to_cents(max_price)
+        if max_price_cents is not None:
+            items = items.filter(meal__price_cents__lte=max_price_cents)
         if max_calories.isdigit():
             items = items.filter(meal__calories__lte=int(max_calories))
         if min_protein.isdigit():

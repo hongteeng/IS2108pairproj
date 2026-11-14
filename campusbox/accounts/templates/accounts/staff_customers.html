@@ -40,7 +40,8 @@
     <tbody>
       {% for customer in page_obj %}
         <tr>
-          <td>{{ customer.username }}{% if not customer.is_active %} <span class="badge text-bg-secondary">Inactive</span>{% endif %}</td>          <td class="text-break">{{ customer.email }}</td>
+          <td>{{ customer.username }}{% if not customer.is_active %} <span class="badge text-bg-secondary">Inactive</span>{% endif %}</td>
+          <td class="text-break">{{ customer.email }}</td>
           <td class="text-nowrap">{{ customer.date_joined|date:"j M Y" }}</td>
           <td>{% if customer.profile %}{{ customer.profile.get_diet_display }}{% else %}—{% endif %}</td>
           <td>{% if customer.profile %}{{ customer.profile.get_fitness_goal_display }}{% else %}—{% endif %}</td>

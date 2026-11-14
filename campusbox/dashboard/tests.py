@@ -306,3 +306,29 @@ class NewMenuDefaultsTests(TestCase):
             'order_cutoff': self.form.initial['order_cutoff'].strftime('%Y-%m-%d %H:%M'),
         }
         self.assertRedirects(self.client.post(reverse('dashboard:menu_add'), data), reverse('dashboard:menu_list'))
+
+
+class CraftedPostTests(TestCase): #a POST with a made-up id should give "not found", not crash the page
+    def setUp(self):
+        User.objects.create_user('staff1', password='Pass1234!', is_staff=True)
+        self.client.login(username='staff1', password='Pass1234!')
+        self.menu = WeeklyMenu.objects.create(week_start=timezone.localdate(), order_cutoff=timezone.now())
+        self.point = PickupPoint.objects.create(name='Library', location='Level 1')
+
+    def test_inventory_with_bad_item_id_is_404(self):
+        response = self.client.post(reverse('dashboard:inventory'), {'item_id': 'abc', 'quantity': '5'})
+        self.assertEqual(response.status_code, 404)
+
+    def test_menu_detail_with_bad_remove_id_is_404(self):
+        response = self.client.post(reverse('dashboard:menu_detail', args=[self.menu.id]), {'remove_id': 'abc'})
+        self.assertEqual(response.status_code, 404)
+
+    def test_slot_from_another_point_cannot_be_removed(self):
+        other = PickupPoint.objects.create(name='Hall', location='Lobby')
+        slot = PickupSlot.objects.create(
+            pickup_point=other, day=timezone.localdate() + timedelta(days=1),
+            start_time=time(12, 0), end_time=time(12, 30), capacity=20,
+        )
+        response = self.client.post(reverse('dashboard:pickup_detail', args=[self.point.id]), {'remove_id': str(slot.id)})
+        self.assertEqual(response.status_code, 404)
+        self.assertTrue(PickupSlot.objects.filter(id=slot.id).exists())

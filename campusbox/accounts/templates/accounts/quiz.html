@@ -45,8 +45,10 @@
           <button type="submit" class="btn btn-success w-100">Save preferences</button>
         </form>
         <hr class="my-4">
-        <a href="{% url 'accounts:deactivate_account' %}" class="small text-danger">Deactivate my account</a>
-        <a href="{% url 'accounts:change_password' %}" class="small text-primary">Change password</a>
+        <div class="d-flex justify-content-between small">
+          <a href="{% url 'accounts:change_password' %}">Change password</a>
+          <a href="{% url 'accounts:deactivate_account' %}" class="text-danger">Deactivate my account</a>
+        </div>
       </div>
     </div>
   </div>

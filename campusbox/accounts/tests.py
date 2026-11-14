@@ -104,3 +104,22 @@ class ChangePasswordTests(TestCase):
         self.assertEqual(self.client.post(self.url, data).status_code, 200)
         self.user.refresh_from_db()
         self.assertTrue(self.user.check_password('OldPass123!'))
+
+
+class StaffPasswordAndReactivateTests(TestCase):
+    def setUp(self):
+        self.staff = User.objects.create_user('staff1', password='OldPass123!', is_staff=True)
+        self.customer = User.objects.create_user('amy', password='Pass1234!', is_active=False)
+
+    def test_staff_go_back_to_the_dashboard_after_changing_password(self):
+        self.client.login(username='staff1', password='OldPass123!')
+        data = {'old_password': 'OldPass123!', 'new_password1': 'NewPass456!', 'new_password2': 'NewPass456!'}
+        self.assertRedirects(self.client.post(reverse('accounts:change_password'), data), reverse('dashboard:home'))
+
+    def test_staff_can_reactivate_a_customer(self):
+        self.client.login(username='staff1', password='OldPass123!')
+        url = reverse('dashboard:customer_detail', args=[self.customer.id])
+        self.assertRedirects(self.client.post(url), url)
+        self.customer.refresh_from_db()
+        self.assertTrue(self.customer.is_active)
+        self.assertTrue(self.client.login(username='amy', password='Pass1234!'))
