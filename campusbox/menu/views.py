@@ -7,7 +7,8 @@ from accounts.services import get_profile, mark_allergens
 from ml.services.suggestions import suggest_for_meals
 from .models import MealCategory, DietaryTag, Allergen, Meal, WeeklyMenu, MenuItem
 from .utils import current_menu, menu_labels, ordering_open, with_ratings
-from datetime import date, timedelta
+from datetime import datetime, time, timedelta
+from django.utils import timezone
 from orders.models import Order, OrderItem, PickupPoint, PickupSlot
 from django.utils.text import slugify
 
@@ -76,10 +77,14 @@ def seed(request): #seed is a batch of starting data for empty database,
         for allergen_name in m[9]:
             meal.allergens.add(Allergen.objects.get(name=allergen_name))
 
-  # One weekly menu that contains every meal
-    next_monday = date.today() + timedelta(days=7 - date.today().weekday())
+    # One weekly menu that contains every meal
+    today = timezone.localdate()
+    next_monday = today + timedelta(days=7 - today.weekday())
     cutoff_day = next_monday - timedelta(days=1)
-    week = WeeklyMenu(week_start=next_monday, order_cutoff=str(cutoff_day) + " 23:59")
+    week = WeeklyMenu(
+        week_start=next_monday,
+        order_cutoff=timezone.make_aware(datetime.combine(cutoff_day, time(23, 59))),
+    )
     week.save()
     for meal in Meal.objects.all():
         item = MenuItem(weekly_menu=week, meal=meal, quantity_available=30, quantity_sold=0)
