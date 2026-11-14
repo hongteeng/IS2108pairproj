@@ -344,8 +344,8 @@ def order_detail(request, order_id):
         next_label = 'Mark as collected'
 
     if request.method == 'POST' and next_status is not None and request.POST.get('from_status') == order.status:
-        order.status = next_status
-        order.save()
+        #only moves on if nobody changed the status in the meantime, e.g. the customer cancelled
+        Order.objects.filter(pk=order.pk, status=order.status).update(status=next_status)
         return redirect('dashboard:order_detail', order_id=order.id)
 
     items = order.items.all()
@@ -380,7 +380,7 @@ def inventory(request):
     sold_out_count = 0
     low_count = 0
     for item in items:
-        left = item.quantity_available - item.quantity_sold
+        left = item.stock_left
         if left <= 0:
             status = 'Sold out'
             sold_out_count = sold_out_count + 1

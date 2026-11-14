@@ -10,21 +10,26 @@
     <form method="post">
       {% csrf_token %}
       <h2 class="h4">1. Choose a pickup slot</h2>
-      {% for slot in slots %}
-        <div class="form-check mb-2">
-          <input class="form-check-input" type="radio" name="pickup_slot" value="{{ slot.id }}" id="slot-{{ slot.id }}" required {% if slot.spaces_left <= 0 %}disabled{% endif %}>
-          <label class="form-check-label" for="slot-{{ slot.id }}">
-            {{ slot.pickup_point.name }} · {{ slot.day|date:"D j M" }}, {{ slot.start_time|time:"H:i" }}–{{ slot.end_time|time:"H:i" }}
-            {% if slot.spaces_left <= 0 %}
-              <small class="text-muted">(full)</small>
-            {% else %}
-              <small class="text-muted">({{ slot.spaces_left }} spaces left)</small>
-            {% endif %}
-          </label>
-        </div>
-      {% empty %}
+      {% if slots %}
+        {# One list grouped by day, so many pickup points and times stay easy to scan #}
+        {% regroup slots by day as slot_days %}
+        <label class="form-label" for="pickup_slot">Pickup point and time</label>
+        <select class="form-select" name="pickup_slot" id="pickup_slot" required>
+          <option value="">Choose a pickup slot</option>
+          {% for group in slot_days %}
+            <optgroup label="{{ group.grouper|date:"l j M" }}">
+              {% for slot in group.list %}
+                <option value="{{ slot.id }}" {% if slot.spaces_left <= 0 %}disabled{% endif %} {% if selected_slot == slot.id|stringformat:"d" %}selected{% endif %}>
+                  {{ slot.pickup_point.name }}, {{ slot.start_time|time:"H:i" }}–{{ slot.end_time|time:"H:i" }}
+                  {% if slot.spaces_left <= 0 %}(full){% else %}({{ slot.spaces_left }} spaces left){% endif %}
+                </option>
+              {% endfor %}
+            </optgroup>
+          {% endfor %}
+        </select>
+      {% else %}
         <p class="text-muted">No pickup slots are open right now.</p>
-      {% endfor %}
+      {% endif %}
 
       <h2 class="h4 mt-4">2. Pay</h2>
       <p class="small text-muted">Payment is simulated for this project. No card is charged.</p>

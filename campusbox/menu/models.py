@@ -53,6 +53,15 @@ class MenuItem(models.Model): #its a meal with stockcount
     quantity_available = models.IntegerField()
     quantity_sold = models.IntegerField(default=0)
 
+    class Meta:
+        constraints = [
+            # The database itself refuses stock that goes below zero or above what was cooked.
+            models.CheckConstraint(
+                condition=models.Q(quantity_sold__gte=0, quantity_sold__lte=models.F('quantity_available')),
+                name='menuitem_sold_within_available',
+            ),
+        ]
+
     @property
     def stock_left(self):
         """How many can still be ordered."""

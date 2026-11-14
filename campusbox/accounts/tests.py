@@ -1,11 +1,16 @@
-from datetime import time, timedelta
+from datetime import datetime, time, timedelta
+from io import StringIO
 
 from django.contrib.auth.models import User
+from django.core.management import call_command
 from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 
+from menu.models import Meal, MealCategory, MenuItem, WeeklyMenu
 from orders.models import Order, PickupPoint, PickupSlot
+from reviews.models import Review
+from support.models import SupportTicket
 
 
 class DeactivateAccountTests(TestCase):
@@ -123,3 +128,42 @@ class StaffPasswordAndReactivateTests(TestCase):
         self.customer.refresh_from_db()
         self.assertTrue(self.customer.is_active)
         self.assertTrue(self.client.login(username='amy', password='Pass1234!'))
+
+
+class DemoDataTests(TestCase): #python manage.py demo_data should give dates that make sense
+    def setUp(self):
+        category = MealCategory.objects.create(name='Rice')
+        today = timezone.localdate()
+        week_start = today + timedelta(days=7 - today.weekday()) #next Monday, like Reset demo data
+        menu = WeeklyMenu.objects.create(
+            week_start=week_start,
+            order_cutoff=timezone.make_aware(datetime.combine(week_start - timedelta(days=1), time(23, 59))),
+        )
+        for n in range(4):
+            meal = Meal.objects.create(name=f'Meal {n}', description='Test', price_cents=500, calories=500,
+                                       protein_g=20, carbs_g=50, fat_g=10, image_url='', category=category)
+            MenuItem.objects.create(weekly_menu=menu, meal=meal, quantity_available=30)
+        point = PickupPoint.objects.create(name='Library', location='Level 1')
+        for days in (1, 2):
+            PickupSlot.objects.create(pickup_point=point, day=week_start + timedelta(days=days),
+                                      start_time=time(12, 0), end_time=time(13, 0), capacity=20)
+        call_command('demo_data', customers=8, orders=20, stdout=StringIO())
+
+    def test_collected_orders_are_in_the_past_and_new_ones_in_the_future(self):
+        today = timezone.localdate()
+        self.assertTrue(Order.objects.filter(status='collected').exists())
+        self.assertTrue(Order.objects.filter(status='confirmed').exists())
+        for order in Order.objects.select_related('pickup_slot', 'user'):
+            if order.status in ('collected', 'ready'):
+                self.assertLess(order.pickup_slot.day, today)
+            if order.status == 'confirmed':
+                self.assertGreaterEqual(order.pickup_slot.day, today)
+            self.assertLessEqual(order.created_at, timezone.now())
+            self.assertLessEqual(order.user.date_joined, order.created_at) #nobody ordered before signing up
+
+    def test_reviews_and_tickets_come_after_the_pickup(self):
+        for review in Review.objects.all():
+            self.assertLessEqual(review.created_at, timezone.now())
+        for ticket in SupportTicket.objects.select_related('order__pickup_slot'):
+            self.assertGreaterEqual(timezone.localtime(ticket.created_at).date(), ticket.order.pickup_slot.day)
+            self.assertLessEqual(ticket.created_at, timezone.now())

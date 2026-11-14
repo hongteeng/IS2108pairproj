@@ -1,6 +1,8 @@
 from decimal import Decimal
 
 from django import forms
+from django.db.models import Sum
+from django.db.models.functions import Coalesce
 
 from .models import SupportTicket
 
@@ -57,11 +59,21 @@ class StaffTicketForm(forms.ModelForm):
     def clean_refund_dollars(self):
         """Validate the refund against the order total."""
         refund_dollars = self.cleaned_data["refund_dollars"] or Decimal("0")
-        order_total_dollars = Decimal(self.instance.order.total_cents) / Decimal("100")
-        if refund_dollars > order_total_dollars:
+        order = self.instance.order
+        # Other tickets on the same order may already have refunded part of it.
+        earlier_cents = order.tickets.exclude(pk=self.instance.pk).aggregate(
+            total=Coalesce(Sum("refund_amount_cents"), 0),
+        )["total"]
+        left_dollars = Decimal(order.total_cents - earlier_cents) / Decimal("100")
+        if refund_dollars > left_dollars:
+            if earlier_cents:
+                raise forms.ValidationError(
+                    f"Only ${left_dollars:.2f} of this order is left to refund "
+                    f"(${Decimal(earlier_cents) / Decimal('100'):.2f} was refunded on another ticket)."
+                )
             raise forms.ValidationError(
                 f"Refund can’t be more than the order total "
-                f"(${order_total_dollars:.2f})."
+                f"(${left_dollars:.2f})."
             )
         return refund_dollars
     
