@@ -96,6 +96,8 @@ def deactivate_account(request):
         response["Clear-Site-Data"] = '"cache"'
         return response
     return render(request, 'accounts/deactivate.html', {'open_orders': open_orders})
+
+
 @login_required
 def quiz(request):
     """Show or save the logged-in user's taste preferences."""
@@ -195,5 +197,5 @@ def change_password(request):
         user = form.save()                      # hashes and saves the new password
         update_session_auth_hash(request, user) # keeps them logged in
         messages.success(request, 'Your password has been changed.')
-        return redirect('accounts:quiz')
+        return redirect('dashboard:home' if request.user.is_staff else 'accounts:quiz')
     return render(request, 'accounts/change_password.html', {'form': form})
