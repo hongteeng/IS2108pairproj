@@ -10,6 +10,7 @@ from django.utils import timezone
 
 from accounts.models import CustomerProfile
 from accounts.services import predict_preferred_category
+from dashboard.roles import HR, STAFF, set_role
 from menu.models import Allergen, MenuItem
 from menu.utils import current_menu
 from orders.models import Order, OrderItem, PickupSlot
@@ -53,14 +54,26 @@ class Command(BaseCommand):
         if not menu_items or not slots:
             raise CommandError("No menu or pickup slots yet. Click Reset demo data on the staff dashboard first.")
 
+        self.make_staff()
         customers = self.make_customers(options["customers"])
         orders = self.make_orders(customers, slots, menu_items, options["orders"])
         tickets = self.make_tickets(customers)
         reviews = self.make_reviews(customers)
         self.stdout.write(self.style.SUCCESS(
             f"Added {len(customers)} customers, {orders} orders, {tickets} tickets "
-            f"and {reviews} reviews. Demo password: {PASSWORD}"
+            f"and {reviews} reviews, plus staff accounts hr01 (HR) and staff01 (Staff). Demo password: {PASSWORD}"
         ))
+
+    def make_staff(self):
+        """Create hr01 (HR) and staff01 (Staff) so each staff role can be shown. Reuses them if they exist."""
+        for username, role in [("hr01", HR), ("staff01", STAFF)]:
+            user, created = User.objects.get_or_create(
+                username=username,
+                defaults={"email": f"{username}@example.com"},
+            )
+            if created:
+                user.set_password(PASSWORD)
+                set_role(user, role)  # also saves the user
 
     def make_customers(self, count):
         """Create demo01, demo02, ... with a quiz profile. Reuses ones that already exist."""

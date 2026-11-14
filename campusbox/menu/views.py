@@ -15,7 +15,7 @@ from django.utils.text import slugify
 def seed(request): #seed is a batch of starting data for empty database, 
     #for demo n testing. fake starting data
     # Only a POST from the dashboard button can wipe data, never just visiting the URL.
-    if request.method != "POST":
+    if request.method != "POST" or not request.user.is_superuser: #owners only, the middleware checks this too
         return redirect("dashboard:home")
     OrderItem.objects.all().delete()
     Order.objects.all().delete()

@@ -1,7 +1,11 @@
 {% extends "staff_base.html" %}
 
 {% block staff_content %}
-  <h1 class="h3 mb-3">Staff accounts</h1>
+  <h1 class="h3 mb-1">Staff accounts</h1>
+  <p class="text-muted small mb-3">
+    {% if is_owner %}Owners can add any role, change roles and deactivate any account except their own.
+    {% else %}HR can add plain staff and deactivate or reactivate them. Only an owner can change roles.{% endif %}
+  </p>
   <div class="card mb-4"><div class="card-body p-0"><div class="table-responsive">
   <table class="table align-middle mb-0">
     <thead>
@@ -14,23 +18,37 @@
       </tr>
     </thead>
     <tbody>
-      {% for member in staff %}
+      {% for row in rows %}
         <tr>
-          <td>{{ member.username }}</td>
-          <td>{{ member.email }}</td>
-          <td>{% if member.is_superuser %}Owner{% else %}Staff{% endif %}</td>
-          <td>{% if member.is_active %}<span class="badge text-bg-success">Active</span>{% else %}<span class="badge text-bg-secondary">Inactive</span>{% endif %}</td>
+          <td>{{ row.member.username }}{% if row.member == user %} <span class="text-muted small">(you)</span>{% endif %}</td>
+          <td class="text-break">{{ row.member.email }}</td>
+          <td>{{ row.role_name }}</td>
+          <td>{% if row.member.is_active %}<span class="badge text-bg-success">Active</span>{% else %}<span class="badge text-bg-secondary">Inactive</span>{% endif %}</td>
           <td>
-            {% if not member.is_superuser %}
-              <form method="post" class="m-0">
-                {% csrf_token %}
-                <input type="hidden" name="toggle_id" value="{{ member.id }}">
-                {% if member.is_active %}
-                  <button type="submit" class="btn btn-sm btn-outline-secondary">Deactivate</button>
-                {% else %}
-                  <button type="submit" class="btn btn-sm btn-outline-success">Reactivate</button>
+            {% if row.can_manage %}
+              <div class="d-flex flex-wrap gap-2 justify-content-end">
+                {% if is_owner %}
+                  <form method="post" class="d-flex gap-1 m-0">
+                    {% csrf_token %}
+                    <input type="hidden" name="role_id" value="{{ row.member.id }}">
+                    <select name="role" class="form-select form-select-sm" aria-label="Role for {{ row.member.username }}">
+                      {% for value, name in role_choices %}
+                        <option value="{{ value }}" {% if value == row.role %}selected{% endif %}>{{ name }}</option>
+                      {% endfor %}
+                    </select>
+                    <button type="submit" class="btn btn-sm btn-outline-success">Change</button>
+                  </form>
                 {% endif %}
-              </form>
+                <form method="post" class="m-0">
+                  {% csrf_token %}
+                  <input type="hidden" name="toggle_id" value="{{ row.member.id }}">
+                  {% if row.member.is_active %}
+                    <button type="submit" class="btn btn-sm btn-outline-secondary">Deactivate</button>
+                  {% else %}
+                    <button type="submit" class="btn btn-sm btn-outline-success">Reactivate</button>
+                  {% endif %}
+                </form>
+              </div>
             {% endif %}
           </td>
         </tr>
@@ -52,6 +70,7 @@
         {% for error in field.errors %}<div class="small text-danger">{{ error }}</div>{% endfor %}
       </div>
     {% endfor %}
+    {% if not is_owner %}<p class="small text-muted">New accounts are plain staff.</p>{% endif %}
     <button type="submit" class="btn btn-success">Add staff</button>
   </form>
   </div></div>
