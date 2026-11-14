@@ -75,7 +75,7 @@
 </head>
 <body>
   {# Navbar: page links on the left, cart and account on the right #}
-  <nav class="navbar navbar-expand bg-body-tertiary border-bottom">
+  <nav class="navbar navbar-expand bg-body-tertiary border-bottom d-print-none">
     <div class="container">
       <a class="navbar-brand text-success" href="{% if user.is_staff %}{% url 'dashboard:home' %}{% else %}{% url 'index' %}{% endif %}">CampusBox</a>
       <ul class="navbar-nav me-auto flex-wrap">

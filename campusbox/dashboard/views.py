@@ -7,7 +7,7 @@ from django.db.models import Count, F, Q, Sum, Value
 from django.db.models.functions import Coalesce
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
-from datetime import datetime, time, timedelta
+from datetime import date, datetime, time, timedelta
 from accounts.models import CustomerProfile
 from accounts.forms import LoginForm
 from django.db.models import ProtectedError
@@ -482,19 +482,58 @@ def inventory(request):
         'menu_dates': menu_labels(current)[0],
     })
 
-def packing_list(request): #runs when staff visit /dashboard/packing/ 
+TO_PACK = ['confirmed', 'preparing'] #orders that still need making, same as the To prepare filter
+
+
+def meal_period(slot): #slots starting before 3 pm count as lunch, the rest as dinner
+    return 'lunch' if slot.start_time.hour < 15 else 'dinner'
+
+
+def packing_list(request): #runs when staff visit /dashboard/packing/, shows one day at a time
     today = timezone.localdate()
-    slots = PickupSlot.objects.filter(day__gte=today).select_related('pickup_point').order_by('day', 'start_time')
-    groups = []
-    for slot in slots:
-        items = (OrderItem.objects
-                 .filter(order__pickup_slot=slot, order__status__in=['confirmed', 'preparing'])
-                 .values('menu_item__meal__name')
-                 .annotate(total=Sum('quantity'))
-                 .order_by('menu_item__meal__name'))
-        if items:
-            groups.append({'slot': slot, 'items': items})
-    return render(request, 'dashboard/packing_list.html', {'groups': groups})
+    days = list(Order.objects.filter(status__in=TO_PACK, pickup_slot__day__gte=today)
+                .values_list('pickup_slot__day', flat=True).distinct().order_by('pickup_slot__day'))
+    try:
+        day = date.fromisoformat(request.GET.get('day', ''))
+    except ValueError:
+        day = None
+    if day not in days: #no day picked, a bad date or a day with nothing to pack: open the first day that has orders
+        day = days[0] if days else None
+
+    #one query for the whole day: every item still to pack, with its order, customer, slot and meal
+    items = (OrderItem.objects
+             .filter(order__status__in=TO_PACK, order__pickup_slot__day=day)
+             .select_related('order__user', 'order__pickup_slot__pickup_point', 'menu_item__meal')
+             .order_by('order__pickup_slot__start_time', 'order__pickup_slot__pickup_point__name',
+                       'order_id', 'menu_item__meal__name'))
+
+    cook = {} #meal name -> lunch, dinner and total for the whole day
+    cards = {} #slot id -> that slot's meal totals and bags, in the order above
+    for item in items:
+        order, slot, name = item.order, item.order.pickup_slot, item.menu_item.meal.name
+        period = meal_period(slot)
+        row = cook.setdefault(name, {'name': name, 'lunch': 0, 'dinner': 0, 'total': 0})
+        row[period] += item.quantity
+        row['total'] += item.quantity
+        card = cards.setdefault(slot.id, {'slot': slot, 'period': period.capitalize(),
+                                          'totals': {}, 'bags': {}, 'meal_count': 0})
+        card['totals'][name] = card['totals'].get(name, 0) + item.quantity
+        card['meal_count'] += item.quantity
+        card['bags'].setdefault(order.id, {'order': order, 'items': []})['items'].append(item)
+    for card in cards.values(): #dicts to sorted lists for the template
+        card['totals'] = sorted(card['totals'].items())
+        card['bags'] = list(card['bags'].values())
+
+    return render(request, 'dashboard/packing_list.html', {
+        'days': days,
+        'day': day,
+        'cook': sorted(cook.values(), key=lambda row: row['name']),
+        'cards': list(cards.values()),
+        'lunch_count': sum(row['lunch'] for row in cook.values()), #for the All meals row under To cook
+        'dinner_count': sum(row['dinner'] for row in cook.values()),
+        'meal_count': sum(row['total'] for row in cook.values()),
+        'order_count': sum(len(card['bags']) for card in cards.values()),
+    })
 
 
 STAFF_FILTERS = [('', 'All'), (OWNER, 'Owners'), (HR, 'HR'), (STAFF, 'Staff'), ('inactive', 'Inactive')]
