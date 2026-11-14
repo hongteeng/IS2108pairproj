@@ -12,7 +12,7 @@ from django.db.models import F
 from accounts.services import get_profile, mark_allergens
 from ml.services.suggestions import suggest_for_meals
 from menu.models import MenuItem
-from menu.utils import menu_labels
+from menu.utils import current_menu, menu_labels
 from . import cart
 from .models import Order, OrderItem, PickupSlot
 
@@ -92,8 +92,12 @@ def checkout(request):
     """Choose a pickup slot and pay (simulated) for the cart."""
     lines, total_cents = cart.get_cart_lines(request)
     if not lines:
-        messages.error(request, "Your cart is empty.")
+        if "cart_removed" not in request.session:  # otherwise the cart page explains what was taken out
+            messages.error(request, "Your cart is empty.")
         return redirect("orders:cart")
+    note = cart.removed_note(request)
+    if note:  # some meals were taken out, but others are left to check out
+        messages.info(request, note)
 
     # Pickup happens in the same week as the menu the meals come from.
     slots = get_open_slots(lines[0]["menu_item"].weekly_menu)
@@ -204,7 +208,6 @@ def cancel_order(request, order_id):
 
 
 MY_ORDER_FILTERS = [("", "All"), ("upcoming", "Upcoming"), ("collected", "Collected"), ("cancelled", "Cancelled")]
-UPCOMING_STATUSES = ["confirmed", "preparing", "ready"]  # not collected or cancelled yet
 
 
 @login_required
@@ -215,7 +218,7 @@ def order_history(request):
         "pickup_slot__pickup_point",
     ).order_by("-created_at", "-id")  # id keeps the pages in a fixed order
     if show == "upcoming":
-        orders = orders.filter(status__in=UPCOMING_STATUSES)
+        orders = orders.filter(status__in=Order.OPEN_STATUSES)
     elif show in ("collected", "cancelled"):
         orders = orders.filter(status=show)
     page_obj = Paginator(orders, 10).get_page(request.GET.get("page"))
@@ -239,8 +242,11 @@ def add_to_cart(request, menu_item_id):
         quantity = int(quantity_text) if quantity_text.isdigit() else 0
         in_cart = cart.get_cart(request).get(str(menu_item.id), 0)
         stock_left = menu_item.stock_left
+        menu = current_menu()
         if quantity < 1:
             messages.error(request, "Please choose at least 1.")
+        elif menu is None or menu_item.weekly_menu_id != menu.id:  # e.g. next week's menu, from a typed-in link
+            messages.error(request, "That meal isn’t on this week’s menu.")
         elif menu_item.weekly_menu.order_cutoff < timezone.now():
             messages.error(request, "Ordering for this week’s menu has closed.")
         elif in_cart + quantity > stock_left:
@@ -260,6 +266,9 @@ def add_to_cart(request, menu_item_id):
 def cart_detail(request):
     """Show the cart with prices and the total."""
     lines, total_cents = cart.get_cart_lines(request)
+    note = cart.removed_note(request)
+    if note:
+        messages.info(request, note)
     names = [line["menu_item"].meal.name for line in lines]
     suggestions = suggest_for_meals(names, exclude_names=names)
     mark_allergens(suggestions, get_profile(request.user))

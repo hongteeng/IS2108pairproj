@@ -67,6 +67,11 @@ def this_monday():
     return today - timedelta(days=today.weekday())
 
 
+def next_monday():
+    """The next week that hasn't started yet, used as the default for new menus and slots."""
+    return this_monday() + timedelta(days=7)
+
+
 class WeeklyMenu(models.Model):
     week_start = models.DateField()
     order_cutoff = models.DateTimeField()
@@ -106,4 +111,3 @@ class MenuItem(models.Model): #its a meal with stockcount
 
     def __str__(self):
         return self.meal.name + " (" + str(self.weekly_menu) + ")"
-

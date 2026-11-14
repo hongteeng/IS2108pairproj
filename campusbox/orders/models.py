@@ -32,6 +32,8 @@ class Order(models.Model):
         ("collected", "Collected"),
         ("cancelled", "Cancelled"),
     ]
+    TO_PREPARE = ["confirmed", "preparing"]  # still to be cooked and packed
+    OPEN_STATUSES = ["confirmed", "preparing", "ready"]  # not collected or cancelled yet
 
     user = models.ForeignKey(
         User,

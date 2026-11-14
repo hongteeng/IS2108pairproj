@@ -5,7 +5,7 @@ from django.contrib import messages
 from django.shortcuts import get_object_or_404, redirect, render
 from accounts.services import get_profile, mark_allergens
 from ml.services.suggestions import suggest_for_meals
-from .models import MealCategory, DietaryTag, Allergen, Meal, WeeklyMenu, MenuItem
+from .models import MealCategory, DietaryTag, Allergen, Meal, WeeklyMenu, MenuItem, next_monday
 from .utils import current_menu, menu_labels, ordering_open, with_ratings
 from datetime import datetime, time, timedelta
 from django.utils import timezone
@@ -81,11 +81,10 @@ def seed(request): #seed is a batch of starting data for empty database,
             meal.allergens.add(Allergen.objects.get(name=allergen_name))
 
     # One weekly menu that contains every meal
-    today = timezone.localdate()
-    next_monday = today + timedelta(days=7 - today.weekday())
-    cutoff_day = next_monday - timedelta(days=1)
+    week_start = next_monday()
+    cutoff_day = week_start - timedelta(days=1)
     week = WeeklyMenu(
-        week_start=next_monday,
+        week_start=week_start,
         order_cutoff=timezone.make_aware(datetime.combine(cutoff_day, time(23, 59))),
     )
     week.save()
@@ -104,7 +103,7 @@ def seed(request): #seed is a batch of starting data for empty database,
         point.save()
         for day in range(5):  # Monday to Friday
             for t in times:
-                slot = PickupSlot(pickup_point=point, day=next_monday + timedelta(days=day),
+                slot = PickupSlot(pickup_point=point, day=week_start + timedelta(days=day),
                                   start_time=t[0], end_time=t[1], capacity=20)
                 slot.save()
 

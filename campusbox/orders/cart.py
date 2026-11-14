@@ -1,4 +1,7 @@
+from django.utils import timezone
+
 from menu.models import MenuItem
+from menu.utils import current_menu
 
 
 def get_cart(request):
@@ -25,12 +28,19 @@ def clear_cart(request):
 
 
 def get_cart_lines(request):
-    """Return cart lines and their total in cents."""
+    """Return cart lines and their total in cents.
+
+    Only meals on the menu that is open for orders right now count. Meals from a menu whose ordering has
+    closed, or that were switched off, are taken out of the cart, and the cart page says so."""
     cart = get_cart(request)
-    menu_items = MenuItem.objects.filter(
-        id__in=cart.keys(),
-        meal__is_active=True,
-    ).select_related("meal", "weekly_menu")
+    menu = current_menu() if cart else None  # an empty cart needs no queries
+    menu_items = MenuItem.objects.none()
+    if menu and menu.order_cutoff > timezone.now():
+        menu_items = MenuItem.objects.filter(
+            id__in=cart.keys(),
+            weekly_menu=menu,
+            meal__is_active=True,
+        ).select_related("meal", "weekly_menu")
     items_by_id = {str(item.id): item for item in menu_items}
     lines = []
     total_cents = 0
@@ -54,5 +64,15 @@ def get_cart_lines(request):
         for menu_item_id in stale_ids:
             cleaned_cart.pop(menu_item_id)
         request.session["cart"] = cleaned_cart
+        request.session["cart_removed"] = request.session.get("cart_removed", 0) + len(stale_ids)
 
     return lines, total_cents
+
+
+def removed_note(request):
+    """A note for the cart page if meals were taken out of the cart since it was last shown, otherwise None."""
+    removed = request.session.pop("cart_removed", 0)
+    if not removed:
+        return None
+    meals = "1 meal was" if removed == 1 else str(removed) + " meals were"
+    return meals + " taken out of your cart because they can no longer be ordered (ordering closed or the meal was taken off the menu)."

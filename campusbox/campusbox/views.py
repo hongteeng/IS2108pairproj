@@ -35,7 +35,7 @@ def index(request):
     if request.user.is_authenticated:
         next_order = Order.objects.filter(
             user=request.user,
-            status__in=["confirmed", "preparing", "ready"],
+            status__in=Order.OPEN_STATUSES,
             pickup_slot__day__gte=timezone.localdate(),  # ignore old orders never marked collected
         ).select_related("pickup_slot__pickup_point").order_by(
             "pickup_slot__day", "pickup_slot__start_time",

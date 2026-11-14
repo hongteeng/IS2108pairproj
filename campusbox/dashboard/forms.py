@@ -3,15 +3,17 @@ from decimal import Decimal
 
 from django import forms
 from django.core.exceptions import ValidationError
-from django.core.validators import MinValueValidator
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.utils import timezone
 from django.utils.timezone import localtime
 from accounts.forms import RegisterForm
 from menu.models import Meal, WeeklyMenu, MenuItem
+from menu.utils import menu_labels
 from orders.models import PickupPoint, PickupSlot
 from .roles import ROLE_CHOICES, STAFF
 
 MAX_PHOTO_MB = 2
+MAX_STOCK = 9999  # a sanity limit for stock, so a typo like 30000 is caught
 PHOTO_FORMATS = {'JPEG': 'jpg', 'PNG': 'png', 'WEBP': 'webp'}  # what Pillow calls each format -> file extension
 
 
@@ -58,7 +60,7 @@ class MealForm(forms.ModelForm):
         self.fields['carbs_g'].label = 'Carbs'
         self.fields['fat_g'].label = 'Fat'
         self.fields['is_active'].label = 'Show on the storefront'
-        self.fields['is_active'].help_text = 'Untick to hide this meal from students without deleting it.'
+        self.fields['is_active'].help_text = 'Turn off to hide this meal from students without deleting it.'
         self.fields['photo'].label = 'Upload a photo'
         self.fields['photo'].help_text = 'JPG, PNG or WebP, up to ' + str(MAX_PHOTO_MB) + ' MB.'
         self.fields['image_url'].label = 'Or an image link'
@@ -112,10 +114,6 @@ class WeeklyMenuForm(forms.ModelForm):
         return cleaned_data
 
 
-def week_label(day):
-    return day.strftime('%a') + ' ' + str(day.day) + ' ' + day.strftime('%b')  # e.g. Mon 16 Nov, on Windows too
-
-
 class NewWeeklyMenuForm(WeeklyMenuForm):
     """The Add weekly menu form, with a tickbox to start from the latest menu's meals instead of an empty week."""
     copy_meals = forms.BooleanField(required=False, initial=True,
@@ -126,10 +124,9 @@ class NewWeeklyMenuForm(WeeklyMenuForm):
         self.source = WeeklyMenu.objects.order_by('-week_start').first()  # the latest menu
         meal_count = self.source.items.filter(meal__is_active=True).count() if self.source else 0
         if meal_count:
-            self.fields['copy_meals'].label = ('Copy the ' + str(meal_count) + ' meal' + ('s' if meal_count != 1 else '')
-                                               + ' and their stock from the week of ' + week_label(self.source.week_start))
-            self.fields['copy_meals'].help_text = ('Sold counts start at 0 and switched-off meals are skipped. '
-                                                   'You can change stock or remove meals after saving.')
+            self.fields['copy_meals'].label = ('Copy ' + str(meal_count) + ' meal' + ('s' if meal_count != 1 else '')
+                                               + ' and their stock from ' + menu_labels(self.source)[0])
+            self.fields['copy_meals'].help_text = 'Sold counts start at 0. Hidden meals are left out.'
         else:
             del self.fields['copy_meals']  # nothing to copy, so no tickbox
 
@@ -146,8 +143,8 @@ class MenuItemForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['meal'].queryset = Meal.objects.filter(is_active=True).order_by('name')  # only meals students can buy
-        self.fields['quantity_available'].validators.append(MinValueValidator(0))
-        self.fields['quantity_available'].widget.attrs['min'] = 0
+        self.fields['quantity_available'].validators += [MinValueValidator(0), MaxValueValidator(MAX_STOCK)]
+        self.fields['quantity_available'].widget.attrs.update({'min': 0, 'max': MAX_STOCK})  # same limit as Inventory
 
 class PickupPointForm(forms.ModelForm):
     class Meta:
@@ -162,7 +159,7 @@ class PickupPointForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['is_active'].label = 'Open for pickups'
-        self.fields['is_active'].help_text = 'Untick to hide this point and its slots from checkout.'
+        self.fields['is_active'].help_text = 'Turn off to hide this point and its slots from checkout.'
 
 
 class PickupSlotForm(forms.ModelForm):
