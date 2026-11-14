@@ -142,3 +142,45 @@ class MyOrdersListTests(TestCase): #filters and pages on the student's My orders
         self.assertContains(self.client.get(reverse('orders:order_history'), {'show': 'cancelled'}), 'No orders here.')
         Order.objects.filter(user=self.student).delete()
         self.assertContains(self.client.get(reverse('orders:order_history')), 'Browse the menu')
+
+
+class CartWeekTests(TestCase): #the cart only holds meals from the menu that is open for orders now
+    def setUp(self):
+        category = MealCategory.objects.create(name='Rice')
+        meal = Meal.objects.create(name='Chicken Rice Box', description='Test', price_cents=500, calories=500,
+                                   protein_g=30, carbs_g=60, fat_g=10, image_url='', category=category)
+        today = timezone.localdate()
+        monday = today - timedelta(days=today.weekday())
+        now = timezone.now()
+        closed = WeeklyMenu.objects.create(week_start=monday - timedelta(days=7), order_cutoff=now - timedelta(days=8))
+        current = WeeklyMenu.objects.create(week_start=monday + timedelta(days=7), order_cutoff=now + timedelta(days=1))
+        later = WeeklyMenu.objects.create(week_start=monday + timedelta(days=14), order_cutoff=now + timedelta(days=8))
+        self.closed_item, self.item, self.later_item = [
+            MenuItem.objects.create(weekly_menu=menu, meal=meal, quantity_available=10) for menu in (closed, current, later)]
+        User.objects.create_user('alice', password='Pass1234!')
+        self.client.login(username='alice', password='Pass1234!')
+
+    def set_cart(self, cart):
+        session = self.client.session
+        session['cart'] = {str(item.id): quantity for item, quantity in cart.items()}
+        session.save()
+
+    def test_a_meal_from_another_week_cannot_be_added(self):
+        response = self.client.post(reverse('orders:add_to_cart', args=[self.later_item.id]), {'quantity': '1'}, follow=True)
+        self.assertContains(response, 'That meal isn’t on this week’s menu.')
+        self.assertEqual(self.client.session.get('cart', {}), {})
+
+    def test_meals_from_a_closed_menu_are_taken_out_with_a_note(self):
+        self.set_cart({self.closed_item: 1, self.item: 2})
+        response = self.client.get(reverse('orders:cart'))
+        self.assertEqual([line['menu_item'] for line in response.context['lines']], [self.item])
+        self.assertContains(response, '1 meal was taken out of your cart')
+        self.assertEqual(self.client.session['cart'], {str(self.item.id): 2})
+        self.assertNotContains(self.client.get(reverse('orders:cart')), 'taken out of your cart') #said once only
+
+    def test_checkout_with_only_closed_meals_explains_instead_of_saying_empty(self):
+        self.set_cart({self.closed_item: 1})
+        response = self.client.get(reverse('orders:checkout'), follow=True)
+        self.assertRedirects(response, reverse('orders:cart'))
+        self.assertContains(response, '1 meal was taken out of your cart')
+        self.assertNotContains(response, 'alert-danger') #no "Your cart is empty." error on top of the note

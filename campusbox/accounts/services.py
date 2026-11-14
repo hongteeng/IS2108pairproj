@@ -9,7 +9,7 @@ def get_profile(user):
     """Return the user's taste profile, or None if they haven't taken the quiz."""
     profile = CustomerProfile.objects.filter(user=user).select_related("predicted_category").first()
     if profile and profile.predicted_category is None:
-        # Re-seeding deletes the categories, which clears the saved prediction.
+        # No prediction saved, e.g. the predicted category was deleted, so work it out again.
         profile.predicted_category = predict_preferred_category(profile)
         profile.save(update_fields=["predicted_category"])
     return profile

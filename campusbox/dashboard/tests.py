@@ -13,6 +13,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from menu.models import Meal, MealCategory, MenuItem, WeeklyMenu
+from menu.utils import menu_labels
 from orders.models import Order, OrderItem, PickupPoint, PickupSlot
 
 from .forms import MealForm, PickupSlotForm, WeeklyMenuForm
@@ -189,7 +190,7 @@ class MealDeleteTests(TestCase):
 
         response = self.client.post(reverse('dashboard:meal_delete', args=[meal.id]))
         self.assertEqual(response.status_code, 200) #stays on the page, no redirect
-        self.assertIn('cannot be deleted', response.context['error'])
+        self.assertIn("can't be deleted", response.context['error'])
         self.assertTrue(Meal.objects.filter(id=meal.id).exists())
         self.assertNotContains(response, 'class="btn btn-danger"') #no Delete button once it has failed
         self.assertContains(response, 'Edit meal')
@@ -1078,13 +1079,13 @@ class CopyLastMenuTests(TestCase): #Add weekly menu can start from the latest me
     def test_tickbox_names_the_week_and_counts_only_switched_on_meals(self):
         response = self.client.get(self.url)
         self.assertTrue(response.context['form'].fields['copy_meals'].initial) #ticked to start with
-        self.assertContains(response, 'Copy the 2 meals and their stock from the week of ' + self.latest.week_start.strftime('%a'))
+        self.assertContains(response, 'Copy 2 meals and their stock from ' + menu_labels(self.latest)[0])
 
     def test_copies_meals_and_stock_and_resets_sold(self):
         response = self.client.post(self.url, {**self.data, 'copy_meals': 'on'}, follow=True)
         menu = WeeklyMenu.objects.get(week_start=self.next_monday)
         self.assertRedirects(response, reverse('dashboard:menu_detail', args=[menu.id]))
-        self.assertContains(response, 'Copied 2 meals from the week of')
+        self.assertContains(response, 'Copied 2 meals from ' + menu_labels(self.latest)[0])
         copied = {item.meal.name: (item.quantity_available, item.quantity_sold) for item in menu.items.select_related('meal')}
         self.assertEqual(copied, {'Chicken Rice Box': (30, 0), 'Laksa Bowl': (20, 0)}) #the switched-off meal is left out
 
@@ -1146,3 +1147,84 @@ class MenuDeleteTests(TestCase): #a weekly menu can be deleted from a confirm pa
 
     def test_a_made_up_menu_is_404(self):
         self.assertEqual(self.client.post(reverse('dashboard:menu_delete', args=[99999])).status_code, 404)
+
+
+class MenuPageSaveTests(TestCase): #the weekly menu page redirects after each save, and dates are fixed once ordered from
+    def setUp(self):
+        User.objects.create_user('staff1', password='Pass1234!', is_staff=True)
+        self.client.login(username='staff1', password='Pass1234!')
+        category = MealCategory.objects.create(name='Rice')
+        self.meal = Meal.objects.create(name='Chicken Rice Box', description='Test', price_cents=500, calories=500,
+                                        protein_g=30, carbs_g=60, fat_g=10, category=category)
+        self.menu = WeeklyMenu.objects.create(week_start=next_monday(), order_cutoff=timezone.now() + timedelta(days=1))
+        self.url = reverse('dashboard:menu_detail', args=[self.menu.id])
+
+    def test_adding_and_removing_redirect_so_a_refresh_does_not_send_them_again(self):
+        response = self.client.post(self.url, {'meal': self.meal.id, 'quantity_available': 20}, follow=True)
+        self.assertRedirects(response, self.url)
+        self.assertContains(response, 'Added Chicken Rice Box.')
+        item = MenuItem.objects.get(weekly_menu=self.menu, meal=self.meal)
+        response = self.client.post(self.url, {'remove_id': item.id}, follow=True)
+        self.assertRedirects(response, self.url)
+        self.assertContains(response, 'Removed Chicken Rice Box.')
+
+    def edit(self, week_start, cutoff_week=None):
+        cutoff = ((cutoff_week or week_start) - timedelta(days=1)).strftime('%Y-%m-%d') + ' 20:00'
+        return self.client.post(reverse('dashboard:menu_edit', args=[self.menu.id]),
+                                {'week_start': week_start.isoformat(), 'order_cutoff': cutoff})
+
+    def test_dates_can_move_while_nobody_has_ordered(self):
+        later = self.menu.week_start + timedelta(days=7)
+        self.assertRedirects(self.edit(later), self.url)
+        self.menu.refresh_from_db()
+        self.assertEqual(self.menu.week_start, later)
+
+    def test_a_week_with_orders_keeps_its_dates_but_the_cutoff_can_change(self):
+        item = MenuItem.objects.create(weekly_menu=self.menu, meal=self.meal, quantity_available=10)
+        point = PickupPoint.objects.create(name='Library', location='Level 1')
+        slot = PickupSlot.objects.create(pickup_point=point, day=self.menu.week_start, start_time=time(12, 0),
+                                         end_time=time(12, 30), capacity=20)
+        customer = User.objects.create_user('student1', password='Pass1234!')
+        order = Order.objects.create(user=customer, pickup_slot=slot, total_cents=500)
+        OrderItem.objects.create(order=order, menu_item=item, quantity=1, price_at_purchase_cents=500)
+        self.assertContains(self.client.get(reverse('dashboard:menu_edit', args=[self.menu.id])), 'disabled')
+        old_start = self.menu.week_start
+        self.assertRedirects(self.edit(old_start + timedelta(days=7), cutoff_week=old_start), self.url) #new week ignored
+        self.menu.refresh_from_db()
+        self.assertEqual(self.menu.week_start, old_start)
+        self.assertEqual(timezone.localtime(self.menu.order_cutoff).hour, 20) #the cutoff did change
+
+
+class SaveMessagesTests(TestCase): #every save on the staff pages says what happened
+    def setUp(self):
+        User.objects.create_user('staff1', password='Pass1234!', is_staff=True)
+        self.client.login(username='staff1', password='Pass1234!')
+        self.category = MealCategory.objects.create(name='Rice')
+        self.meal = Meal.objects.create(name='Chicken Rice Box', description='Test', price_cents=500, calories=500,
+                                        protein_g=30, carbs_g=60, fat_g=10, category=self.category)
+
+    def test_deleting_a_meal_says_so(self):
+        response = self.client.post(reverse('dashboard:meal_delete', args=[self.meal.id]), follow=True)
+        self.assertContains(response, 'Deleted Chicken Rice Box.')
+
+    def test_adding_a_pickup_point_says_so(self):
+        response = self.client.post(reverse('dashboard:pickup_add'),
+                                    {'name': 'Library', 'location': 'Level 1', 'is_active': 'on'}, follow=True)
+        self.assertContains(response, 'Added Library. Add its pickup slots below.')
+
+    def test_order_status_changes_say_so_and_a_stale_click_says_nothing_changed(self):
+        customer = User.objects.create_user('alice', password='Pass1234!')
+        point = PickupPoint.objects.create(name='Library', location='Level 1')
+        slot = PickupSlot.objects.create(pickup_point=point, day=timezone.localdate() + timedelta(days=1),
+                                         start_time=time(12, 0), end_time=time(13, 0), capacity=20)
+        order = Order.objects.create(user=customer, pickup_slot=slot, total_cents=500)
+        url = reverse('dashboard:order_detail', args=[order.id])
+        self.assertContains(self.client.post(url, {'from_status': 'confirmed'}, follow=True),
+                            'Order #' + str(order.id) + ' is now Preparing.')
+        self.assertContains(self.client.post(url, {'from_status': 'confirmed'}, follow=True), #that click is now stale
+                            'so nothing was changed.')
+
+    def test_menu_stock_has_the_same_limit_as_inventory(self):
+        menu = WeeklyMenu.objects.create(week_start=next_monday(), order_cutoff=timezone.now() + timedelta(days=1))
+        self.client.post(reverse('dashboard:menu_detail', args=[menu.id]), {'meal': self.meal.id, 'quantity_available': 10000})
+        self.assertFalse(MenuItem.objects.filter(weekly_menu=menu).exists())

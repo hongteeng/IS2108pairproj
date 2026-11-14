@@ -12,11 +12,11 @@ from accounts.models import CustomerProfile
 from accounts.forms import LoginForm
 from django.db import transaction
 from django.db.models import ProtectedError
-from menu.models import Meal, WeeklyMenu, MenuItem, this_monday
+from menu.models import Meal, WeeklyMenu, MenuItem, next_monday, this_monday
 from menu.utils import current_menu, menu_labels
 from orders.models import Order, OrderItem, PickupPoint, PickupSlot
 from support.models import SupportTicket
-from .forms import MealForm, NewWeeklyMenuForm, WeeklyMenuForm, week_label, MenuItemForm, PickupPointForm, PickupSlotForm, SlotWeekForm, StaffAccountForm
+from .forms import MAX_STOCK, MealForm, NewWeeklyMenuForm, WeeklyMenuForm, MenuItemForm, PickupPointForm, PickupSlotForm, SlotWeekForm, StaffAccountForm
 from .roles import HR, OWNER, ROLE_CHOICES, ROLE_NAMES, STAFF, can_manage, role_of, set_role
 
 
@@ -49,7 +49,7 @@ def staff_login(request): #function to authenticate user, runs when visiting /da
 def home(request):
     menu = current_menu()
     to_prepare = Order.objects.filter(
-        status__in=["confirmed", "preparing"],
+        status__in=Order.TO_PREPARE,
     ).count()
     ready_count = Order.objects.filter(status="ready").count()
     open_tickets = SupportTicket.objects.filter(status="open").count()
@@ -158,10 +158,10 @@ def meal_list(request): #search, filter, sort and pages, the same way as the Ord
     })
 
 
-def delete_photo_file(photo):
-    """Delete an uploaded photo's file, so replaced and removed photos don't pile up in media/."""
-    if photo:
-        photo.storage.delete(photo.name)
+def delete_photo_file(name):
+    """Delete an uploaded photo's file by its saved name, so replaced and removed photos don't pile up in media/."""
+    if name:
+        Meal._meta.get_field('photo').storage.delete(name)
 
 
 def meal_edit(request, meal_id):
@@ -171,8 +171,9 @@ def meal_edit(request, meal_id):
         form = MealForm(request.POST, request.FILES, instance=meal)  # request.FILES holds the uploaded photo
         if form.is_valid():
             form.save()  # updates this meal because the form was given instance=meal
-            if old_photo and old_photo != meal.photo.name:  # replaced or removed
-                meal.photo.storage.delete(old_photo)
+            if old_photo != meal.photo.name:  # replaced or removed
+                delete_photo_file(old_photo)
+            messages.success(request, 'Saved ' + meal.name + '.')
             return redirect('dashboard:meal_list')
     else:
         form = MealForm(instance=meal)
@@ -185,7 +186,8 @@ def meal_add(request):
     if request.method == 'POST':
         form = MealForm(request.POST, request.FILES)
         if form.is_valid():
-            form.save()  # saves the meal, its dietary tags and allergens
+            meal = form.save()  # saves the meal, its dietary tags and allergens
+            messages.success(request, 'Added ' + meal.name + '.')
             return redirect('dashboard:meal_list')
     else:
         form = MealForm()
@@ -197,12 +199,13 @@ def meal_delete(request, meal_id):
     error = None
     if request.method == 'POST':
         try:
-            photo = meal.photo
+            photo = meal.photo.name
             meal.delete()
             delete_photo_file(photo)  # only once the meal is really gone
+            messages.success(request, 'Deleted ' + meal.name + '.')
             return redirect('dashboard:meal_list')
         except ProtectedError:
-            error = 'This meal has orders, so it cannot be deleted. Edit it and switch off "Show on the storefront" instead.'
+            error = 'This meal has orders, so it can\'t be deleted. Edit it and turn off "Show on the storefront" instead.'
     return render(request, 'dashboard/meal_confirm_delete.html', {'meal': meal, 'error': error})
 
 
@@ -252,30 +255,30 @@ def menu_add(request):
                 copied = copy_meals(form.source, menu) if form.cleaned_data.get('copy_meals') else 0
             if copied:
                 messages.success(request, 'Copied ' + str(copied) + ' meal' + ('s' if copied != 1 else '')
-                                 + ' from the week of ' + week_label(form.source.week_start)
-                                 + '. Change their stock or remove meals below.')
+                                 + ' from ' + menu_labels(form.source)[0] + '. Adjust stock or remove meals below.')
             else:
                 messages.success(request, 'Weekly menu added. Add its meals below.')
             return redirect('dashboard:menu_detail', menu_id=menu.id)  # straight to the new week, to check its meals
     else:
-        today = timezone.localdate()
-        next_monday = today + timedelta(days=7 - today.weekday()) #the next week that has not started yet
+        week_start = next_monday() #the next week that has not started yet
         form = NewWeeklyMenuForm(initial={
-            'week_start': next_monday,
-            'order_cutoff': datetime.combine(next_monday - timedelta(days=1), time(23, 59)), #Sunday 23:59, the night before
+            'week_start': week_start,
+            'order_cutoff': datetime.combine(week_start - timedelta(days=1), time(23, 59)), #Sunday 23:59, the night before
         })
     return render(request, 'dashboard/menu_form.html', {'form': form, 'title': 'Add weekly menu'})
 
 
 def menu_edit(request, menu_id):
     menu = get_object_or_404(WeeklyMenu, pk=menu_id)
-    if request.method == 'POST':
-        form = WeeklyMenuForm(request.POST, instance=menu)
-        if form.is_valid():
-            form.save()
-            return redirect('dashboard:menu_detail', menu_id=menu.id)
-    else:
-        form = WeeklyMenuForm(instance=menu)
+    form = WeeklyMenuForm(request.POST or None, instance=menu)
+    if OrderItem.objects.filter(menu_item__weekly_menu=menu).exists():
+        # Its orders have pickup slots in this week, so the week can't move. A disabled field ignores what is posted.
+        form.fields['week_start'].disabled = True
+        form.fields['week_start'].help_text = 'This week has orders, so it can\'t move to other dates. You can still change the order cutoff.'
+    if request.method == 'POST' and form.is_valid():
+        form.save()
+        messages.success(request, 'Saved the menu for ' + menu_labels(menu)[0] + '.')
+        return redirect('dashboard:menu_detail', menu_id=menu.id)
     return render(request, 'dashboard/menu_form.html', {'form': form, 'title': 'Edit weekly menu', 'menu': menu})
 
 
@@ -286,11 +289,14 @@ def menu_detail(request, menu_id):
 
     if request.method == 'POST':
         if 'remove_id' in request.POST:
-            item = get_object_or_404(MenuItem, pk=posted_id(request, 'remove_id'), weekly_menu=menu) #only items on this menu
+            item = get_object_or_404(MenuItem.objects.select_related('meal'), pk=posted_id(request, 'remove_id'),
+                                     weekly_menu=menu) #only items on this menu
             try:
                 item.delete()
+                messages.success(request, 'Removed ' + item.meal.name + '.')
+                return redirect('dashboard:menu_detail', menu_id=menu.id) #so refreshing the page doesn't send Remove again
             except ProtectedError:
-                error = 'This meal already has orders, so it cannot be removed.'
+                error = 'This meal already has orders, so it can\'t be removed.'
         else:
             form = MenuItemForm(request.POST)
             if form.is_valid():
@@ -305,7 +311,8 @@ def menu_detail(request, menu_id):
                         quantity_sold=0,
                     )
                     item.save()
-                    form = MenuItemForm()
+                    messages.success(request, 'Added ' + meal.name + '.')
+                    return redirect('dashboard:menu_detail', menu_id=menu.id) #so refreshing doesn't add it again
 
     items = menu.items.select_related('meal').annotate(order_total=Count('order_items')) #Remove only without orders
     menu_dates, order_deadline = menu_labels(menu)
@@ -380,6 +387,7 @@ def pickup_add(request):
         form = PickupPointForm(request.POST)
         if form.is_valid():
             point = form.save()
+            messages.success(request, 'Added ' + point.name + '. Add its pickup slots below.')
             return redirect('dashboard:pickup_detail', point_id=point.id)
     else:
         form = PickupPointForm()
@@ -401,8 +409,7 @@ def pickup_detail(request, point_id):
     error = None
     form = PickupSlotForm(point=point)
     today = timezone.localdate()
-    next_monday = today + timedelta(days=7 - today.weekday())
-    week_form = SlotWeekForm(initial={'week_start': next_monday})
+    week_form = SlotWeekForm(initial={'week_start': next_monday()})
 
     if request.method == 'POST':
         if 'toggle' in request.POST: #open or close the whole point
@@ -417,7 +424,7 @@ def pickup_detail(request, point_id):
                 messages.success(request, 'Slot removed.')
                 return redirect(request.get_full_path()) #same page of slots
             except ProtectedError:
-                error = 'This slot already has orders, so it cannot be removed.'
+                error = 'This slot already has orders, so it can\'t be removed.'
         elif 'capacity_id' in request.POST: #change one slot's capacity
             slot = booked_counts(point.slots).filter(pk=posted_id(request, 'capacity_id')).first()
             if slot is None:
@@ -490,7 +497,7 @@ def order_list(request):
         'pickup_slot__pickup_point',
     )
     if status == 'to_prepare':
-        orders = orders.filter(status__in=['confirmed', 'preparing'])
+        orders = orders.filter(status__in=Order.TO_PREPARE)
     elif status in ('ready', 'collected', 'cancelled'):
         orders = orders.filter(status=status)
     if q:
@@ -551,11 +558,15 @@ def order_detail(request, order_id):
 
     back_status, back_label = PREVIOUS_STATUS.get(order.status, (None, None))
 
-    if request.method == 'POST' and request.POST.get('from_status') == order.status:
-        #only moves if nobody changed the status in the meantime, e.g. the customer cancelled
+    if request.method == 'POST':
         new_status = back_status if request.POST.get('action') == 'back' else next_status
-        if new_status:
-            Order.objects.filter(pk=order.pk, status=order.status).update(status=new_status)
+        #only moves if nobody changed the status in the meantime, e.g. the customer cancelled
+        if request.POST.get('from_status') == order.status and new_status and \
+                Order.objects.filter(pk=order.pk, status=order.status).update(status=new_status):
+            messages.success(request, 'Order #' + str(order.id) + ' is now ' + dict(Order.STATUS_CHOICES)[new_status] + '.')
+        else:
+            messages.error(request, 'This order changed before your click (it is now '
+                           + order.get_status_display() + '), so nothing was changed.')
         return redirect('dashboard:order_detail', order_id=order.id)
 
     items = order.items.all()
@@ -563,7 +574,6 @@ def order_detail(request, order_id):
                   {'order': order, 'items': items, 'next_label': next_label, 'back_label': back_label})
 
 LOW_STOCK = 5  # 1 to 5 left counts as low stock, here and on the dashboard
-MAX_STOCK = 9999  # a sanity limit, so a typo like 30000 is caught
 INVENTORY_FILTERS = [('', 'All meals'), ('sold_out', 'Sold out'), ('low', 'Low stock'), ('in_stock', 'In stock')]
 INVENTORY_SORTS = {
     'meal': ['meal__name'],
@@ -677,7 +687,7 @@ def inventory(request): #this week's stock: filter, search, sort, pages, and one
         'menu_dates': menu_labels(current)[0],
     })
 
-TO_PACK = ['confirmed', 'preparing'] #orders that still need making, same as the To prepare filter
+TO_PACK = Order.TO_PREPARE #orders that still need making, same as the To prepare filter
 
 
 def meal_period(slot): #slots starting before 3 pm count as lunch, the rest as dinner

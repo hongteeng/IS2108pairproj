@@ -14,6 +14,8 @@ from django.contrib.auth import update_session_auth_hash
 from django.utils.http import url_has_allowed_host_and_scheme
 
 from .forms import ChangePasswordForm, LoginForm, RegisterForm, TasteQuizForm
+from orders.models import Order
+
 from .models import CustomerProfile
 from .services import predict_preferred_category
 
@@ -76,7 +78,6 @@ def logout(request):
     response["Clear-Site-Data"] = '"cache"'
     return response
 
-OPEN_ORDER_STATUSES = ['confirmed', 'preparing', 'ready'] #orders that still need to be made or collected
 
 
 @login_required
@@ -85,7 +86,7 @@ def deactivate_account(request):
 
     if request.user.is_staff:
         return redirect('dashboard:home') #staff accounts are handled by the owner in the dashboard
-    open_orders = request.user.orders.filter(status__in=OPEN_ORDER_STATUSES).count()
+    open_orders = request.user.orders.filter(status__in=Order.OPEN_STATUSES).count()
     if request.method == 'POST' and open_orders == 0:
         request.user.is_active = False
         request.user.save()
