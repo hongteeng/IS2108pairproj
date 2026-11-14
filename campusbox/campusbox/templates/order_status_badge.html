@@ -1,0 +1,6 @@
+{# One colour per order status, used on every page that shows an order. Usage: include with order=... #}
+{% if order.status == 'confirmed' %}<span class="badge bg-info-subtle text-info-emphasis">{{ order.get_status_display }}</span>
+{% elif order.status == 'preparing' %}<span class="badge bg-warning-subtle text-warning-emphasis">{{ order.get_status_display }}</span>
+{% elif order.status == 'ready' %}<span class="badge text-bg-success">{{ order.get_status_display }}</span>
+{% elif order.status == 'collected' %}<span class="badge bg-success-subtle text-success-emphasis">{{ order.get_status_display }}</span>
+{% else %}<span class="badge bg-secondary-subtle text-secondary-emphasis">{{ order.get_status_display }}</span>{% endif %}

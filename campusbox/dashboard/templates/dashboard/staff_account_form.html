@@ -1,5 +1,7 @@
 {% extends "staff_base.html" %}
 
+{% block staff_title %}Add a staff account{% endblock %}
+
 {% block staff_content %}
   <h1 class="h3 mb-1">Add a staff account</h1>
   <p class="text-muted small mb-3">
@@ -14,7 +16,7 @@
       <div class="mb-3">
         <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
         {{ field }}
-        {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+        {% if field.name == "password" %}{% include "password_rules.html" with rules=form.password_rules %}{% elif field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
         {% for error in field.errors %}<div class="small text-danger">{{ error }}</div>{% endfor %}
       </div>
     {% endfor %}

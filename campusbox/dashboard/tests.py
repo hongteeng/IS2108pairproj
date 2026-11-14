@@ -139,6 +139,8 @@ class MealDeleteTests(TestCase):
         self.assertEqual(response.status_code, 200) #stays on the page, no redirect
         self.assertIn('cannot be deleted', response.context['error'])
         self.assertTrue(Meal.objects.filter(id=meal.id).exists())
+        self.assertNotContains(response, 'class="btn btn-danger"') #no Delete button once it has failed
+        self.assertContains(response, 'Edit meal')
 
 def next_monday():
     today = timezone.localdate()
@@ -587,3 +589,96 @@ class PickupPageTests(TestCase): #the revamped pickup point page
         self.assertEqual(len(self.client.get(list_url).context['rows']), 20)
         self.assertEqual(len(self.client.get(list_url, {'page': 2}).context['rows']), 5)
 
+
+class ConsistencyTests(TestCase): #labels, titles and badges that should look the same everywhere
+    def setUp(self):
+        self.owner = User.objects.create_user('owner1', password='Pass1234!', is_staff=True, is_superuser=True)
+        category = MealCategory.objects.create(name='Rice')
+        self.meal = Meal.objects.create(name='Chicken Rice Box', description='Test', price_cents=500, calories=500,
+                                        protein_g=30, carbs_g=60, fat_g=10, image_url='', category=category)
+        self.menu = WeeklyMenu.objects.create(week_start=timezone.localdate(), order_cutoff=timezone.now())
+        self.item = MenuItem.objects.create(weekly_menu=self.menu, meal=self.meal, quantity_available=10)
+        point = PickupPoint.objects.create(name='Library', location='Level 1')
+        self.slot = PickupSlot.objects.create(pickup_point=point, day=timezone.localdate() + timedelta(days=1),
+                                              start_time=time(12, 0), end_time=time(13, 0), capacity=20)
+        self.student = User.objects.create_user('student1', password='Pass1234!')
+
+    def order(self, status):
+        order = Order.objects.create(user=self.student, pickup_slot=self.slot, total_cents=500, status=status)
+        OrderItem.objects.create(order=order, menu_item=self.item, quantity=1, price_at_purchase_cents=500)
+        return order
+
+    def test_staff_pages_have_their_own_tab_title(self):
+        self.client.login(username='owner1', password='Pass1234!')
+        self.assertContains(self.client.get(reverse('dashboard:meal_list')), '<title>Meals · CampusBox Staff</title>')
+
+    def test_navbar_shows_the_staff_role(self):
+        self.client.login(username='owner1', password='Pass1234!')
+        self.assertContains(self.client.get(reverse('dashboard:home')), '>Owner</span>')
+        hr = User.objects.create_user('hr1', password='Pass1234!')
+        set_role(hr, HR)
+        self.client.login(username='hr1', password='Pass1234!')
+        self.assertContains(self.client.get(reverse('dashboard:home')), '>HR</span>')
+
+    def test_each_status_has_its_own_badge(self):
+        self.client.login(username='owner1', password='Pass1234!')
+        for status, css in [('confirmed', 'bg-info-subtle'), ('ready', 'text-bg-success'), ('cancelled', 'bg-secondary-subtle')]:
+            response = self.client.get(reverse('dashboard:order_detail', args=[self.order(status).id]))
+            self.assertContains(response, css)
+
+    def test_remove_is_disabled_for_a_meal_with_orders(self):
+        self.order('confirmed')
+        self.client.login(username='owner1', password='Pass1234!')
+        response = self.client.get(reverse('dashboard:menu_detail', args=[self.menu.id]))
+        self.assertContains(response, "This meal has orders, so it can't be removed.")
+        self.assertNotContains(response, 'name="remove_id"')
+
+    def test_staff_accounts_table_has_fixed_columns(self):
+        self.client.login(username='owner1', password='Pass1234!')
+        response = self.client.get(reverse('dashboard:staff_accounts'))
+        self.assertContains(response, 'table table-fixed')
+        self.assertContains(response, '<col style="width: 37%">')  #room for the role dropdown
+        hr = User.objects.create_user('hr1', password='Pass1234!')
+        set_role(hr, HR)
+        self.client.login(username='hr1', password='Pass1234!')
+        response = self.client.get(reverse('dashboard:staff_accounts'))
+        self.assertContains(response, '<col style="width: 18%">')  #only one button
+        self.assertNotContains(response, '{#')  #a {# #} comment only works on one line, or it shows on the page
+
+    def test_sign_up_has_one_name(self):
+        response = self.client.get(reverse('accounts:register'))
+        self.assertContains(response, '<title>Sign up · CampusBox</title>')
+        self.assertNotContains(response, 'Create an account')
+
+
+class StaffMyAccountTests(TestCase): #staff open My account from the avatar or the sidebar
+    def setUp(self):
+        self.staff = User.objects.create_user('staff1', email='staff1@example.com', password='Pass1234!', is_staff=True)
+        self.url = reverse('dashboard:my_account')
+
+    def test_customers_cannot_open_it(self):
+        User.objects.create_user('amy', password='Pass1234!')
+        self.client.login(username='amy', password='Pass1234!')
+        self.assertRedirects(self.client.get(self.url), reverse('dashboard:staff_login'), fetch_redirect_response=False)
+
+    def test_shows_details_and_change_password_but_no_deactivate(self):
+        self.client.login(username='staff1', password='Pass1234!')
+        response = self.client.get(self.url)
+        self.assertContains(response, '<title>My account · CampusBox Staff</title>')
+        self.assertContains(response, 'staff1@example.com')
+        self.assertContains(response, f'href="{reverse("accounts:change_password")}"')
+        self.assertNotContains(response, f'href="{reverse("accounts:deactivate_account")}"')
+        self.assertContains(response, 'Ask an owner or HR')
+
+    def test_role_is_shown(self):
+        set_role(self.staff, HR)
+        self.client.login(username='staff1', password='Pass1234!')
+        response = self.client.get(self.url)
+        self.assertContains(response, '<dd class="col-7">HR</dd>', html=True)
+        self.assertContains(response, 'Ask an owner to change')
+
+    def test_avatar_and_sidebar_link_to_it(self):
+        self.client.login(username='staff1', password='Pass1234!')
+        response = self.client.get(reverse('dashboard:home'))
+        self.assertContains(response, f'class="account-link d-inline-flex align-items-center gap-2" href="{self.url}"')
+        self.assertContains(response, f'href="{self.url}">My account</a>')

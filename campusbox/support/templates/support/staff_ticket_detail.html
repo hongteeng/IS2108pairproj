@@ -1,6 +1,8 @@
 {% extends "staff_base.html" %}
 {% load money %}
 
+{% block staff_title %}Ticket #{{ ticket.id }}{% endblock %}
+
 {% block staff_content %}
   <h1 class="h3 mb-3">Ticket #{{ ticket.id }}</h1>
   <div class="card mb-4">

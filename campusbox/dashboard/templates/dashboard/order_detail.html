@@ -1,6 +1,8 @@
 {% extends "staff_base.html" %}
 {% load money %}
 
+{% block staff_title %}Order #{{ order.id }}{% endblock %}
+
 {% block staff_content %}
   <div class="d-flex justify-content-between align-items-center mb-3">
     <h1 class="h3 mb-0">Order #{{ order.id }}</h1>
@@ -10,7 +12,7 @@
     <a href="{% url 'dashboard:customer_detail' order.user.id %}">{{ order.user.username }}</a> · {{ order.pickup_slot.pickup_point.name }},
     {{ order.pickup_slot.day|date:"D j M" }} {{ order.pickup_slot.start_time|time:"H:i" }}–{{ order.pickup_slot.end_time|time:"H:i" }}
   </p>
-  <p class="mb-0">Status: <span class="badge {% if order.status == 'cancelled' %}text-bg-secondary{% else %}text-bg-success{% endif %}">{{ order.get_status_display }}</span></p>
+  <p class="mb-0">Status: {% include "order_status_badge.html" with order=order %}</p>
   </div></div>
 
   <div class="card"><div class="card-body p-0"><div class="table-responsive">

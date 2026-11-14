@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}My account · CampusBox{% endblock %}
+{% block content %}
+<div class="row justify-content-center mt-4">
+  <div class="col-md-5">
+    <div class="card">
+      <div class="card-body p-4">
+        <h1 class="h3 mb-3">My account</h1>
+        <dl class="row mb-4">
+          <dt class="col-5 text-muted fw-normal">Username</dt>
+          <dd class="col-7">{{ user.username }}</dd>
+          <dt class="col-5 text-muted fw-normal">Email</dt>
+          <dd class="col-7">{{ user.email|default:"Not set" }}</dd>
+          <dt class="col-5 text-muted fw-normal">Member since</dt>
+          <dd class="col-7 mb-0">{{ user.date_joined|date:"j M Y" }}</dd>
+        </dl>
+        <div class="d-flex flex-wrap gap-2">
+          <a href="{% url 'accounts:change_password' %}" class="btn btn-outline-success">Change password</a>
+          <a href="{% url 'accounts:deactivate_account' %}" class="btn btn-outline-danger ms-auto">Deactivate my account</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

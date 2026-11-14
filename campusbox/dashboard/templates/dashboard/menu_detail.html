@@ -1,5 +1,7 @@
 {% extends "staff_base.html" %}
 
+{% block staff_title %}Menu for {{ menu_dates }}{% endblock %}
+
 {% block staff_content %}
   <div class="d-flex justify-content-between align-items-center mb-3">
     <h1 class="h3 mb-0">Menu for {{ menu_dates }}</h1>
@@ -26,11 +28,18 @@
           <td>{{ item.quantity_available }}</td>
           <td>{{ item.quantity_sold }}</td>
           <td>
-            <form method="post" class="m-0">
-              {% csrf_token %}
-              <input type="hidden" name="remove_id" value="{{ item.id }}">
-              <button type="submit" class="btn btn-sm btn-outline-danger">Remove</button>
-            </form>
+            {% if item.order_total == 0 %}
+              <form method="post" class="m-0">
+                {% csrf_token %}
+                <input type="hidden" name="remove_id" value="{{ item.id }}">
+                <button type="submit" class="btn btn-sm btn-outline-danger">Remove</button>
+              </form>
+            {% else %}
+              {# same as the pickup point page: a disabled button can't show a tooltip, so the wrapper carries it #}
+              <span class="d-inline-block" tabindex="0" title="This meal has orders, so it can't be removed. Lower its quantity in Inventory instead.">
+                <button type="button" class="btn btn-sm btn-outline-secondary" disabled>Remove</button>
+              </span>
+            {% endif %}
           </td>
         </tr>
       {% empty %}

@@ -17,7 +17,7 @@
           <form method="post" class="d-flex gap-2 m-0">
             {% csrf_token %}
             <button type="submit" class="btn btn-danger">Deactivate</button>
-            <a href="{% url 'accounts:quiz' %}" class="btn btn-outline-secondary">Cancel</a>
+            <a href="{% url 'accounts:my_account' %}" class="btn btn-outline-secondary">Cancel</a>
           </form>
         {% endif %}
       </div>

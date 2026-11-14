@@ -10,11 +10,10 @@ from django.shortcuts import get_object_or_404
 from django.shortcuts import redirect, render
 from django.core.paginator import Paginator
 from django.contrib.auth import update_session_auth_hash
-from django.contrib.auth.forms import PasswordChangeForm
 
 from django.utils.http import url_has_allowed_host_and_scheme
 
-from .forms import LoginForm, RegisterForm, TasteQuizForm
+from .forms import ChangePasswordForm, LoginForm, RegisterForm, TasteQuizForm
 from .models import CustomerProfile
 from .services import predict_preferred_category
 
@@ -96,6 +95,15 @@ def deactivate_account(request):
         response["Clear-Site-Data"] = '"cache"'
         return response
     return render(request, 'accounts/deactivate.html', {'open_orders': open_orders})
+
+
+@login_required
+def my_account(request):
+    """Show the customer's account details, with links to change the password or deactivate."""
+
+    if request.user.is_staff:
+        return redirect('dashboard:my_account') #staff have their own My account page in the dashboard
+    return render(request, 'accounts/my_account.html')
 
 
 @login_required
@@ -199,12 +207,10 @@ def staff_customer_detail(request, user_id):
 @login_required
 def change_password(request):
     """Let a logged-in user set a new password (they must type the old one first)."""
-    form = PasswordChangeForm(request.user, request.POST or None)
-    for field in form.fields.values():
-        field.widget.attrs['class'] = 'form-control'  # same Bootstrap look as the other forms
+    form = ChangePasswordForm(request.user, request.POST or None)
     if request.method == 'POST' and form.is_valid():
         user = form.save()                      # hashes and saves the new password
         update_session_auth_hash(request, user) # keeps them logged in
         messages.success(request, 'Your password has been changed.')
-        return redirect('dashboard:home' if request.user.is_staff else 'accounts:quiz')
+        return redirect('dashboard:my_account' if request.user.is_staff else 'accounts:my_account')
     return render(request, 'accounts/change_password.html', {'form': form})

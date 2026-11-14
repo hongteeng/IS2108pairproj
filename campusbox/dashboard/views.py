@@ -169,7 +169,7 @@ def menu_add(request):
             'week_start': next_monday,
             'order_cutoff': datetime.combine(next_monday - timedelta(days=1), time(23, 59)), #Sunday 23:59, the night before
         })
-    return render(request, 'dashboard/menu_form.html', {'form': form, 'title': 'New weekly menu'})
+    return render(request, 'dashboard/menu_form.html', {'form': form, 'title': 'Add weekly menu'})
 
 
 def menu_edit(request, menu_id):
@@ -212,7 +212,7 @@ def menu_detail(request, menu_id):
                     item.save()
                     form = MenuItemForm()
 
-    items = menu.items.all()
+    items = menu.items.select_related('meal').annotate(order_total=Count('order_items')) #Remove only without orders
     menu_dates, order_deadline = menu_labels(menu)
     return render(request, 'dashboard/menu_detail.html', {
         'menu': menu,
@@ -267,7 +267,7 @@ def pickup_add(request):
             return redirect('dashboard:pickup_detail', point_id=point.id)
     else:
         form = PickupPointForm()
-    return render(request, 'dashboard/pickup_form.html', {'form': form, 'title': 'New pickup point'})
+    return render(request, 'dashboard/pickup_form.html', {'form': form, 'title': 'Add pickup point'})
 
 
 def pickup_edit(request, point_id):
@@ -564,3 +564,7 @@ def staff_account_add(request): #runs when owners or HR open /dashboard/staff-ac
         messages.success(request, member.username + ' added as ' + ROLE_NAMES[role_of(member)] + '.')
         return redirect('dashboard:staff_accounts')
     return render(request, 'dashboard/staff_account_form.html', {'form': form, 'is_owner': is_owner})
+
+
+def my_account(request): #runs when staff open /dashboard/account/, the middleware already checked they are staff
+    return render(request, 'dashboard/my_account.html') #the role comes from the staff_role context processor

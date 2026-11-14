@@ -1,5 +1,7 @@
 {% extends "staff_base.html" %}
 {% load money %}
+{% block staff_title %}{{ customer.username }}{% endblock %}
+
 {% block staff_content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h1 class="h3 mb-0">{{ customer.username }}{% if not customer.is_active %} <span class="badge text-bg-secondary align-middle fs-6">Inactive</span>{% endif %}</h1>
@@ -53,7 +55,7 @@
               <td>{{ order.created_at|date:"D j M" }}</td>
               <td>{{ order.pickup_slot.pickup_point.name }}</td>
               <td>{{ order.total_cents|dollars }}</td>
-              <td><span class="badge {% if order.status == 'cancelled' %}text-bg-secondary{% else %}text-bg-success{% endif %}">{{ order.get_status_display }}</span></td>
+              <td>{% include "order_status_badge.html" with order=order %}</td>
               <td><a href="{% url 'dashboard:order_detail' order.id %}" class="btn btn-sm btn-outline-success">View</a></td>
             </tr>
           {% empty %}

@@ -1,14 +1,24 @@
 {% extends "staff_base.html" %}
 
+{% block staff_title %}Delete meal{% endblock %}
+
 {% block staff_content %}
   <h1 class="h3 mb-3">Delete {{ meal.name }}?</h1>
   {% if error %}<div class="alert alert-danger">{{ error }}</div>{% endif %}
   <div class="card"><div class="card-body">
-  <p>This removes the meal for good. To hide it from students instead, edit it and untick Active.</p>
-  <form method="post" class="d-flex gap-2 m-0">
-    {% csrf_token %}
-    <button type="submit" class="btn btn-danger">Delete</button>
-    <a href="{% url 'dashboard:meal_list' %}" class="btn btn-outline-secondary">Cancel</a>
-  </form>
+  {% if error %}
+    {# Deleting can only fail again, so offer the way to hide the meal instead #}
+    <div class="d-flex gap-2">
+      <a href="{% url 'dashboard:meal_edit' meal.id %}" class="btn btn-success">Edit meal</a>
+      <a href="{% url 'dashboard:meal_list' %}" class="btn btn-outline-secondary">Back to meals</a>
+    </div>
+  {% else %}
+    <p>This removes the meal for good. To hide it from students instead, edit it and switch off &ldquo;Show on the storefront&rdquo;.</p>
+    <form method="post" class="d-flex gap-2 m-0">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-danger">Delete</button>
+      <a href="{% url 'dashboard:meal_list' %}" class="btn btn-outline-secondary">Cancel</a>
+    </form>
+  {% endif %}
   </div></div>
 {% endblock %}
