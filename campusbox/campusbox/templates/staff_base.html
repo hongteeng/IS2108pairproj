@@ -5,25 +5,30 @@
 
 {% block content %}
 <div class="row">
-  <div class="col-md-3 mb-3 d-print-none">
-    <div class="card">
+  {# Narrower sidebar on wide screens, so the tables get more room; links grouped by kind of work (styles in base.html) #}
+  <div class="col-md-3 col-xl-2 mb-3 d-print-none">
+    <div class="card staff-nav">
       <div class="list-group list-group-flush">
         <a class="list-group-item list-group-item-action {% if request.resolver_match.url_name == 'home' %}active{% endif %}" href="{% url 'dashboard:home' %}">Dashboard</a>
-        <a class="list-group-item list-group-item-action {% if request.resolver_match.url_name == 'meal_list' or request.resolver_match.url_name == 'meal_add' or request.resolver_match.url_name == 'meal_edit' or request.resolver_match.url_name == 'meal_delete' %}active{% endif %}" href="{% url 'dashboard:meal_list' %}">Meals</a>
-        <a class="list-group-item list-group-item-action {% if request.resolver_match.url_name == 'menu_list' or request.resolver_match.url_name == 'menu_add' or request.resolver_match.url_name == 'menu_detail' or request.resolver_match.url_name == 'menu_edit' %}active{% endif %}" href="{% url 'dashboard:menu_list' %}">Weekly menus</a>
-        <a class="list-group-item list-group-item-action {% if request.resolver_match.url_name == 'inventory' %}active{% endif %}" href="{% url 'dashboard:inventory' %}">Inventory</a>
-        <a class="list-group-item list-group-item-action {% if request.resolver_match.url_name == 'pickup_list' or request.resolver_match.url_name == 'pickup_add' or request.resolver_match.url_name == 'pickup_detail' or request.resolver_match.url_name == 'pickup_edit' %}active{% endif %}" href="{% url 'dashboard:pickup_list' %}">Pickup points</a>
+        <div class="list-group-item nav-heading">Operations</div>
         <a class="list-group-item list-group-item-action {% if request.resolver_match.url_name == 'order_list' or request.resolver_match.url_name == 'order_detail' %}active{% endif %}" href="{% url 'dashboard:order_list' %}">Orders</a>
+        <a class="list-group-item list-group-item-action {% if request.resolver_match.url_name == 'packing_list' %}active{% endif %}" href="{% url 'dashboard:packing_list' %}">Packing list</a>
+        <a class="list-group-item list-group-item-action {% if request.resolver_match.url_name == 'pickup_list' or request.resolver_match.url_name == 'pickup_add' or request.resolver_match.url_name == 'pickup_detail' or request.resolver_match.url_name == 'pickup_edit' %}active{% endif %}" href="{% url 'dashboard:pickup_list' %}">Pickup points</a>
+        <div class="list-group-item nav-heading">Menu management</div>
+        <a class="list-group-item list-group-item-action {% if request.resolver_match.url_name == 'meal_list' or request.resolver_match.url_name == 'meal_add' or request.resolver_match.url_name == 'meal_edit' or request.resolver_match.url_name == 'meal_delete' %}active{% endif %}" href="{% url 'dashboard:meal_list' %}">Meals</a>
+        <a class="list-group-item list-group-item-action {% if request.resolver_match.url_name == 'menu_list' or request.resolver_match.url_name == 'menu_add' or request.resolver_match.url_name == 'menu_detail' or request.resolver_match.url_name == 'menu_edit' or request.resolver_match.url_name == 'menu_delete' %}active{% endif %}" href="{% url 'dashboard:menu_list' %}">Weekly menus</a>
+        <a class="list-group-item list-group-item-action {% if request.resolver_match.url_name == 'inventory' %}active{% endif %}" href="{% url 'dashboard:inventory' %}">Inventory</a>
+        <div class="list-group-item nav-heading">Customer management</div>
         <a class="list-group-item list-group-item-action {% if request.resolver_match.url_name == 'customers' or request.resolver_match.url_name == 'customer_detail' %}active{% endif %}" href="{% url 'dashboard:customers' %}">Customers</a>
         <a class="list-group-item list-group-item-action {% if request.resolver_match.url_name == 'reviews' %}active{% endif %}" href="{% url 'dashboard:reviews' %}">Reviews</a>
         <a class="list-group-item list-group-item-action {% if request.resolver_match.url_name == 'tickets' or request.resolver_match.url_name == 'ticket_detail' %}active{% endif %}" href="{% url 'dashboard:tickets' %}">Support tickets</a>
-        <a class="list-group-item list-group-item-action {% if request.resolver_match.url_name == 'packing_list' %}active{% endif %}" href="{% url 'dashboard:packing_list' %}">Packing list</a>
+        <div class="list-group-item nav-heading">Administration</div>
         {% if perms.dashboard.manage_staff %}<a class="list-group-item list-group-item-action {% if request.resolver_match.url_name == 'staff_accounts' or request.resolver_match.url_name == 'staff_account_add' %}active{% endif %}" href="{% url 'dashboard:staff_accounts' %}">Staff accounts</a>{% endif %}
         <a class="list-group-item list-group-item-action {% if request.resolver_match.url_name == 'my_account' %}active{% endif %}" href="{% url 'dashboard:my_account' %}">My account</a>
       </div>
     </div>
   </div>
-  <div class="col-md-9">
+  <div class="col-md-9 col-xl-10">
     {% block staff_content %}{% endblock %}
   </div>
 </div>

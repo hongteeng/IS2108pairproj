@@ -361,7 +361,9 @@ class NewMenuDefaultsTests(TestCase):
             'week_start': self.form.initial['week_start'].isoformat(),
             'order_cutoff': self.form.initial['order_cutoff'].strftime('%Y-%m-%d %H:%M'),
         }
-        self.assertRedirects(self.client.post(reverse('dashboard:menu_add'), data), reverse('dashboard:menu_list'))
+        response = self.client.post(reverse('dashboard:menu_add'), data)
+        menu = WeeklyMenu.objects.get(week_start=self.form.initial['week_start'])
+        self.assertRedirects(response, reverse('dashboard:menu_detail', args=[menu.id])) #opens the new week
 
 
 class CraftedPostTests(TestCase): #a POST with a made-up id should give "not found", not crash the page
@@ -372,7 +374,7 @@ class CraftedPostTests(TestCase): #a POST with a made-up id should give "not fou
         self.point = PickupPoint.objects.create(name='Library', location='Level 1')
 
     def test_inventory_with_bad_item_id_is_404(self):
-        response = self.client.post(reverse('dashboard:inventory'), {'item_id': 'abc', 'quantity': '5'})
+        response = self.client.post(reverse('dashboard:inventory'), {'qty_abc': '5'})
         self.assertEqual(response.status_code, 404)
 
     def test_menu_detail_with_bad_remove_id_is_404(self):
@@ -925,3 +927,222 @@ class MenuListTests(TestCase): #status, filters, sold totals and one query on th
         with CaptureQueriesContext(connection) as seven:
             self.page()
         self.assertEqual(len(seven), len(three)) #the counts come from one annotated query, not one per row
+
+
+class ResetDemoDataConfirmTests(TestCase): #Reset demo data asks before wiping anything
+    def setUp(self):
+        User.objects.create_user('owner1', password='Pass1234!', is_staff=True, is_superuser=True)
+        self.client.login(username='owner1', password='Pass1234!')
+        category = MealCategory.objects.create(name='Rice')
+        Meal.objects.create(name='Keep me', description='Test', price_cents=500, calories=500,
+                            protein_g=30, carbs_g=60, fat_g=10, category=category)
+
+    def test_visiting_the_page_only_asks(self):
+        self.assertContains(self.client.get(reverse('dashboard:seed')), 'Yes, reset demo data')
+        self.assertTrue(Meal.objects.filter(name='Keep me').exists())
+
+    def test_dashboard_links_to_the_confirmation_page(self):
+        self.assertContains(self.client.get(reverse('dashboard:home')), f'href="{reverse("dashboard:seed")}"')
+
+
+class OrderStatusBackTests(TestCase): #staff can move an order back one step after a misclick
+    def setUp(self):
+        User.objects.create_user('staff1', password='Pass1234!', is_staff=True)
+        self.client.login(username='staff1', password='Pass1234!')
+        customer = User.objects.create_user('alice', password='Pass1234!')
+        point = PickupPoint.objects.create(name='Library', location='Level 1')
+        slot = PickupSlot.objects.create(pickup_point=point, day=timezone.localdate() + timedelta(days=1),
+                                         start_time=time(12, 0), end_time=time(13, 0), capacity=20)
+        self.order = Order.objects.create(user=customer, pickup_slot=slot, total_cents=500, status='preparing')
+        self.url = reverse('dashboard:order_detail', args=[self.order.id])
+
+    def status_after(self, **data):
+        self.client.post(self.url, data)
+        self.order.refresh_from_db()
+        return self.order.status
+
+    def test_back_moves_one_step(self):
+        self.assertEqual(self.status_after(from_status='preparing', action='back'), 'confirmed')
+
+    def test_next_still_moves_forward(self):
+        self.assertEqual(self.status_after(from_status='preparing'), 'ready')
+
+    def test_a_stale_click_is_ignored(self):
+        self.assertEqual(self.status_after(from_status='ready', action='back'), 'preparing')
+
+    def test_confirmed_and_cancelled_have_no_back_button(self):
+        for status in ['confirmed', 'cancelled']:
+            Order.objects.filter(pk=self.order.pk).update(status=status)
+            self.assertNotContains(self.client.get(self.url), 'value="back"')
+            self.assertEqual(self.status_after(from_status=status, action='back'), status)
+
+
+class InventoryTests(TestCase): #tiles that filter, search, sort, pages and one Save for the whole page
+    def setUp(self):
+        User.objects.create_user('staff1', password='Pass1234!', is_staff=True)
+        self.client.login(username='staff1', password='Pass1234!')
+        today = timezone.localdate()
+        self.menu = WeeklyMenu.objects.create(week_start=today - timedelta(days=today.weekday()),
+                                              order_cutoff=timezone.now() + timedelta(days=1))
+        rice = MealCategory.objects.create(name='Rice')
+        noodles = MealCategory.objects.create(name='Noodles')
+        self.items = {}
+        for name, category, available, sold in [('Chicken Rice Box', rice, 30, 30), ('Laksa Bowl', noodles, 30, 27),
+                                                ('Egg Fried Rice', rice, 30, 10)]:
+            meal = Meal.objects.create(name=name, description='Test', price_cents=500, calories=500, protein_g=20,
+                                       carbs_g=60, fat_g=10, category=category)
+            self.items[name] = MenuItem.objects.create(weekly_menu=self.menu, meal=meal,
+                                                       quantity_available=available, quantity_sold=sold)
+        self.url = reverse('dashboard:inventory')
+
+    def names(self, **params):
+        return [item.meal.name for item in self.client.get(self.url, params).context['page_obj']]
+
+    def qty(self, name):
+        return 'qty_' + str(self.items[name].id)
+
+    def test_tiles_count_each_status_and_filter(self):
+        tiles = self.client.get(self.url).context['tiles']
+        self.assertEqual([count for value, label, count in tiles], [3, 1, 1, 1]) #all, sold out, low, in stock
+        self.assertEqual(self.names(show='sold_out'), ['Chicken Rice Box'])
+        self.assertEqual(self.names(show='low'), ['Laksa Bowl'])
+        self.assertEqual(self.names(show='in_stock'), ['Egg Fried Rice'])
+
+    def test_fewest_left_first_and_search(self):
+        self.assertEqual(self.names(), ['Chicken Rice Box', 'Laksa Bowl', 'Egg Fried Rice'])
+        self.assertEqual(self.names(sort='meal'), ['Chicken Rice Box', 'Egg Fried Rice', 'Laksa Bowl'])
+        self.assertEqual(self.names(q='rice'), ['Chicken Rice Box', 'Egg Fried Rice']) #names and the Rice category
+
+    def test_one_save_changes_every_edited_row_and_keeps_the_filter(self):
+        response = self.client.post(self.url + '?show=low&q=a', {
+            self.qty('Chicken Rice Box'): '40', self.qty('Laksa Bowl'): '35', self.qty('Egg Fried Rice'): '30'})
+        self.assertRedirects(response, self.url + '?show=low&q=a')
+        self.items['Chicken Rice Box'].refresh_from_db()
+        self.items['Laksa Bowl'].refresh_from_db()
+        self.assertEqual((self.items['Chicken Rice Box'].quantity_available, self.items['Laksa Bowl'].quantity_available), (40, 35))
+
+    def test_a_bad_row_keeps_what_was_typed_and_the_good_rows_still_save(self):
+        response = self.client.post(self.url, {self.qty('Laksa Bowl'): '20', self.qty('Egg Fried Rice'): '50'})
+        self.assertEqual(response.status_code, 200)
+        laksa = [item for item in response.context['page_obj'] if item.meal.name == 'Laksa Bowl'][0]
+        self.assertEqual((laksa.typed, laksa.error), ('20', "Can't be below the 27 sold."))
+        self.assertContains(response, 'Not saved: Laksa Bowl')
+        self.items['Laksa Bowl'].refresh_from_db()
+        self.items['Egg Fried Rice'].refresh_from_db()
+        self.assertEqual((self.items['Laksa Bowl'].quantity_available, self.items['Egg Fried Rice'].quantity_available), (30, 50))
+
+    def test_words_and_huge_numbers_are_refused(self):
+        response = self.client.post(self.url, {self.qty('Egg Fried Rice'): 'ten', self.qty('Laksa Bowl'): '100000'})
+        errors = {item.meal.name: item.error for item in response.context['page_obj'] if item.error}
+        self.assertEqual(errors, {'Egg Fried Rice': 'Enter a whole number, 0 or more.', 'Laksa Bowl': 'Enter 9999 or less.'})
+
+    def test_saving_with_no_changes_says_so(self):
+        response = self.client.post(self.url, {self.qty('Laksa Bowl'): '30'}, follow=True)
+        self.assertContains(response, 'Nothing changed, so nothing was saved.')
+
+    def test_a_meal_from_another_week_is_404(self):
+        other = WeeklyMenu.objects.create(week_start=self.menu.week_start + timedelta(days=7),
+                                          order_cutoff=timezone.now() + timedelta(days=8))
+        item = MenuItem.objects.create(weekly_menu=other, meal=self.items['Laksa Bowl'].meal, quantity_available=10)
+        response = self.client.post(self.url, {'qty_' + str(item.id): '20'})
+        self.assertEqual(response.status_code, 404)
+
+    def test_twenty_five_meals_per_page(self):
+        category = MealCategory.objects.get(name='Rice')
+        for number in range(25):
+            meal = Meal.objects.create(name='Meal ' + str(number), description='Test', price_cents=500, calories=500,
+                                       protein_g=20, carbs_g=60, fat_g=10, category=category)
+            MenuItem.objects.create(weekly_menu=self.menu, meal=meal, quantity_available=10)
+        self.assertEqual(len(self.names()), 25)
+        self.assertEqual(len(self.names(page=2)), 3)
+
+
+class CopyLastMenuTests(TestCase): #Add weekly menu can start from the latest menu's meals and stock
+    def setUp(self):
+        User.objects.create_user('staff1', password='Pass1234!', is_staff=True)
+        self.client.login(username='staff1', password='Pass1234!')
+        today = timezone.localdate()
+        monday = today - timedelta(days=today.weekday())
+        self.latest = WeeklyMenu.objects.create(week_start=monday, order_cutoff=timezone.now() - timedelta(hours=1))
+        category = MealCategory.objects.create(name='Rice')
+        for name, active, available, sold in [('Chicken Rice Box', True, 30, 12), ('Laksa Bowl', True, 20, 20),
+                                              ('Old Special', False, 10, 0)]:
+            meal = Meal.objects.create(name=name, description='Test', price_cents=500, calories=500, protein_g=20,
+                                       carbs_g=60, fat_g=10, category=category, is_active=active)
+            MenuItem.objects.create(weekly_menu=self.latest, meal=meal, quantity_available=available, quantity_sold=sold)
+        self.url = reverse('dashboard:menu_add')
+        self.next_monday = monday + timedelta(days=7)
+        self.data = {'week_start': self.next_monday.isoformat(),
+                     'order_cutoff': (self.next_monday - timedelta(days=1)).strftime('%Y-%m-%d') + ' 23:59'}
+
+    def test_tickbox_names_the_week_and_counts_only_switched_on_meals(self):
+        response = self.client.get(self.url)
+        self.assertTrue(response.context['form'].fields['copy_meals'].initial) #ticked to start with
+        self.assertContains(response, 'Copy the 2 meals and their stock from the week of ' + self.latest.week_start.strftime('%a'))
+
+    def test_copies_meals_and_stock_and_resets_sold(self):
+        response = self.client.post(self.url, {**self.data, 'copy_meals': 'on'}, follow=True)
+        menu = WeeklyMenu.objects.get(week_start=self.next_monday)
+        self.assertRedirects(response, reverse('dashboard:menu_detail', args=[menu.id]))
+        self.assertContains(response, 'Copied 2 meals from the week of')
+        copied = {item.meal.name: (item.quantity_available, item.quantity_sold) for item in menu.items.select_related('meal')}
+        self.assertEqual(copied, {'Chicken Rice Box': (30, 0), 'Laksa Bowl': (20, 0)}) #the switched-off meal is left out
+
+    def test_unticked_gives_an_empty_week(self):
+        self.client.post(self.url, self.data)
+        self.assertEqual(WeeklyMenu.objects.get(week_start=self.next_monday).items.count(), 0)
+
+    def test_a_refused_form_copies_nothing(self):
+        bad = {**self.data, 'week_start': (self.next_monday + timedelta(days=1)).isoformat(), 'copy_meals': 'on'} #a Tuesday
+        self.assertEqual(self.client.post(self.url, bad).status_code, 200)
+        self.assertEqual((WeeklyMenu.objects.count(), MenuItem.objects.count()), (1, 3))
+
+    def test_no_tickbox_when_there_is_nothing_to_copy(self):
+        WeeklyMenu.objects.all().delete()
+        self.assertNotIn('copy_meals', self.client.get(self.url).context['form'].fields)
+
+
+class MenuDeleteTests(TestCase): #a weekly menu can be deleted from a confirm page, but only if nobody ordered from it
+    def setUp(self):
+        User.objects.create_user('staff1', password='Pass1234!', is_staff=True)
+        self.client.login(username='staff1', password='Pass1234!')
+        category = MealCategory.objects.create(name='Rice')
+        self.meal = Meal.objects.create(name='Chicken Rice Box', description='Test', price_cents=500, calories=500,
+                                        protein_g=30, carbs_g=60, fat_g=10, category=category)
+        self.menu = WeeklyMenu.objects.create(week_start=next_monday(), order_cutoff=timezone.now() + timedelta(days=1))
+        self.item = MenuItem.objects.create(weekly_menu=self.menu, meal=self.meal, quantity_available=10)
+        self.url = reverse('dashboard:menu_delete', args=[self.menu.id])
+
+    def add_order(self):
+        point = PickupPoint.objects.create(name='Library', location='Level 1')
+        slot = PickupSlot.objects.create(pickup_point=point, day=next_monday(), start_time=time(12, 0),
+                                         end_time=time(12, 30), capacity=20)
+        customer = User.objects.create_user('student1', password='Pass1234!')
+        order = Order.objects.create(user=customer, pickup_slot=slot, total_cents=500)
+        OrderItem.objects.create(order=order, menu_item=self.item, quantity=1, price_at_purchase_cents=500)
+
+    def test_visiting_only_asks(self):
+        response = self.client.get(self.url)
+        self.assertContains(response, 'Delete the menu for')
+        self.assertContains(response, 'the 1 meal on it')
+        self.assertTrue(WeeklyMenu.objects.filter(id=self.menu.id).exists())
+
+    def test_a_week_without_orders_is_deleted_but_its_meals_stay(self):
+        response = self.client.post(self.url, follow=True)
+        self.assertRedirects(response, reverse('dashboard:menu_list'))
+        self.assertContains(response, 'Deleted the menu for')
+        self.assertFalse(WeeklyMenu.objects.filter(id=self.menu.id).exists())
+        self.assertFalse(MenuItem.objects.filter(id=self.item.id).exists())
+        self.assertTrue(Meal.objects.filter(id=self.meal.id).exists())
+
+    def test_a_week_with_orders_cannot_be_deleted(self):
+        self.add_order()
+        detail = self.client.get(reverse('dashboard:menu_detail', args=[self.menu.id]))
+        self.assertContains(detail, "This week has orders, so it can't be deleted.")
+        response = self.client.post(self.url) #even a crafted POST is refused
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(WeeklyMenu.objects.filter(id=self.menu.id).exists())
+        self.assertNotContains(response, 'class="btn btn-danger"')
+
+    def test_a_made_up_menu_is_404(self):
+        self.assertEqual(self.client.post(reverse('dashboard:menu_delete', args=[99999])).status_code, 404)

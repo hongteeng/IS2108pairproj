@@ -45,6 +45,14 @@
         <button type="submit" class="btn btn-success">{{ next_label }}</button>
       </form>
     {% endif %}
+    {% if back_label %}
+      <form method="post" class="m-0">
+        {% csrf_token %}
+        <input type="hidden" name="from_status" value="{{ order.status }}">
+        <input type="hidden" name="action" value="back">
+        <button type="submit" class="btn btn-outline-secondary">{{ back_label }}</button>
+      </form>
+    {% endif %}
     <a href="{% url 'dashboard:order_list' %}" class="btn btn-outline-secondary">Back to orders</a>
   </div>
 {% endblock %}

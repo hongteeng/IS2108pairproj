@@ -1,0 +1,20 @@
+{% extends "staff_base.html" %}
+
+{% block staff_title %}Delete menu{% endblock %}
+
+{% block staff_content %}
+  <h1 class="h3 mb-3">Delete the menu for {{ menu_dates }}?</h1>
+  <div class="card"><div class="card-body">
+  {% if has_orders %}
+    <div class="alert alert-danger">This week has orders, so it can't be deleted. Its orders and receipts need its meals.</div>
+    <a href="{% url 'dashboard:menu_detail' menu.id %}" class="btn btn-outline-secondary">Back to menu</a>
+  {% else %}
+    <p>This removes the week and the {{ meal_count }} meal{{ meal_count|pluralize }} on it. The meals themselves stay in Meals. This can't be undone.</p>
+    <form method="post" class="d-flex gap-2 m-0">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-danger">Delete menu</button>
+      <a href="{% url 'dashboard:menu_detail' menu.id %}" class="btn btn-outline-secondary">Cancel</a>
+    </form>
+  {% endif %}
+  </div></div>
+{% endblock %}

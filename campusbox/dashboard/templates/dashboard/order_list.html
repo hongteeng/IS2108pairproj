@@ -29,8 +29,9 @@
   <table class="table table-fixed align-middle mb-0" style="min-width: 40rem;">
     {# Fixed column widths, so sorting or changing page doesn't resize the table #}
     <colgroup>
-      <col style="width: 12%"><col style="width: 24%"><col style="width: 22%">
-      <col style="width: 14%"><col style="width: 18%"><col style="width: 10%">
+      {# Customer takes what's left; Status gets fixed room so "Ready for pickup" always fits #}
+      <col style="width: 12%"><col><col style="width: 22%">
+      <col style="width: 13%"><col style="width: 9.5rem"><col style="width: 5rem">
     </colgroup>
     <thead>
       <tr>

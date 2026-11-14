@@ -27,15 +27,19 @@
 
   <h2 class="h5 mb-3">Upcoming slots</h2>
   <div class="card mb-3"><div class="card-body p-0"><div class="table-responsive">
-  <table class="table align-middle mb-0">
+  <table class="table table-fixed align-middle mb-0" style="min-width: 36rem;">
+    {# Fixed column widths, so saving a capacity (the Full badge) or removing a slot doesn't resize the table #}
+    {# Capacity and Remove are just wide enough for their buttons, so Save and Remove still sit next to each other #}
+    <colgroup>
+      <col><col><col><col style="width: 11rem"><col style="width: 6.5rem">
+    </colgroup>
     <thead>
       <tr>
         <th>Day</th>
         <th>Time</th>
         <th>Booked</th>
-        {# These two shrink to fit, so Save and Remove sit next to each other #}
-        <th class="text-nowrap" style="width: 1%;">Capacity</th>
-        <th style="width: 1%;"><span class="visually-hidden">Remove</span></th>
+        <th>Capacity</th>
+        <th><span class="visually-hidden">Remove</span></th>
       </tr>
     </thead>
     <tbody>

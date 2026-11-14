@@ -82,6 +82,15 @@ class CancelOrderTests(TestCase):
         self.client.login(username='alice', password='Pass1234!')
         self.url = reverse('orders:cancel_order', args=[self.order.id])
 
+    def test_visiting_cancel_only_asks(self):
+        self.assertContains(self.client.get(self.url), 'Yes, cancel this order')
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.status, 'confirmed')
+
+    def test_order_page_links_to_the_confirmation_page(self):
+        response = self.client.get(reverse('orders:order_detail', args=[self.order.id]))
+        self.assertContains(response, f'href="{self.url}"')
+
     def test_cancelling_returns_the_stock(self):
         self.client.post(self.url)
         self.order.refresh_from_db()

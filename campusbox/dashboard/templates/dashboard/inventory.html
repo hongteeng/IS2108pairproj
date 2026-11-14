@@ -3,44 +3,101 @@
 {% block staff_title %}Inventory{% endblock %}
 
 {% block staff_content %}
-  <div class="d-flex justify-content-between align-items-center mb-3">
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
     <h1 class="h3 mb-0">Inventory{% if menu_dates %} for {{ menu_dates }}{% endif %}</h1>
   </div>
-  <div class="card mb-3"><div class="card-body"><p class="mb-0">{{ sold_out_count }} sold out · {{ low_count }} low stock</p></div></div>
 
-  {% if error %}<div class="alert alert-danger">{{ error }}</div>{% endif %}
-
-  <div class="card"><div class="card-body p-0"><div class="table-responsive">
-  <table class="table align-middle mb-0">
-    <thead>
-      <tr>
-        <th>Meal</th>
-        <th>Sold</th>
-        <th>Left</th>
-        <th>Status</th>
-        <th>Set quantity</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for row in rows %}
-        <tr>
-          <td>{{ row.item.meal.name }}</td>
-          <td>{{ row.item.quantity_sold }}</td>
-          <td>{{ row.left }}</td>
-          <td><span class="badge {% if row.status == 'Sold out' %}text-bg-danger{% elif row.status == 'Low stock' %}text-bg-warning{% else %}text-bg-success{% endif %}">{{ row.status }}</span></td>
-          <td>
-            <form method="post" class="d-flex gap-2 m-0">
-              {% csrf_token %}
-              <input type="hidden" name="item_id" value="{{ row.item.id }}">
-              <input type="number" name="quantity" value="{{ row.item.quantity_available }}" class="form-control form-control-sm" style="width: 6rem;">
-              <button type="submit" class="btn btn-sm btn-success">Save</button>
-            </form>
-          </td>
-        </tr>
-      {% empty %}
-        <tr><td colspan="5" class="text-center text-muted py-4">No meals on the current menu.</td></tr>
+  {% if not menu %}
+    <div class="card"><div class="card-body text-center text-muted py-5">
+      No weekly menu yet. <a href="{% url 'dashboard:menu_add' %}">Add a weekly menu</a> to set its stock here.
+    </div></div>
+  {% else %}
+    {# The four tiles are the filters: click one to show only those meals #}
+    <div class="row g-3 mb-3">
+      {% for value, label, count in tiles %}
+        <div class="col-6 col-lg-3">
+          <div class="card card-link h-100{% if value == show %} border-success{% endif %}">
+            <div class="card-body position-relative">
+              <div class="small {% if value == show %}text-success fw-semibold{% else %}text-muted{% endif %}">{{ label }}</div>
+              <div class="h3 mb-0 {% if value == 'sold_out' and count %}text-danger{% elif value == 'low' and count %}text-warning-emphasis{% endif %}">{{ count }}</div>
+              <a href="{% url 'dashboard:inventory' %}?{% if value %}show={{ value }}{% endif %}{% if q %}&amp;q={{ q|urlencode }}{% endif %}{% if request.GET.sort %}&amp;sort={{ sort }}{% endif %}" class="stretched-link" aria-label="Show {{ label|lower }}"{% if value == show %} aria-current="true"{% endif %}></a>
+            </div>
+          </div>
+        </div>
       {% endfor %}
-    </tbody>
-  </table>
-  </div></div></div>
+    </div>
+
+    <div class="card mb-3"><div class="card-body">
+      <form method="get" class="row g-2">
+        {% if show %}<input type="hidden" name="show" value="{{ show }}">{% endif %}
+        {% if request.GET.sort %}<input type="hidden" name="sort" value="{{ sort }}">{% endif %}
+        <div class="col">
+          <input type="search" name="q" value="{{ q }}" class="form-control" placeholder="Search meal name or category">
+        </div>
+        <div class="col-auto">
+          <button type="submit" class="btn btn-success">Search</button>
+          <a href="{% url 'dashboard:inventory' %}" class="btn btn-outline-secondary">Clear</a>
+        </div>
+      </form>
+    </div></div>
+
+    {% if error_names %}
+      <div class="alert alert-danger">Not saved: {{ error_names|join:", " }}. Fix the highlighted {{ error_names|length|pluralize:"box,boxes" }} and save again.</div>
+    {% endif %}
+
+    {# One form for the whole page: change any totals, then one Save. No action, so it posts back to this same filter and page. #}
+    <form method="post">
+      {% csrf_token %}
+      {# One Save button, above the table: sold-out and low-stock meals sort to the top, so the rows staff edit most sit right under it #}
+      <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+        <span class="small text-muted">Change any meal's total stock, then save. A total can't go below what's already sold.</span>
+        <button type="submit" class="btn btn-success">Save changes</button>
+      </div>
+      <div class="card"><div class="card-body p-0"><div class="table-responsive">
+      <table class="table table-fixed align-middle mb-0" style="min-width: 46rem;">
+        {# Fixed column widths, so saving (and the status changing) doesn't resize the table #}
+        <colgroup>
+          <col><col style="width: 11%"><col style="width: 11%"><col style="width: 17%">
+          <col style="width: 7.5rem"><col style="width: 9rem">
+        </colgroup>
+        <thead>
+          <tr>
+            {% include "sort_header.html" with key="meal" label="Meal" %}
+            {% include "sort_header.html" with key="sold" label="Sold" first="-" %}
+            {% include "sort_header.html" with key="left" label="Left" %}
+            <th>Sold of total</th>
+            <th>Status</th>
+            <th>Total stock</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in page_obj %}
+            <tr>
+              <td>
+                {{ item.meal.name }}
+                <div class="small text-muted">{{ item.meal.category.name }}</div>
+              </td>
+              <td>{{ item.quantity_sold }}</td>
+              <td class="{% if item.left <= 0 %}text-danger fw-semibold{% endif %}">{{ item.left }}</td>
+              <td>
+                <div class="small text-muted">{{ item.quantity_sold }} of {{ item.quantity_available }}</div>
+                <div class="progress" style="height: 6px;" role="progressbar" aria-label="{{ item.meal.name }} sold" aria-valuenow="{{ item.percent }}" aria-valuemin="0" aria-valuemax="100">
+                  <div class="progress-bar {% if item.status == 'Sold out' %}bg-danger{% elif item.status == 'Low stock' %}bg-warning{% else %}bg-success{% endif %}" style="width: {{ item.percent }}%"></div>
+                </div>
+              </td>
+              <td><span class="badge {% if item.status == 'Sold out' %}text-bg-danger{% elif item.status == 'Low stock' %}text-bg-warning{% else %}text-bg-success{% endif %}">{{ item.status }}</span></td>
+              <td>
+                <input type="number" name="qty_{{ item.id }}" value="{{ item.typed }}" min="{{ item.quantity_sold }}" max="{{ max_stock }}" class="form-control form-control-sm{% if item.error %} is-invalid{% endif %}" style="max-width: 6.5rem;" aria-label="Total stock for {{ item.meal.name }}">
+                {% if item.error %}<div class="invalid-feedback d-block">{{ item.error }}</div>{% endif %}
+              </td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="6" class="text-center text-muted py-4">{% if q or show %}No meals match.{% else %}No meals on this week's menu yet.{% endif %}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      </div></div></div>
+    </form>
+    {% include "pagination.html" with noun="meal" %}
+  {% endif %}
 {% endblock %}

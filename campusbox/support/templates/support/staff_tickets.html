@@ -24,7 +24,12 @@
     </div>
   </div></div>
   <div class="card"><div class="card-body p-0"><div class="table-responsive">
-  <table class="table align-middle mb-0">
+  <table class="table table-fixed align-middle mb-0" style="min-width: 44rem;">
+    {# Fixed column widths, so status changes or changing page don't resize the table #}
+    <colgroup>
+      <col style="width: 10%"><col style="width: 10%"><col><col style="width: 20%">
+      <col style="width: 7.5rem"><col style="width: 7rem"><col style="width: 5rem">
+    </colgroup>
     <thead>
       <tr>
         <th>Ticket</th>

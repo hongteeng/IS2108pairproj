@@ -75,10 +75,11 @@
                 <form method="post" class="m-0">
                   {% csrf_token %}
                   <input type="hidden" name="toggle_id" value="{{ row.member.id }}">
+                  {# Same width for Deactivate and Reactivate, so the buttons line up from row to row #}
                   {% if row.member.is_active %}
-                    <button type="submit" class="btn btn-sm btn-outline-secondary">Deactivate</button>
+                    <button type="submit" class="btn btn-sm btn-outline-secondary" style="min-width: 6.5rem;">Deactivate</button>
                   {% else %}
-                    <button type="submit" class="btn btn-sm btn-outline-success">Reactivate</button>
+                    <button type="submit" class="btn btn-sm btn-outline-success" style="min-width: 6.5rem;">Reactivate</button>
                   {% endif %}
                 </form>
               </div>

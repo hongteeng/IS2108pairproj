@@ -72,10 +72,7 @@
     <a href="{% url 'support:report_problem' order.id %}" class="btn btn-outline-danger">Report a problem</a>
   {% endif %}
   {% if can_cancel %}
-    <form method="post" action="{% url 'orders:cancel_order' order.id %}">
-      {% csrf_token %}
-      <button type="submit" class="btn btn-outline-danger">Cancel order</button>
-    </form>
+    <a href="{% url 'orders:cancel_order' order.id %}" class="btn btn-outline-danger">Cancel order</a>
     <small class="text-muted align-self-center">You can cancel until {{ cancel_deadline }}.</small>
   {% endif %}
 </div>

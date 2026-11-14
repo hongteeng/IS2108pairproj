@@ -8,11 +8,20 @@
   <form method="post">
     {% csrf_token %}
     {% for field in form %}
-      <div class="mb-3">
-        <label class="form-label"{% if field.id_for_label %} for="{{ field.id_for_label }}"{% endif %}>{{ field.label }}</label>
-        {{ field }}
-        {% for error in field.errors %}<div class="small text-danger">{{ error }}</div>{% endfor %}
-      </div>
+      {% if field.widget_type == 'checkbox' %}
+        {# A tickbox sits beside its label, with the explanation underneath #}
+        <div class="form-check mb-3">
+          {{ field }}
+          <label class="form-check-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+          {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+        </div>
+      {% else %}
+        <div class="mb-3">
+          <label class="form-label"{% if field.id_for_label %} for="{{ field.id_for_label }}"{% endif %}>{{ field.label }}</label>
+          {{ field }}
+          {% for error in field.errors %}<div class="small text-danger">{{ error }}</div>{% endfor %}
+        </div>
+      {% endif %}
     {% endfor %}
     <div class="d-flex gap-2">
       <button type="submit" class="btn btn-success">Save</button>

@@ -245,3 +245,26 @@ class DemoDataTests(TestCase): #python manage.py demo_data should give dates tha
         for ticket in SupportTicket.objects.select_related('order__pickup_slot'):
             self.assertGreaterEqual(timezone.localtime(ticket.created_at).date(), ticket.order.pickup_slot.day)
             self.assertLessEqual(ticket.created_at, timezone.now())
+
+
+class StaffCustomerOrdersPagesTests(TestCase): #the Orders table on a customer's staff page shows 10 at a time
+    def setUp(self):
+        User.objects.create_user('staff1', password='Pass1234!', is_staff=True)
+        self.client.login(username='staff1', password='Pass1234!')
+        self.customer = User.objects.create_user('amy', password='Pass1234!')
+        point = PickupPoint.objects.create(name='Library', location='Level 1')
+        slot = PickupSlot.objects.create(pickup_point=point, day=timezone.localdate() + timedelta(days=1),
+                                         start_time=time(12, 0), end_time=time(12, 30), capacity=50)
+        self.orders = [Order.objects.create(user=self.customer, pickup_slot=slot, total_cents=500) for _ in range(12)]
+        self.url = reverse('dashboard:customer_detail', args=[self.customer.id])
+
+    def test_ten_newest_orders_first_then_the_rest(self):
+        response = self.client.get(self.url)
+        newest_first = [order.id for order in reversed(self.orders)]
+        self.assertEqual([order.id for order in response.context['orders']], newest_first[:10])
+        self.assertContains(response, 'Showing 1–10 of 12 orders')
+        second = self.client.get(self.url, {'orders_page': 2}).context['orders']
+        self.assertEqual([order.id for order in second], newest_first[10:])
+
+    def test_page_links_jump_back_to_the_orders_table(self):
+        self.assertContains(self.client.get(self.url), '?orders_page=2#orders')
