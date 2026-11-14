@@ -72,6 +72,14 @@
     .table-fixed { table-layout: fixed; }
     .table-fixed td { overflow-wrap: break-word; }  /* wrap between words; only split a word that can't fit at all */
     .sort-arrow { display: inline-block; width: 1em; text-align: center; }
+    /* Staff sidebar: grey section headings, a full-width line between sections, faint inset lines between links */
+    .staff-nav .list-group-item { border: 0; }
+    .staff-nav .nav-heading { padding: .9rem .5rem .3rem 1rem; font-size: .64rem; font-weight: 500;
+                              text-transform: uppercase; color: var(--bs-secondary-color); border-top: 1px solid var(--bs-border-color); }
+    .staff-nav a.list-group-item + a.list-group-item::before { content: ""; position: absolute; top: 0; left: 1rem; right: 1rem;
+                                                               border-top: 1px solid rgba(0, 0, 0, .06); }
+    .staff-nav a.active::before, .staff-nav a.active + a::before { display: none; }  /* no lines touching the green link */
+    .staff-nav a.active + .nav-heading { border-top-color: transparent; }
   </style>
 </head>
 <body>

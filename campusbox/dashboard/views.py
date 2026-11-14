@@ -10,12 +10,13 @@ from django.utils import timezone
 from datetime import date, datetime, time, timedelta
 from accounts.models import CustomerProfile
 from accounts.forms import LoginForm
+from django.db import transaction
 from django.db.models import ProtectedError
 from menu.models import Meal, WeeklyMenu, MenuItem, this_monday
 from menu.utils import current_menu, menu_labels
 from orders.models import Order, OrderItem, PickupPoint, PickupSlot
 from support.models import SupportTicket
-from .forms import MealForm, WeeklyMenuForm, MenuItemForm, PickupPointForm, PickupSlotForm, SlotWeekForm, StaffAccountForm
+from .forms import MealForm, NewWeeklyMenuForm, WeeklyMenuForm, week_label, MenuItemForm, PickupPointForm, PickupSlotForm, SlotWeekForm, StaffAccountForm
 from .roles import HR, OWNER, ROLE_CHOICES, ROLE_NAMES, STAFF, can_manage, role_of, set_role
 
 
@@ -61,7 +62,7 @@ def home(request):
         sold_out = stock_items.filter(stock_remaining__lte=0).count()
         low_stock = stock_items.filter(
             stock_remaining__gte=1,
-            stock_remaining__lte=5,
+            stock_remaining__lte=LOW_STOCK,
         ).count()
 
     week_start = timezone.now() - timedelta(days=7)
@@ -232,16 +233,34 @@ def menu_list(request): #newest week first, with each week's status and how much
     })
 
 
+def copy_meals(source, menu):
+    """Put the source menu's meals and stock on a new menu. Sold starts at 0; switched-off meals are left out."""
+    items = source.items.filter(meal__is_active=True)
+    MenuItem.objects.bulk_create([
+        MenuItem(weekly_menu=menu, meal_id=item.meal_id, quantity_available=item.quantity_available, quantity_sold=0)
+        for item in items
+    ])
+    return len(items)
+
+
 def menu_add(request):
     if request.method == 'POST':
-        form = WeeklyMenuForm(request.POST)
+        form = NewWeeklyMenuForm(request.POST)
         if form.is_valid():
-            form.save()
-            return redirect('dashboard:menu_list')
+            with transaction.atomic():  # the menu and its copied meals are saved together, or not at all
+                menu = form.save()
+                copied = copy_meals(form.source, menu) if form.cleaned_data.get('copy_meals') else 0
+            if copied:
+                messages.success(request, 'Copied ' + str(copied) + ' meal' + ('s' if copied != 1 else '')
+                                 + ' from the week of ' + week_label(form.source.week_start)
+                                 + '. Change their stock or remove meals below.')
+            else:
+                messages.success(request, 'Weekly menu added. Add its meals below.')
+            return redirect('dashboard:menu_detail', menu_id=menu.id)  # straight to the new week, to check its meals
     else:
         today = timezone.localdate()
         next_monday = today + timedelta(days=7 - today.weekday()) #the next week that has not started yet
-        form = WeeklyMenuForm(initial={
+        form = NewWeeklyMenuForm(initial={
             'week_start': next_monday,
             'order_cutoff': datetime.combine(next_monday - timedelta(days=1), time(23, 59)), #Sunday 23:59, the night before
         })
@@ -295,9 +314,30 @@ def menu_detail(request, menu_id):
         'menu_dates': menu_dates,
         'order_deadline': order_deadline,
         'items': items,
+        'has_orders': any(item.order_total for item in items),  # Delete menu only while nobody has ordered from it
         'form': form,
         'error': error,
     })
+
+def menu_delete(request, menu_id): #visiting only asks; the POST from that page deletes, and only a week nobody ordered from
+    menu = get_object_or_404(WeeklyMenu, pk=menu_id)
+    menu_dates = menu_labels(menu)[0]
+    has_orders = OrderItem.objects.filter(menu_item__weekly_menu=menu).exists()
+    if request.method == 'POST' and not has_orders:
+        try:
+            menu.delete()  # its meals on the menu go with it; the meals themselves stay in Meals
+        except ProtectedError:
+            has_orders = True  # an order came in after the page loaded; the database refused, nothing was deleted
+        else:
+            messages.success(request, 'Deleted the menu for ' + menu_dates + '.')
+            return redirect('dashboard:menu_list')
+    return render(request, 'dashboard/menu_confirm_delete.html', {
+        'menu': menu,
+        'menu_dates': menu_dates,
+        'meal_count': menu.items.count(),
+        'has_orders': has_orders,
+    })
+
 
 def booked_counts(slots):
     """Add booked (orders that aren't cancelled) and order_total (every order, cancelled too) to each slot."""
@@ -487,6 +527,13 @@ def order_list(request):
     })
 
 
+PREVIOUS_STATUS = {  # one step back, for when staff click the wrong button
+    'preparing': ('confirmed', 'Back to Confirmed'),
+    'ready': ('preparing', 'Back to Preparing'),
+    'collected': ('ready', 'Back to Ready for pickup'),
+}
+
+
 def order_detail(request, order_id):
     order = get_object_or_404(Order, pk=order_id)
 
@@ -502,59 +549,131 @@ def order_detail(request, order_id):
         next_status = 'collected'
         next_label = 'Mark as collected'
 
-    if request.method == 'POST' and next_status is not None and request.POST.get('from_status') == order.status:
-        #only moves on if nobody changed the status in the meantime, e.g. the customer cancelled
-        Order.objects.filter(pk=order.pk, status=order.status).update(status=next_status)
+    back_status, back_label = PREVIOUS_STATUS.get(order.status, (None, None))
+
+    if request.method == 'POST' and request.POST.get('from_status') == order.status:
+        #only moves if nobody changed the status in the meantime, e.g. the customer cancelled
+        new_status = back_status if request.POST.get('action') == 'back' else next_status
+        if new_status:
+            Order.objects.filter(pk=order.pk, status=order.status).update(status=new_status)
         return redirect('dashboard:order_detail', order_id=order.id)
 
     items = order.items.all()
     return render(request, 'dashboard/order_detail.html',
-                  {'order': order, 'items': items, 'next_label': next_label})
+                  {'order': order, 'items': items, 'next_label': next_label, 'back_label': back_label})
 
-def inventory(request):
-    error = None
+LOW_STOCK = 5  # 1 to 5 left counts as low stock, here and on the dashboard
+MAX_STOCK = 9999  # a sanity limit, so a typo like 30000 is caught
+INVENTORY_FILTERS = [('', 'All meals'), ('sold_out', 'Sold out'), ('low', 'Low stock'), ('in_stock', 'In stock')]
+INVENTORY_SORTS = {
+    'meal': ['meal__name'],
+    'sold': ['quantity_sold'],
+    'left': ['left'],
+}
 
+
+def stock_status(left):
+    if left <= 0:
+        return 'Sold out'
+    if left <= LOW_STOCK:
+        return 'Low stock'
+    return 'In stock'
+
+
+def inventory(request): #this week's stock: filter, search, sort, pages, and one Save for every row on the page
+    current = current_menu()  # None when there are no menus yet, which matches no rows
+    items = MenuItem.objects.filter(weekly_menu=current).select_related('meal', 'meal__category').annotate(
+        left=F('quantity_available') - F('quantity_sold'),
+    )
+
+    errors = {}  # item id -> message, shown under that row's box
+    error_names = []  # also listed above the table, in case the row is on another page
+    typed = {}   # item id -> what staff typed, kept in the box when it couldn't be saved
     if request.method == 'POST':
-        item = get_object_or_404(MenuItem, pk=posted_id(request, 'item_id'))
-        new_quantity = request.POST.get('quantity', '')
-        if new_quantity.isdigit() and int(new_quantity) >= item.quantity_sold:
-            item.quantity_available = int(new_quantity)
-            item.save()
-            messages.success(request, item.meal.name + ' set to ' + new_quantity + '.')
-            return redirect('dashboard:inventory') #redirect so a refresh doesn't save again
-        else:
-            error = 'Enter a whole number that is at least the number already sold.'
+        saved = []
+        for name, value in request.POST.items():
+            if not name.startswith('qty_'):
+                continue
+            item_id = name[len('qty_'):]
+            if not item_id.isdigit():
+                raise Http404('No such meal on this menu.')  # a made-up id gets "not found", not a crash
+            item = get_object_or_404(MenuItem.objects.select_related('meal'), pk=int(item_id), weekly_menu=current)
+            value = value.strip()
+            if value == str(item.quantity_available):
+                continue  # unchanged rows are skipped
+            if not value.isdigit():
+                errors[item.id] = 'Enter a whole number, 0 or more.'
+            elif int(value) > MAX_STOCK:
+                errors[item.id] = 'Enter ' + str(MAX_STOCK) + ' or less.'
+            # the filter re-checks the sold count at save time, in case an order came in after the page loaded
+            elif MenuItem.objects.filter(pk=item.id, quantity_sold__lte=int(value)).update(quantity_available=int(value)):
+                saved.append(item.meal.name)
+                continue
+            else:
+                errors[item.id] = 'Can\'t be below the ' + str(item.quantity_sold) + ' sold.'
+            typed[item.id] = value
+            error_names.append(item.meal.name)
+        if saved:
+            messages.success(request, 'Saved ' + ', '.join(saved) + '.')
+        if not errors:
+            if not saved:
+                messages.info(request, 'Nothing changed, so nothing was saved.')
+            return redirect(request.get_full_path())  # back to the same filter, search, sort and page
 
-    current = current_menu()
-    items = MenuItem.objects.none()
-    if current:
-        items = MenuItem.objects.filter(
-            weekly_menu=current,
-        ).select_related(
-            'meal',
-            'weekly_menu',
-        ).order_by('meal__name')
-
-    rows = []
-    sold_out_count = 0
-    low_count = 0
-    for item in items:
-        left = item.stock_left
+    counts = {'': 0, 'sold_out': 0, 'low': 0, 'in_stock': 0}
+    for left in items.values_list('left', flat=True):  # one small query for the four tiles
+        counts[''] += 1
         if left <= 0:
-            status = 'Sold out'
-            sold_out_count = sold_out_count + 1
-        elif left <= 5:
-            status = 'Low stock'
-            low_count = low_count + 1
+            counts['sold_out'] += 1
+        elif left <= LOW_STOCK:
+            counts['low'] += 1
         else:
-            status = 'OK'
-        rows.append({'item': item, 'left': left, 'status': status})
+            counts['in_stock'] += 1
 
+    show = request.GET.get('show', '')
+    q = request.GET.get('q', '').strip()
+    if show == 'sold_out':
+        items = items.filter(left__lte=0)
+    elif show == 'low':
+        items = items.filter(left__gte=1, left__lte=LOW_STOCK)
+    elif show == 'in_stock':
+        items = items.filter(left__gt=LOW_STOCK)
+    else:
+        show = ''
+    if q:
+        items = items.filter(Q(meal__name__icontains=q) | Q(meal__category__name__icontains=q))
+
+    # Fewest left first by default, so sold-out and low-stock meals are at the top
+    sort = request.GET.get('sort', 'left')
+    key = sort.lstrip('-')
+    if key not in INVENTORY_SORTS:
+        sort, key = 'left', 'left'
+    direction = '-' if sort.startswith('-') else ''
+    sort = direction + key
+    items = items.order_by(*[direction + field for field in INVENTORY_SORTS[key]], 'meal__name', 'id')
+
+    page_obj = Paginator(items, 25).get_page(request.GET.get('page'))
+    for item in page_obj:
+        item.status = stock_status(item.left)
+        item.percent = round(item.quantity_sold * 100 / item.quantity_available) if item.quantity_available else 100
+        item.error = errors.get(item.id)
+        item.typed = typed.get(item.id, item.quantity_available)
+
+    params = request.GET.copy()
+    params.pop('page', None)
+    querystring = params.urlencode()
+    params.pop('sort', None)
     return render(request, 'dashboard/inventory.html', {
-        'rows': rows,
-        'error': error,
-        'sold_out_count': sold_out_count,
-        'low_count': low_count,
+        'menu': current,
+        'page_obj': page_obj,
+        'error_names': error_names,
+        'max_stock': MAX_STOCK,
+        'tiles': [(value, label, counts[value]) for value, label in INVENTORY_FILTERS],
+        'querystring': querystring,
+        'sort_querystring': params.urlencode(),
+        'sort': sort,
+        'show': show,
+        'q': q,
         'menu_dates': menu_labels(current)[0],
     })
 

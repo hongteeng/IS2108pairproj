@@ -30,8 +30,9 @@
   <table class="table table-fixed align-middle mb-0" style="min-width: 40rem;">
     {# Fixed column widths, so sorting or changing page doesn't resize the table #}
     <colgroup>
-      <col style="width: 31%"><col style="width: 19%"><col style="width: 12%">
-      <col style="width: 13%"><col style="width: 11%"><col style="width: 14%">
+      {# Name takes what's left; Active and the buttons get fixed room so Inactive and Edit/Delete always fit #}
+      <col><col style="width: 19%"><col style="width: 11%">
+      <col style="width: 12%"><col style="width: 6rem"><col style="width: 8.5rem">
     </colgroup>
     <thead>
       <tr>

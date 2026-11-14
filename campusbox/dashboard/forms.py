@@ -112,6 +112,28 @@ class WeeklyMenuForm(forms.ModelForm):
         return cleaned_data
 
 
+def week_label(day):
+    return day.strftime('%a') + ' ' + str(day.day) + ' ' + day.strftime('%b')  # e.g. Mon 16 Nov, on Windows too
+
+
+class NewWeeklyMenuForm(WeeklyMenuForm):
+    """The Add weekly menu form, with a tickbox to start from the latest menu's meals instead of an empty week."""
+    copy_meals = forms.BooleanField(required=False, initial=True,
+                                    widget=forms.CheckboxInput(attrs={'class': 'form-check-input'}))
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.source = WeeklyMenu.objects.order_by('-week_start').first()  # the latest menu
+        meal_count = self.source.items.filter(meal__is_active=True).count() if self.source else 0
+        if meal_count:
+            self.fields['copy_meals'].label = ('Copy the ' + str(meal_count) + ' meal' + ('s' if meal_count != 1 else '')
+                                               + ' and their stock from the week of ' + week_label(self.source.week_start))
+            self.fields['copy_meals'].help_text = ('Sold counts start at 0 and switched-off meals are skipped. '
+                                                   'You can change stock or remove meals after saving.')
+        else:
+            del self.fields['copy_meals']  # nothing to copy, so no tickbox
+
+
 class MenuItemForm(forms.ModelForm):
     class Meta:
         model = MenuItem

@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% load money %}
+{% block title %}Cancel order #{{ order.id }} · CampusBox{% endblock %}
+{% block content %}
+<div class="row justify-content-center mt-4">
+  <div class="col-md-6">
+    <div class="card"><div class="card-body p-4">
+      <h1 class="h3 mb-3">Cancel order #{{ order.id }}?</h1>
+      <p class="mb-2">Pickup: {{ order.pickup_slot.day|date:"D j M" }}, {{ order.pickup_slot.start_time|time:"H:i" }}–{{ order.pickup_slot.end_time|time:"H:i" }} at {{ order.pickup_slot.pickup_point.name }}</p>
+      <ul class="mb-3">
+        {% for item in items %}<li>{{ item.quantity }}× {{ item.menu_item.meal.name }}</li>{% endfor %}
+      </ul>
+      <p class="small text-muted">{{ order.total_cents|dollars }} will be refunded. This can't be undone.</p>
+      <form method="post" class="d-flex gap-2 m-0">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-danger">Yes, cancel this order</button>
+        <a href="{% url 'orders:order_detail' order.id %}" class="btn btn-outline-secondary">Keep my order</a>
+      </form>
+    </div></div>
+  </div>
+</div>
+{% endblock %}

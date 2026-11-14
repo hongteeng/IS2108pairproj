@@ -193,13 +193,17 @@ def staff_customer_detail(request, user_id):
     ).first()
     orders = customer.orders.select_related(
         "pickup_slot__pickup_point",
-    ).order_by("-created_at")
+    ).order_by("-created_at", "-id")  # newest first; id keeps the pages in a fixed order
+    orders = Paginator(orders, 10).get_page(request.GET.get("orders_page"))
+    order_params = request.GET.copy()
+    order_params.pop("orders_page", None)  # the page links add their own
     reviews = customer.reviews.select_related("meal")
     tickets = customer.tickets.select_related("order")
     return render(request, "accounts/staff_customer_detail.html", {
         "customer": customer,
         "profile": profile,
         "orders": orders,
+        "orders_querystring": order_params.urlencode(),
         "reviews": reviews,
         "tickets": tickets,
     })

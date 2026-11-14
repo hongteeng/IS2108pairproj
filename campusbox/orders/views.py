@@ -174,15 +174,14 @@ def order_detail(request, order_id):
 
 @login_required
 def cancel_order(request, order_id):
-    """Cancel the logged-in user's eligible order."""
+    """Ask before cancelling the logged-in user's order, then cancel it on POST."""
     order = get_object_or_404(Order, id=order_id, user=request.user)
-    if request.method != "POST":
-        return redirect("orders:order_detail", order_id=order.id)
-    
-    items = order.items.select_related("menu_item__weekly_menu")
+    items = order.items.select_related("menu_item__weekly_menu", "menu_item__meal")
     if not can_cancel(order, items):
         messages.error(request, "This order can no longer be cancelled.")
         return redirect("orders:order_detail", order_id=order.id)
+    if request.method != "POST":  # visiting the URL only asks; the POST from that page cancels
+        return render(request, "orders/cancel_confirm.html", {"order": order, "items": items})
 
     with transaction.atomic():
         # Changing the status is also the check: it only works while the order is still confirmed,

@@ -8,7 +8,12 @@
     <a class="btn btn-success" href="{% url 'dashboard:pickup_add' %}">Add pickup point</a>
   </div>
   <div class="card"><div class="card-body p-0"><div class="table-responsive">
-  <table class="table align-middle mb-0">
+  <table class="table table-fixed align-middle mb-0" style="min-width: 48rem;">
+    {# Fixed column widths, so opening or closing a point don't resize the table #}
+    <colgroup>
+      <col style="width: 20%"><col><col style="width: 13%"><col style="width: 11rem">
+      <col style="width: 6rem"><col style="width: 5rem">
+    </colgroup>
     <thead>
       <tr>
         <th>Name</th>
@@ -25,7 +30,7 @@
           <td>{{ row.point.name }}</td>
           <td class="text-muted">{{ row.point.location }}</td>
           <td>{{ row.point.upcoming }}</td>
-          <td style="min-width: 10rem;">
+          <td>
             {% if row.week and row.week.capacity %}
               <div class="small">{{ row.week.booked }} of {{ row.week.capacity }}</div>
               <div class="progress" style="height: 6px;" role="progressbar" aria-label="Booked this week" aria-valuenow="{{ row.week.percent }}" aria-valuemin="0" aria-valuemax="100">

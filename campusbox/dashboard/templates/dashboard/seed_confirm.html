@@ -1,0 +1,16 @@
+{% extends "staff_base.html" %}
+
+{% block staff_title %}Reset demo data{% endblock %}
+
+{% block staff_content %}
+  <h1 class="h3 mb-3">Reset demo data?</h1>
+  <div class="card"><div class="card-body">
+    <p>This deletes all meals, weekly menus, pickup points, orders, support tickets and reviews, then loads the starter menu and pickup slots.</p>
+    <p class="small text-muted">Customer and staff accounts stay. This can't be undone.</p>
+    <form method="post" class="d-flex gap-2 m-0">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-danger">Yes, reset demo data</button>
+      <a href="{% url 'dashboard:home' %}" class="btn btn-outline-secondary">Cancel</a>
+    </form>
+  </div></div>
+{% endblock %}
