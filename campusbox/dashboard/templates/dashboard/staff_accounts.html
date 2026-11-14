@@ -1,8 +1,32 @@
 {% extends "staff_base.html" %}
 
 {% block staff_content %}
-  <h1 class="h3 mb-3">Staff accounts</h1>
-  <div class="card mb-4"><div class="card-body p-0"><div class="table-responsive">
+  <div class="d-flex justify-content-between align-items-center mb-1">
+    <h1 class="h3 mb-0">Staff accounts</h1>
+    <a class="btn btn-success" href="{% url 'dashboard:staff_account_add' %}">Add staff account</a>
+  </div>
+  <p class="text-muted small mb-3">
+    {% if is_owner %}Owners can add any role, change roles and deactivate any account except their own.
+    {% else %}HR can add plain staff and deactivate or reactivate them. Only an owner can change roles.{% endif %}
+  </p>
+  <div class="card mb-3"><div class="card-body">
+    <form method="get" class="row g-2">
+      {% if show %}<input type="hidden" name="show" value="{{ show }}">{% endif %}
+      <div class="col">
+        <input type="search" name="q" value="{{ q }}" class="form-control" placeholder="Search username or email">
+      </div>
+      <div class="col-auto">
+        <button type="submit" class="btn btn-success">Search</button>
+        <a href="{% url 'dashboard:staff_accounts' %}" class="btn btn-outline-secondary">Clear</a>
+      </div>
+    </form>
+    <div class="d-flex flex-wrap gap-2 mt-3">
+      {% for value, label in filters %}
+        <a href="{% url 'dashboard:staff_accounts' %}?show={{ value }}{% if q %}&amp;q={{ q|urlencode }}{% endif %}" class="btn btn-sm {% if value == show %}btn-success{% else %}btn-outline-success{% endif %}">{{ label }}</a>
+      {% endfor %}
+    </div>
+  </div></div>
+  <div class="card"><div class="card-body p-0"><div class="table-responsive">
   <table class="table align-middle mb-0">
     <thead>
       <tr>
@@ -14,45 +38,46 @@
       </tr>
     </thead>
     <tbody>
-      {% for member in staff %}
+      {% for row in rows %}
         <tr>
-          <td>{{ member.username }}</td>
-          <td>{{ member.email }}</td>
-          <td>{% if member.is_superuser %}Owner{% else %}Staff{% endif %}</td>
-          <td>{% if member.is_active %}<span class="badge text-bg-success">Active</span>{% else %}<span class="badge text-bg-secondary">Inactive</span>{% endif %}</td>
+          <td>{{ row.member.username }}{% if row.member == user %} <span class="text-muted small">(you)</span>{% endif %}</td>
+          <td class="text-break">{{ row.member.email }}</td>
+          <td>{{ row.role_name }}</td>
+          <td>{% if row.member.is_active %}<span class="badge text-bg-success">Active</span>{% else %}<span class="badge text-bg-secondary">Inactive</span>{% endif %}</td>
           <td>
-            {% if not member.is_superuser %}
-              <form method="post" class="m-0">
-                {% csrf_token %}
-                <input type="hidden" name="toggle_id" value="{{ member.id }}">
-                {% if member.is_active %}
-                  <button type="submit" class="btn btn-sm btn-outline-secondary">Deactivate</button>
-                {% else %}
-                  <button type="submit" class="btn btn-sm btn-outline-success">Reactivate</button>
+            {% if row.can_manage %}
+              <div class="d-flex flex-wrap gap-2 justify-content-end">
+                {% if is_owner %}
+                  <form method="post" class="d-flex gap-1 m-0">
+                    {% csrf_token %}
+                    <input type="hidden" name="role_id" value="{{ row.member.id }}">
+                    <select name="role" class="form-select form-select-sm" aria-label="Role for {{ row.member.username }}">
+                      {% for value, name in role_choices %}
+                        <option value="{{ value }}" {% if value == row.role %}selected{% endif %}>{{ name }}</option>
+                      {% endfor %}
+                    </select>
+                    <button type="submit" class="btn btn-sm btn-outline-success">Change</button>
+                  </form>
                 {% endif %}
-              </form>
+                <form method="post" class="m-0">
+                  {% csrf_token %}
+                  <input type="hidden" name="toggle_id" value="{{ row.member.id }}">
+                  {% if row.member.is_active %}
+                    <button type="submit" class="btn btn-sm btn-outline-secondary">Deactivate</button>
+                  {% else %}
+                    <button type="submit" class="btn btn-sm btn-outline-success">Reactivate</button>
+                  {% endif %}
+                </form>
+              </div>
             {% endif %}
           </td>
         </tr>
+      {% empty %}
+        <tr><td colspan="5" class="text-center text-muted py-4">No staff accounts match.</td></tr>
       {% endfor %}
     </tbody>
   </table>
   </div></div></div>
+  {% include "pagination.html" with noun="staff account" %}
 
-  <h2 class="h5 mb-3">Add a staff account</h2>
-  <div class="card"><div class="card-body">
-  <form method="post">
-    {% csrf_token %}
-    {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors.0 }}</div>{% endif %}
-    {% for field in form %}
-      <div class="mb-3">
-        <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
-        {{ field }}
-        {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
-        {% for error in field.errors %}<div class="small text-danger">{{ error }}</div>{% endfor %}
-      </div>
-    {% endfor %}
-    <button type="submit" class="btn btn-success">Add staff</button>
-  </form>
-  </div></div>
 {% endblock %}

@@ -9,6 +9,7 @@ from menu.models import Meal, MealCategory, MenuItem, WeeklyMenu
 from orders.models import Order, OrderItem, PickupPoint, PickupSlot
 
 from .forms import MealForm, PickupSlotForm, WeeklyMenuForm
+from .roles import HR, OWNER, STAFF, role_of, set_role
 
 class PackingListTests(TestCase):
     def setUp(self): #runs before every test, builds a small fake database
@@ -217,6 +218,7 @@ class StaffAccountsTests(TestCase):
         self.staff = User.objects.create_user('staff1', password='Pass1234!', is_staff=True)
         self.student = User.objects.create_user('student1', password='Pass1234!')
         self.url = reverse('dashboard:staff_accounts')
+        self.add_url = reverse('dashboard:staff_account_add')
 
     def new_staff_data(self, **changes):
         data = {
@@ -240,7 +242,7 @@ class StaffAccountsTests(TestCase):
 
     def test_owner_can_add_a_staff_account(self):
         self.client.login(username='owner1', password='Pass1234!')
-        response = self.client.post(self.url, self.new_staff_data())
+        response = self.client.post(self.add_url, self.new_staff_data())
         self.assertRedirects(response, self.url)
         member = User.objects.get(username='newstaff')
         self.assertTrue(member.is_staff)
@@ -250,12 +252,12 @@ class StaffAccountsTests(TestCase):
 
     def test_normal_staff_cannot_add_a_staff_account(self):
         self.client.login(username='staff1', password='Pass1234!')
-        self.client.post(self.url, self.new_staff_data())
+        self.client.post(self.add_url, self.new_staff_data())
         self.assertFalse(User.objects.filter(username='newstaff').exists())
 
     def test_duplicate_username_is_rejected(self):
         self.client.login(username='owner1', password='Pass1234!')
-        response = self.client.post(self.url, self.new_staff_data(username='staff1'))
+        response = self.client.post(self.add_url, self.new_staff_data(username='staff1'))
         self.assertEqual(response.status_code, 200) #stays on the page and shows the error
         self.assertEqual(User.objects.filter(username__iexact='staff1').count(), 1)
 
@@ -274,7 +276,7 @@ class StaffAccountsTests(TestCase):
         self.client.logout()
         self.assertFalse(self.client.login(username='staff1', password='Pass1234!'))
 
-    def test_owner_cannot_be_deactivated(self):
+    def test_owner_cannot_deactivate_themselves(self):
         self.client.login(username='owner1', password='Pass1234!')
         response = self.client.post(self.url, {'toggle_id': self.owner.id})
         self.assertEqual(response.status_code, 404)
@@ -306,3 +308,173 @@ class NewMenuDefaultsTests(TestCase):
             'order_cutoff': self.form.initial['order_cutoff'].strftime('%Y-%m-%d %H:%M'),
         }
         self.assertRedirects(self.client.post(reverse('dashboard:menu_add'), data), reverse('dashboard:menu_list'))
+
+
+class CraftedPostTests(TestCase): #a POST with a made-up id should give "not found", not crash the page
+    def setUp(self):
+        User.objects.create_user('staff1', password='Pass1234!', is_staff=True)
+        self.client.login(username='staff1', password='Pass1234!')
+        self.menu = WeeklyMenu.objects.create(week_start=timezone.localdate(), order_cutoff=timezone.now())
+        self.point = PickupPoint.objects.create(name='Library', location='Level 1')
+
+    def test_inventory_with_bad_item_id_is_404(self):
+        response = self.client.post(reverse('dashboard:inventory'), {'item_id': 'abc', 'quantity': '5'})
+        self.assertEqual(response.status_code, 404)
+
+    def test_menu_detail_with_bad_remove_id_is_404(self):
+        response = self.client.post(reverse('dashboard:menu_detail', args=[self.menu.id]), {'remove_id': 'abc'})
+        self.assertEqual(response.status_code, 404)
+
+    def test_slot_from_another_point_cannot_be_removed(self):
+        other = PickupPoint.objects.create(name='Hall', location='Lobby')
+        slot = PickupSlot.objects.create(
+            pickup_point=other, day=timezone.localdate() + timedelta(days=1),
+            start_time=time(12, 0), end_time=time(12, 30), capacity=20,
+        )
+        response = self.client.post(reverse('dashboard:pickup_detail', args=[self.point.id]), {'remove_id': str(slot.id)})
+        self.assertEqual(response.status_code, 404)
+        self.assertTrue(PickupSlot.objects.filter(id=slot.id).exists())
+
+
+class StaffRoleTests(TestCase): #Owner, HR and Staff, see dashboard/roles.py
+    def setUp(self):
+        self.owner = User.objects.create_user('owner1', password='Pass1234!', is_staff=True, is_superuser=True)
+        self.hr = User.objects.create_user('hr1', password='Pass1234!')
+        set_role(self.hr, HR)
+        self.staff = User.objects.create_user('staff1', password='Pass1234!', is_staff=True)
+        self.url = reverse('dashboard:staff_accounts')
+        self.add_url = reverse('dashboard:staff_account_add')
+
+    def login(self, username):
+        self.client.login(username=username, password='Pass1234!')
+
+    def new_staff_data(self, **changes):
+        data = {'username': 'newstaff', 'email': 'newstaff@example.com',
+                'password': 'Sup3rSecret!x', 'confirm_password': 'Sup3rSecret!x'}
+        data.update(changes)
+        return data
+
+    def test_hr_can_open_staff_accounts_and_sees_the_link(self):
+        self.login('hr1')
+        self.assertEqual(self.client.get(self.url).status_code, 200)
+        self.assertContains(self.client.get(reverse('dashboard:home')), 'Staff accounts')
+
+    def test_plain_staff_cannot_open_the_add_page(self):
+        self.login('staff1')
+        self.assertRedirects(self.client.get(self.add_url), reverse('dashboard:home'))
+
+    def test_hr_add_page_has_no_role_choice(self):
+        self.login('hr1')
+        response = self.client.get(self.add_url)
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn('role', response.context['form'].fields)
+
+    def test_plain_staff_do_not_see_the_link(self):
+        self.login('staff1')
+        self.assertNotContains(self.client.get(reverse('dashboard:home')), 'Staff accounts')
+
+    def test_hr_always_adds_plain_staff(self):
+        self.login('hr1')
+        self.client.post(self.add_url, self.new_staff_data(role=OWNER)) #HR's form has no role field, so this is ignored
+        self.assertEqual(role_of(User.objects.get(username='newstaff')), STAFF)
+
+    def test_owner_can_add_hr(self):
+        self.login('owner1')
+        self.client.post(self.add_url, self.new_staff_data(role=HR))
+        member = User.objects.get(username='newstaff')
+        self.assertEqual(role_of(member), HR)
+        self.assertTrue(member.has_perm('dashboard.manage_staff'))
+
+    def test_hr_can_deactivate_plain_staff(self):
+        self.login('hr1')
+        self.client.post(self.url, {'toggle_id': self.staff.id})
+        self.staff.refresh_from_db()
+        self.assertFalse(self.staff.is_active)
+
+    def test_hr_cannot_touch_owners_or_other_hr(self):
+        other_hr = User.objects.create_user('hr2', password='Pass1234!')
+        set_role(other_hr, HR)
+        self.login('hr1')
+        self.assertEqual(self.client.post(self.url, {'toggle_id': self.owner.id}).status_code, 404)
+        self.assertEqual(self.client.post(self.url, {'toggle_id': other_hr.id}).status_code, 404)
+
+    def test_hr_cannot_change_roles(self):
+        self.login('hr1')
+        response = self.client.post(self.url, {'role_id': self.staff.id, 'role': HR})
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(role_of(User.objects.get(pk=self.staff.pk)), STAFF)
+
+    def test_owner_can_promote_and_demote(self):
+        self.login('owner1')
+        for role in [HR, OWNER, STAFF]:
+            self.client.post(self.url, {'role_id': self.staff.id, 'role': role})
+            self.assertEqual(role_of(User.objects.get(pk=self.staff.pk)), role)
+
+    def test_promoted_staff_can_open_staff_accounts(self):
+        self.login('owner1')
+        self.client.post(self.url, {'role_id': self.staff.id, 'role': HR})
+        self.client.logout()
+        self.login('staff1')
+        self.assertEqual(self.client.get(self.url).status_code, 200)
+
+    def test_owner_cannot_change_their_own_role(self):
+        self.login('owner1')
+        self.assertEqual(self.client.post(self.url, {'role_id': self.owner.id, 'role': STAFF}).status_code, 404)
+        self.owner.refresh_from_db()
+        self.assertTrue(self.owner.is_superuser)
+
+    def test_owners_are_equal(self): #a co-owner can deactivate the first owner
+        co_owner = User.objects.create_user('owner2', password='Pass1234!')
+        set_role(co_owner, OWNER)
+        self.login('owner2')
+        self.client.post(self.url, {'toggle_id': self.owner.id})
+        self.owner.refresh_from_db()
+        self.assertFalse(self.owner.is_active)
+
+    def test_only_owners_can_reset_demo_data(self):
+        category = MealCategory.objects.create(name='Rice')
+        Meal.objects.create(name='Chicken Rice Box', description='Test', price_cents=500, calories=500,
+                            protein_g=30, carbs_g=60, fat_g=10, image_url='', category=category)
+        for username in ['hr1', 'staff1']:
+            self.login(username)
+            self.assertRedirects(self.client.post(reverse('dashboard:seed')), reverse('dashboard:home'))
+            self.assertTrue(Meal.objects.filter(name='Chicken Rice Box').exists()) #nothing was wiped
+
+
+class StaffAccountsListTests(TestCase): #filters, search and pages on Staff accounts
+    def setUp(self):
+        User.objects.create_user('owner1', password='Pass1234!', email='owner1@example.com', is_staff=True, is_superuser=True)
+        hr = User.objects.create_user('hr1', password='Pass1234!', email='hr1@example.com')
+        set_role(hr, HR)
+        User.objects.create_user('staff1', password='Pass1234!', email='staff1@example.com', is_staff=True)
+        User.objects.create_user('staff2', password='Pass1234!', email='kitchen@example.com', is_staff=True, is_active=False)
+        self.client.login(username='owner1', password='Pass1234!')
+        self.url = reverse('dashboard:staff_accounts')
+
+    def usernames(self, **params):
+        response = self.client.get(self.url, params)
+        return [row['member'].username for row in response.context['rows']]
+
+    def test_all_staff_owners_first(self):
+        self.assertEqual(self.usernames(), ['owner1', 'hr1', 'staff1', 'staff2'])
+
+    def test_role_filters(self):
+        self.assertEqual(self.usernames(show=OWNER), ['owner1'])
+        self.assertEqual(self.usernames(show=HR), ['hr1'])
+        self.assertEqual(self.usernames(show=STAFF), ['staff1', 'staff2'])
+        self.assertEqual(self.usernames(show='inactive'), ['staff2'])
+
+    def test_search_by_username_or_email(self):
+        self.assertEqual(self.usernames(q='hr'), ['hr1'])
+        self.assertEqual(self.usernames(q='kitchen'), ['staff2'])
+
+    def test_twenty_per_page(self):
+        for n in range(25):
+            User.objects.create_user(f'extra{n:02d}', password='Pass1234!', is_staff=True)
+        self.assertEqual(len(self.usernames()), 20)
+        self.assertEqual(len(self.usernames(page=2)), 9) #29 staff in total
+
+    def test_a_button_keeps_the_filter(self):
+        staff1 = User.objects.get(username='staff1')
+        response = self.client.post(self.url + '?show=staff', {'toggle_id': staff1.id})
+        self.assertRedirects(response, self.url + '?show=staff')

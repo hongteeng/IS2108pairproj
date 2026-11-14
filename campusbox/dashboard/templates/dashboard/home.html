@@ -98,7 +98,8 @@
       </div>
     </div>
   </div>
-  {# Resets the starter data. POST only, so visiting the URL can't wipe anything. #}
+  {# Resets the starter data. POST only, so visiting the URL can't wipe anything. Owners only. #}
+  {% if user.is_superuser %}
   <div class="card mt-3">
     <div class="card-body d-flex flex-wrap justify-content-between align-items-center gap-2">
       <div>
@@ -111,4 +112,5 @@
       </form>
     </div>
   </div>
+  {% endif %}
 {% endblock %}

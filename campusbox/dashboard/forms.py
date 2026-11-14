@@ -4,8 +4,10 @@ from django import forms
 from django.core.validators import MinValueValidator
 from django.utils import timezone
 from django.utils.timezone import localtime
+from accounts.forms import RegisterForm
 from menu.models import Meal, WeeklyMenu, MenuItem
 from orders.models import PickupPoint, PickupSlot
+from .roles import ROLE_CHOICES, STAFF
 
 class MealForm(forms.ModelForm):
     # Staff type dollars; the database still stores whole cents.
@@ -142,3 +144,15 @@ class PickupSlotForm(forms.ModelForm):
         if start_time and end_time and end_time <= start_time:
             self.add_error('end_time', 'The end time must be after the start time.')
         return cleaned_data
+
+
+class StaffAccountForm(RegisterForm):
+    """The sign-up fields plus a role. Only owners get the role field, so HR can only add plain staff."""
+
+    role = forms.ChoiceField(choices=ROLE_CHOICES, initial=STAFF, required=False,
+                             widget=forms.Select(attrs={'class': 'form-select'}))
+
+    def __init__(self, *args, can_choose_role=False, **kwargs):
+        super().__init__(*args, **kwargs)
+        if not can_choose_role:
+            del self.fields['role']

@@ -173,6 +173,13 @@ def staff_customer_detail(request, user_id):
     if not request.user.is_staff:
         return redirect("dashboard:staff_login")
     customer = get_object_or_404(User, id=user_id, is_staff=False)
+    if request.method == "POST":
+        # Staff can switch an account off, or back on after the customer deactivated it.
+        customer.is_active = not customer.is_active
+        customer.save()
+        state = "reactivated" if customer.is_active else "deactivated"
+        messages.success(request, f"{customer.username}'s account has been {state}.")
+        return redirect("dashboard:customer_detail", user_id=customer.id)
     profile = CustomerProfile.objects.filter(user=customer).select_related(
         "predicted_category",
     ).first()
@@ -193,6 +200,8 @@ def staff_customer_detail(request, user_id):
 def change_password(request):
     """Let a logged-in user set a new password (they must type the old one first)."""
     form = PasswordChangeForm(request.user, request.POST or None)
+    for field in form.fields.values():
+        field.widget.attrs['class'] = 'form-control'  # same Bootstrap look as the other forms
     if request.method == 'POST' and form.is_valid():
         user = form.save()                      # hashes and saves the new password
         update_session_auth_hash(request, user) # keeps them logged in

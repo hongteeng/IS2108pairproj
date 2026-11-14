@@ -33,4 +33,5 @@ urlpatterns = [
     path('support/<int:ticket_id>/', support_views.staff_ticket_detail, name='ticket_detail'),
     path('packing/', views.packing_list, name='packing_list'),
     path('staff-accounts/', views.staff_accounts, name='staff_accounts'),
+    path('staff-accounts/add/', views.staff_account_add, name='staff_account_add'),
 ]

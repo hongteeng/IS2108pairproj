@@ -9,13 +9,14 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from datetime import datetime, time, timedelta
 from accounts.models import CustomerProfile
-from accounts.forms import LoginForm, RegisterForm
+from accounts.forms import LoginForm
 from django.db.models import ProtectedError
 from menu.models import Meal, WeeklyMenu, MenuItem
 from menu.utils import current_menu, menu_labels
 from orders.models import Order, OrderItem, PickupPoint, PickupSlot
 from support.models import SupportTicket
-from .forms import MealForm, WeeklyMenuForm, MenuItemForm, PickupPointForm, PickupSlotForm
+from .forms import MealForm, WeeklyMenuForm, MenuItemForm, PickupPointForm, PickupSlotForm, StaffAccountForm
+from .roles import HR, OWNER, ROLE_CHOICES, ROLE_NAMES, STAFF, can_manage, role_of, set_role
 
 
 def posted_id(request, field): #an id typed into a form arrives as text, so refuse anything that is not a number
@@ -190,7 +191,7 @@ def menu_detail(request, menu_id):
 
     if request.method == 'POST':
         if 'remove_id' in request.POST:
-            item = get_object_or_404(MenuItem, pk=posted_id(request, 'remove_id'))
+            item = get_object_or_404(MenuItem, pk=posted_id(request, 'remove_id'), weekly_menu=menu) #only items on this menu
             try:
                 item.delete()
             except ProtectedError:
@@ -248,7 +249,7 @@ def pickup_detail(request, point_id):
             point.is_active = not point.is_active
             point.save()
         elif 'remove_id' in request.POST:
-            slot = get_object_or_404(PickupSlot, pk=posted_id(request, 'remove_id'))
+            slot = get_object_or_404(PickupSlot, pk=posted_id(request, 'remove_id'), pickup_point=point) #only this point's slots
             try:
                 slot.delete()
             except ProtectedError:
@@ -413,31 +414,70 @@ def packing_list(request): #runs when staff visit /dashboard/packing/
     return render(request, 'dashboard/packing_list.html', {'groups': groups})
 
 
-def staff_accounts(request): #runs when the owner opens /dashboard/staff-accounts/
-    if not request.user.is_superuser: #the middleware already checked is_staff, this keeps normal staff out too
-        messages.error(request, 'Only the owner can manage staff accounts.')
-        return redirect('dashboard:home')
+STAFF_FILTERS = [('', 'All'), (OWNER, 'Owners'), (HR, 'HR'), (STAFF, 'Staff'), ('inactive', 'Inactive')]
 
-    form = RegisterForm()
-    if request.method == 'POST':
-        if 'toggle_id' in request.POST: #the Deactivate / Reactivate buttons
-            toggle_id = request.POST['toggle_id']
-            if not toggle_id.isdigit():
-                raise Http404
-            member = get_object_or_404(User, pk=int(toggle_id), is_staff=True, is_superuser=False) #owners can't be switched off
+
+def staff_accounts(request): #owners and HR, the middleware already checked the manage_staff permission
+    is_owner = request.user.is_superuser
+
+    if request.method == 'POST' and ('toggle_id' in request.POST or 'role_id' in request.POST): #the buttons on each row
+        field = 'toggle_id' if 'toggle_id' in request.POST else 'role_id'
+        member = get_object_or_404(User, pk=posted_id(request, field), is_staff=True)
+        if not can_manage(request.user, member): #your own account, or HR touching an owner or HR
+            raise Http404
+        if field == 'toggle_id': #Deactivate / Reactivate
             member.is_active = not member.is_active
             member.save()
-            return redirect('dashboard:staff_accounts')
-        form = RegisterForm(request.POST) #the Add staff form
-        if form.is_valid():
-            User.objects.create_user(
-                username=form.cleaned_data['username'],
-                email=form.cleaned_data['email'],
-                password=form.cleaned_data['password'], #create_user hashes it
-                is_staff=True,
-            )
-            messages.success(request, 'Staff account created.')
-            return redirect('dashboard:staff_accounts')
+            messages.success(request, member.username + (' reactivated.' if member.is_active else ' deactivated.'))
+        else: #promote or demote
+            role = request.POST.get('role', '')
+            if not is_owner or role not in ROLE_NAMES: #only owners can change roles
+                raise Http404
+            set_role(member, role)
+            messages.success(request, member.username + ' is now ' + ROLE_NAMES[role] + '.')
+        return redirect(request.get_full_path()) #back to the same filter, search and page
 
-    staff = User.objects.filter(is_staff=True).order_by('-is_superuser', 'username')
-    return render(request, 'dashboard/staff_accounts.html', {'staff': staff, 'form': form})
+    show = request.GET.get('show', '')
+    q = request.GET.get('q', '').strip()
+    staff = User.objects.filter(is_staff=True).prefetch_related('groups')
+    if show == OWNER:
+        staff = staff.filter(is_superuser=True)
+    elif show == HR:
+        staff = staff.filter(is_superuser=False, groups__name='HR')
+    elif show == STAFF:
+        staff = staff.filter(is_superuser=False).exclude(groups__name='HR')
+    elif show == 'inactive':
+        staff = staff.filter(is_active=False)
+    if q:
+        staff = staff.filter(Q(username__icontains=q) | Q(email__icontains=q))
+    staff = staff.order_by('-is_superuser', 'username') #owners first, then A to Z
+
+    page_obj = Paginator(staff, 20).get_page(request.GET.get('page'))
+    rows = [{
+        'member': member,
+        'role': role_of(member),
+        'role_name': ROLE_NAMES[role_of(member)],
+        'can_manage': can_manage(request.user, member),
+    } for member in page_obj]
+    params = request.GET.copy()
+    params.pop('page', None) #page links add their own page number
+    return render(request, 'dashboard/staff_accounts.html', {
+        'rows': rows, 'page_obj': page_obj, 'querystring': params.urlencode(),
+        'is_owner': is_owner, 'role_choices': ROLE_CHOICES,
+        'show': show, 'q': q, 'filters': STAFF_FILTERS,
+    })
+
+
+def staff_account_add(request): #runs when owners or HR open /dashboard/staff-accounts/add/
+    is_owner = request.user.is_superuser
+    form = StaffAccountForm(request.POST or None, can_choose_role=is_owner) #HR's form has no role field
+    if request.method == 'POST' and form.is_valid():
+        member = User.objects.create_user(
+            username=form.cleaned_data['username'],
+            email=form.cleaned_data['email'],
+            password=form.cleaned_data['password'], #create_user hashes it
+        )
+        set_role(member, form.cleaned_data.get('role') or STAFF) #no role field means plain Staff
+        messages.success(request, member.username + ' added as ' + ROLE_NAMES[role_of(member)] + '.')
+        return redirect('dashboard:staff_accounts')
+    return render(request, 'dashboard/staff_account_form.html', {'form': form, 'is_owner': is_owner})
