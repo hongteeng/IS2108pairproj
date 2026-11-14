@@ -1,71 +1,147 @@
 {% extends "staff_base.html" %}
 
 {% block staff_content %}
-  <div class="d-flex justify-content-between align-items-center mb-3">
-    <h1 class="h3 mb-0">{{ point.name }}</h1>
+  {# Same header as the other staff pages: title on the left, page buttons on the right, details in a card below #}
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+    <h1 class="h3 mb-0">{{ point.name }}
+      {% if point.is_active %}<span class="badge text-bg-success align-middle fs-6">Open</span>{% else %}<span class="badge text-bg-secondary align-middle fs-6">Closed</span>{% endif %}
+    </h1>
+    <div class="d-flex gap-2">
+      <a href="{% url 'dashboard:pickup_edit' point.id %}" class="btn btn-outline-secondary">Edit point</a>
+      <form method="post" class="m-0">
+        {% csrf_token %}
+        <input type="hidden" name="toggle" value="1">
+        {% if point.is_active %}
+          <button type="submit" class="btn btn-outline-secondary">Close point</button>
+        {% else %}
+          <button type="submit" class="btn btn-outline-success">Open point</button>
+        {% endif %}
+      </form>
+    </div>
   </div>
   <div class="card mb-3"><div class="card-body"><p class="mb-0 text-muted">{{ point.location }}</p></div></div>
 
-  <div class="card mb-3"><div class="card-body">
-  <form method="post">
-    {% csrf_token %}
-    <input type="hidden" name="toggle" value="1">
-    {% if point.is_active %}
-      <button type="submit" class="btn btn-sm btn-outline-secondary">Deactivate</button>
-    {% else %}
-      <button type="submit" class="btn btn-sm btn-outline-success">Activate</button>
-    {% endif %}
-  </form>
-  </div></div>
-
   {% if error %}<div class="alert alert-danger">{{ error }}</div>{% endif %}
 
-  <div class="card"><div class="card-body p-0"><div class="table-responsive">
+  <h2 class="h5 mb-3">Upcoming slots</h2>
+  <div class="card mb-3"><div class="card-body p-0"><div class="table-responsive">
   <table class="table align-middle mb-0">
     <thead>
       <tr>
         <th>Day</th>
-        <th>Start</th>
-        <th>End</th>
-        <th>Capacity</th>
-        <th></th>
+        <th>Time</th>
+        <th>Booked</th>
+        {# These two shrink to fit, so Save and Remove sit next to each other #}
+        <th class="text-nowrap" style="width: 1%;">Capacity</th>
+        <th style="width: 1%;"><span class="visually-hidden">Remove</span></th>
       </tr>
     </thead>
     <tbody>
-      {% for slot in slots %}
+      {% for slot in upcoming %}
         <tr>
-          <td>{{ slot.day|date:"D j M" }}</td>
-          <td>{{ slot.start_time|time:"H:i" }}</td>
-          <td>{{ slot.end_time|time:"H:i" }}</td>
-          <td>{{ slot.capacity }}</td>
+          <td class="text-nowrap">{{ slot.day|date:"D j M" }}</td>
+          <td class="text-nowrap">{{ slot.start_time|time:"H:i" }}–{{ slot.end_time|time:"H:i" }}</td>
+          <td>{{ slot.booked }}{% if slot.booked >= slot.capacity %} <span class="badge text-bg-warning">Full</span>{% endif %}</td>
           <td>
-            <form method="post" class="m-0">
+            <form method="post" class="d-flex gap-2 m-0">
               {% csrf_token %}
-              <input type="hidden" name="remove_id" value="{{ slot.id }}">
-              <button type="submit" class="btn btn-sm btn-outline-danger">Remove</button>
+              <input type="hidden" name="capacity_id" value="{{ slot.id }}">
+              <input type="number" name="capacity" value="{{ slot.capacity }}" min="{% if slot.booked %}{{ slot.booked }}{% else %}1{% endif %}" class="form-control form-control-sm" style="width: 6rem;" aria-label="Capacity for {{ slot.day|date:'D j M' }} {{ slot.start_time|time:'H:i' }}">
+              <button type="submit" class="btn btn-sm btn-success">Save</button>
             </form>
+          </td>
+          <td>
+            {% if slot.order_total == 0 %}
+              <form method="post" class="m-0">
+                {% csrf_token %}
+                <input type="hidden" name="remove_id" value="{{ slot.id }}">
+                <button type="submit" class="btn btn-sm btn-outline-danger">Remove</button>
+              </form>
+            {% else %}
+              {# a disabled button can't show a tooltip, so the wrapper carries it #}
+              <span class="d-inline-block" tabindex="0" title="This slot has orders, so it can't be removed. Lower its capacity instead.">
+                <button type="button" class="btn btn-sm btn-outline-secondary" disabled>Remove</button>
+              </span>
+            {% endif %}
           </td>
         </tr>
       {% empty %}
-        <tr><td colspan="5" class="text-center text-muted py-4">No pickup slots yet.</td></tr>
+        <tr><td colspan="5" class="text-center text-muted py-4">No upcoming slots. Add a week below.</td></tr>
       {% endfor %}
     </tbody>
   </table>
   </div></div></div>
+  {% include "pagination.html" with page_obj=upcoming querystring=upcoming_querystring noun="upcoming slot" %}
 
-  <h2 class="h5 mt-4 mb-3">Add a slot</h2>
-  <div class="card"><div class="card-body">
-  <form method="post">
-    {% csrf_token %}
-    {% for field in form %}
-      <div class="mb-3">
-        <label class="form-label"{% if field.id_for_label %} for="{{ field.id_for_label }}"{% endif %}>{{ field.label }}</label>
-        {{ field }}
-        {% for error in field.errors %}<div class="small text-danger">{{ error }}</div>{% endfor %}
-      </div>
-    {% endfor %}
-    <button type="submit" class="btn btn-success">Add slot</button>
-  </form>
-  </div></div>
+  {% if past.paginator.count %}
+    <details class="mt-3 mb-4" {% if show_past %}open{% endif %}>
+      <summary class="text-muted small">Past slots ({{ past.paginator.count }})</summary>
+      <div class="card mt-2"><div class="card-body p-0"><div class="table-responsive">
+      <table class="table table-sm align-middle mb-0">
+        <thead><tr><th>Day</th><th>Time</th><th>Booked</th><th>Capacity</th></tr></thead>
+        <tbody>
+          {% for slot in past %}
+            <tr>
+              <td class="text-nowrap">{{ slot.day|date:"D j M" }}</td>
+              <td class="text-nowrap">{{ slot.start_time|time:"H:i" }}–{{ slot.end_time|time:"H:i" }}</td>
+              <td>{{ slot.booked }}</td>
+              <td>{{ slot.capacity }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      </div></div></div>
+      {% include "pagination.html" with page_obj=past querystring=past_querystring noun="past slot" page_param="past_page" %}
+    </details>
+  {% endif %}
+
+  {# Both add forms sit side by side at the same height, with their buttons lined up at the bottom #}
+  <div class="row g-3 mt-1">
+    <div class="col-lg-6 d-flex flex-column">
+      <h2 class="h5 mb-3">Add a week of slots</h2>
+      <div class="card flex-grow-1"><div class="card-body d-flex flex-column">
+      <form method="post" class="d-flex flex-column flex-grow-1">
+        {% csrf_token %}
+        <input type="hidden" name="add_week" value="1">
+        {% for error in week_form.non_field_errors %}<div class="small text-danger mb-2">{{ error }}</div>{% endfor %}
+        <div class="mb-3">
+          <label class="form-label" for="{{ week_form.week_start.id_for_label }}">{{ week_form.week_start.label }}</label>
+          {{ week_form.week_start }}
+          {% for error in week_form.week_start.errors %}<div class="small text-danger">{{ error }}</div>{% endfor %}
+        </div>
+        <div class="mb-3">
+          <span class="form-label d-block">Times, Monday to Friday</span>
+          <div class="d-flex flex-wrap gap-2">
+            {{ week_form.lunch }}<label class="btn btn-outline-success btn-sm rounded-pill" for="{{ week_form.lunch.id_for_label }}">{{ week_form.lunch.label }}</label>
+            {{ week_form.dinner }}<label class="btn btn-outline-success btn-sm rounded-pill" for="{{ week_form.dinner.id_for_label }}">{{ week_form.dinner.label }}</label>
+          </div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label" for="{{ week_form.capacity.id_for_label }}">Capacity per slot</label>
+          {{ week_form.capacity }}
+          {% for error in week_form.capacity.errors %}<div class="small text-danger">{{ error }}</div>{% endfor %}
+        </div>
+        <p class="small text-muted">Days that have passed and slots that already exist are skipped.</p>
+        <div class="mt-auto"><button type="submit" class="btn btn-success">Add slots</button></div>
+      </form>
+      </div></div>
+    </div>
+    <div class="col-lg-6 d-flex flex-column">
+      <h2 class="h5 mb-3">Add one slot</h2>
+      <div class="card flex-grow-1"><div class="card-body d-flex flex-column">
+      <form method="post" class="d-flex flex-column flex-grow-1">
+        {% csrf_token %}
+        {% for field in form %}
+          <div class="mb-3">
+            <label class="form-label"{% if field.id_for_label %} for="{{ field.id_for_label }}"{% endif %}>{{ field.label }}</label>
+            {{ field }}
+            {% for error in field.errors %}<div class="small text-danger">{{ error }}</div>{% endfor %}
+          </div>
+        {% endfor %}
+        <div class="mt-auto"><button type="submit" class="btn btn-success">Add slot</button></div>
+      </form>
+      </div></div>
+    </div>
+  </div>
   <a href="{% url 'dashboard:pickup_list' %}" class="btn btn-outline-secondary mt-3">Back to pickup points</a>
 {% endblock %}

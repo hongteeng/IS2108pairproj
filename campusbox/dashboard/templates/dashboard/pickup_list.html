@@ -11,24 +11,36 @@
       <tr>
         <th>Name</th>
         <th>Location</th>
-        <th>Slots</th>
-        <th>Active</th>
+        <th>Upcoming slots</th>
+        <th>Booked{% if menu_dates %} ({{ menu_dates }}){% endif %}</th>
+        <th>Status</th>
         <th></th>
       </tr>
     </thead>
     <tbody>
-      {% for point in points %}
+      {% for row in rows %}
         <tr>
-          <td>{{ point.name }}</td>
-          <td>{{ point.location }}</td>
-          <td>{{ point.slots.count }}</td>
-          <td>{% if point.is_active %}<span class="badge text-bg-success">Active</span>{% else %}<span class="badge text-bg-secondary">Inactive</span>{% endif %}</td>
-          <td><div class="d-flex gap-2"><a href="{% url 'dashboard:pickup_detail' point.id %}" class="btn btn-sm btn-outline-success">Manage</a></div></td>
+          <td>{{ row.point.name }}</td>
+          <td class="text-muted">{{ row.point.location }}</td>
+          <td>{{ row.point.upcoming }}</td>
+          <td style="min-width: 10rem;">
+            {% if row.week and row.week.capacity %}
+              <div class="small">{{ row.week.booked }} of {{ row.week.capacity }}</div>
+              <div class="progress" style="height: 6px;" role="progressbar" aria-label="Booked this week" aria-valuenow="{{ row.week.percent }}" aria-valuemin="0" aria-valuemax="100">
+                <div class="progress-bar bg-success" style="width: {{ row.week.percent }}%"></div>
+              </div>
+            {% else %}
+              <span class="text-muted small">No slots that week</span>
+            {% endif %}
+          </td>
+          <td>{% if row.point.is_active %}<span class="badge text-bg-success">Open</span>{% else %}<span class="badge text-bg-secondary">Closed</span>{% endif %}</td>
+          <td><a href="{% url 'dashboard:pickup_detail' row.point.id %}" class="btn btn-sm btn-outline-success">Manage</a></td>
         </tr>
       {% empty %}
-        <tr><td colspan="5" class="text-center text-muted py-4">No pickup points yet.</td></tr>
+        <tr><td colspan="6" class="text-center text-muted py-4">No pickup points yet.</td></tr>
       {% endfor %}
     </tbody>
   </table>
   </div></div></div>
+  {% include "pagination.html" with noun="pickup point" %}
 {% endblock %}

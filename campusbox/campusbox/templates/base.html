@@ -36,6 +36,10 @@
     .navbar .nav-link.active { color: #198754; font-weight: 700; }
     .navbar .nav-link:hover { color: #198754; }
     .list-group-item.active { background-color: #198754; border-color: #198754; }
+    /* Pill toggles (allergies, tags, lunch and dinner): hovering an unticked pill only tints it,
+       so it doesn't look ticked before it is clicked */
+    .btn-check:not(:checked) + .btn-outline-success:hover { background-color: rgba(25, 135, 84, .1); color: #198754; }
+    .btn-check:focus-visible + .btn { box-shadow: 0 0 0 .2rem rgba(25, 135, 84, .35); }
     .navbar .nav-link, .navbar .btn { white-space: nowrap; }
     html { scroll-behavior: smooth; }
     /* Category bar on the menu page stays at the top while scrolling */

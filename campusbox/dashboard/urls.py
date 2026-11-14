@@ -21,6 +21,7 @@ urlpatterns = [
     path('pickups/', views.pickup_list, name='pickup_list'),
     path('pickups/add/', views.pickup_add, name='pickup_add'),
     path('pickups/<int:point_id>/', views.pickup_detail, name='pickup_detail'),
+    path('pickups/<int:point_id>/edit/', views.pickup_edit, name='pickup_edit'),
     path('orders/', views.order_list, name='order_list'),
     path('orders/<int:order_id>/', views.order_detail, name='order_detail'),
     path('inventory/', views.inventory, name='inventory'),

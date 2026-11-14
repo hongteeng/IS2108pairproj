@@ -15,7 +15,7 @@ from menu.models import Meal, WeeklyMenu, MenuItem
 from menu.utils import current_menu, menu_labels
 from orders.models import Order, OrderItem, PickupPoint, PickupSlot
 from support.models import SupportTicket
-from .forms import MealForm, WeeklyMenuForm, MenuItemForm, PickupPointForm, PickupSlotForm, StaffAccountForm
+from .forms import MealForm, WeeklyMenuForm, MenuItemForm, PickupPointForm, PickupSlotForm, SlotWeekForm, StaffAccountForm
 from .roles import HR, OWNER, ROLE_CHOICES, ROLE_NAMES, STAFF, can_manage, role_of, set_role
 
 
@@ -223,9 +223,40 @@ def menu_detail(request, menu_id):
         'error': error,
     })
 
+def booked_counts(slots):
+    """Add booked (orders that aren't cancelled) and order_total (every order, cancelled too) to each slot."""
+    return slots.annotate(
+        booked=Count('orders', filter=~Q(orders__status='cancelled')),
+        order_total=Count('orders'),
+    )
+
+
 def pickup_list(request):
-    points = PickupPoint.objects.all()
-    return render(request, 'dashboard/pickup_list.html', {'points': points})
+    today = timezone.localdate()
+    menu = current_menu()
+    points = PickupPoint.objects.annotate(
+        upcoming=Count('slots', filter=Q(slots__day__gte=today)),
+    ).order_by('-is_active', 'name')
+    page_obj = Paginator(points, 20).get_page(request.GET.get('page'))
+    rows = []
+    for point in page_obj: #only work out bookings for the points on this page
+        week = None
+        if menu: #how full this point is in the current menu's week
+            week_slots = booked_counts(point.slots.filter(
+                day__range=(menu.week_start, menu.week_start + timedelta(days=4))))
+            capacity = sum(slot.capacity for slot in week_slots)
+            booked = sum(slot.booked for slot in week_slots)
+            week = {'booked': booked, 'capacity': capacity,
+                    'percent': round(booked * 100 / capacity) if capacity else 0}
+        rows.append({'point': point, 'week': week})
+    params = request.GET.copy()
+    params.pop('page', None) #page links add their own page number
+    return render(request, 'dashboard/pickup_list.html', {
+        'rows': rows,
+        'page_obj': page_obj,
+        'querystring': params.urlencode(),
+        'menu_dates': menu_labels(menu)[0],
+    })
 
 
 def pickup_add(request):
@@ -239,32 +270,84 @@ def pickup_add(request):
     return render(request, 'dashboard/pickup_form.html', {'form': form, 'title': 'New pickup point'})
 
 
+def pickup_edit(request, point_id):
+    point = get_object_or_404(PickupPoint, pk=point_id)
+    form = PickupPointForm(request.POST or None, instance=point)
+    if request.method == 'POST' and form.is_valid():
+        form.save()
+        messages.success(request, point.name + ' saved.')
+        return redirect('dashboard:pickup_detail', point_id=point.id)
+    return render(request, 'dashboard/pickup_form.html', {'form': form, 'title': 'Edit pickup point', 'point': point})
+
+
 def pickup_detail(request, point_id):
     point = get_object_or_404(PickupPoint, pk=point_id)
     error = None
-    form = PickupSlotForm()
+    form = PickupSlotForm(point=point)
+    today = timezone.localdate()
+    next_monday = today + timedelta(days=7 - today.weekday())
+    week_form = SlotWeekForm(initial={'week_start': next_monday})
 
     if request.method == 'POST':
-        if 'toggle' in request.POST:
+        if 'toggle' in request.POST: #open or close the whole point
             point.is_active = not point.is_active
             point.save()
+            messages.success(request, point.name + (' is open again.' if point.is_active else ' is closed.'))
+            return redirect(request.get_full_path()) #same page of slots
         elif 'remove_id' in request.POST:
             slot = get_object_or_404(PickupSlot, pk=posted_id(request, 'remove_id'), pickup_point=point) #only this point's slots
             try:
                 slot.delete()
+                messages.success(request, 'Slot removed.')
+                return redirect(request.get_full_path()) #same page of slots
             except ProtectedError:
                 error = 'This slot already has orders, so it cannot be removed.'
-        else:
-            form = PickupSlotForm(request.POST)
-            if form.is_valid():  # the form checks the day and times
+        elif 'capacity_id' in request.POST: #change one slot's capacity
+            slot = booked_counts(point.slots).filter(pk=posted_id(request, 'capacity_id')).first()
+            if slot is None:
+                raise Http404
+            capacity = request.POST.get('capacity', '')
+            if capacity.isdigit() and int(capacity) >= max(slot.booked, 1):
+                slot.capacity = int(capacity)
+                slot.save(update_fields=['capacity'])
+                messages.success(request, 'Capacity set to ' + capacity + '.')
+                return redirect(request.get_full_path()) #same page of slots
+            error = 'Capacity must be a whole number, at least 1 and at least the ' + str(slot.booked) + ' already booked.'
+        elif 'add_week' in request.POST: #Monday to Friday in one go
+            week_form = SlotWeekForm(request.POST)
+            if week_form.is_valid():
+                slots, skipped = week_form.new_slots(point)
+                PickupSlot.objects.bulk_create(slots)
+                note = ' (' + str(skipped) + ' already existed)' if skipped else ''
+                messages.success(request, 'Added ' + str(len(slots)) + ' slots' + note + '.')
+                return redirect(request.get_full_path()) #same page of slots
+        else: #one slot
+            form = PickupSlotForm(request.POST, point=point)
+            if form.is_valid():  # the form checks the day, the times and duplicates
                 slot = form.save(commit=False)
                 slot.pickup_point = point
                 slot.save()
-                form = PickupSlotForm()
+                messages.success(request, 'Slot added.')
+                return redirect(request.get_full_path()) #same page of slots
 
-    slots = point.slots.all()
-    return render(request, 'dashboard/pickup_detail.html',
-                  {'point': point, 'slots': slots, 'form': form, 'error': error})
+    slots = booked_counts(point.slots)
+    upcoming = Paginator(slots.filter(day__gte=today).order_by('day', 'start_time'), 20).get_page(request.GET.get('page'))
+    past = Paginator(slots.filter(day__lt=today).order_by('-day', 'start_time'), 20).get_page(request.GET.get('past_page'))
+    upcoming_params = request.GET.copy()
+    upcoming_params.pop('page', None) #each list's links add their own page number
+    past_params = request.GET.copy()
+    past_params.pop('past_page', None)
+    return render(request, 'dashboard/pickup_detail.html', {
+        'point': point,
+        'upcoming': upcoming,
+        'past': past,
+        'upcoming_querystring': upcoming_params.urlencode(),
+        'past_querystring': past_params.urlencode(),
+        'show_past': 'past_page' in request.GET, #keep Past slots open while paging through it
+        'form': form,
+        'week_form': week_form,
+        'error': error,
+    })
 
 ORDER_FILTERS = [
     ('', 'All'),

@@ -489,3 +489,101 @@ class ResetDemoDataTests(TestCase):
         self.assertEqual(MenuItem.objects.count(), 20)
         self.assertEqual(PickupPoint.objects.count(), 3)
         self.assertEqual(PickupSlot.objects.count(), 30) #3 points x 5 days x lunch and dinner
+
+
+class PickupPageTests(TestCase): #the revamped pickup point page
+    def setUp(self):
+        User.objects.create_user('staff1', password='Pass1234!', is_staff=True)
+        self.client.login(username='staff1', password='Pass1234!')
+        self.point = PickupPoint.objects.create(name='Library', location='Level 1')
+        self.url = reverse('dashboard:pickup_detail', args=[self.point.id])
+        self.monday = next_monday()
+        today = timezone.localdate()
+        self.busy = self.make_slot(self.monday + timedelta(days=1), time(12, 0)) #has orders
+        self.empty = self.make_slot(self.monday, time(18, 0))
+        self.past = self.make_slot(today - timedelta(days=7), time(12, 0))
+        customer = User.objects.create_user('student1', password='Pass1234!')
+        for status in ['confirmed', 'confirmed', 'cancelled']:
+            Order.objects.create(user=customer, pickup_slot=self.busy, status=status, total_cents=500)
+
+    def make_slot(self, day, start):
+        return PickupSlot.objects.create(pickup_point=self.point, day=day, start_time=start,
+                                         end_time=time(start.hour + 1, 0), capacity=20)
+
+    def test_upcoming_slots_are_sorted_and_past_ones_are_separate(self):
+        response = self.client.get(self.url)
+        self.assertEqual(list(response.context['upcoming']), [self.empty, self.busy])
+        self.assertEqual(list(response.context['past']), [self.past])
+
+    def test_booked_leaves_out_cancelled_orders(self):
+        upcoming = self.client.get(self.url).context['upcoming']
+        self.assertEqual([slot.booked for slot in upcoming], [0, 2])
+
+    def test_capacity_cannot_go_below_what_is_booked(self):
+        self.client.post(self.url, {'capacity_id': self.busy.id, 'capacity': '1'})
+        self.busy.refresh_from_db()
+        self.assertEqual(self.busy.capacity, 20)
+        self.client.post(self.url, {'capacity_id': self.busy.id, 'capacity': '25'})
+        self.busy.refresh_from_db()
+        self.assertEqual(self.busy.capacity, 25)
+
+    def test_only_slots_without_orders_can_be_removed(self):
+        self.client.post(self.url, {'remove_id': self.busy.id})
+        self.assertTrue(PickupSlot.objects.filter(id=self.busy.id).exists())
+        self.client.post(self.url, {'remove_id': self.empty.id})
+        self.assertFalse(PickupSlot.objects.filter(id=self.empty.id).exists())
+
+    def test_add_a_week_skips_slots_that_exist(self):
+        data = {'add_week': '1', 'week_start': self.monday.isoformat(), 'lunch': 'on', 'dinner': 'on', 'capacity': '15'}
+        self.client.post(self.url, data)
+        week = PickupSlot.objects.filter(pickup_point=self.point, day__gte=self.monday,
+                                         day__lte=self.monday + timedelta(days=4))
+        self.assertEqual(week.count(), 10) #2 were there already, 8 were added
+        self.client.post(self.url, data) #again: nothing new
+        self.assertEqual(week.count(), 10)
+
+    def test_add_a_week_needs_a_monday_and_a_time(self):
+        tuesday = self.monday + timedelta(days=1)
+        self.client.post(self.url, {'add_week': '1', 'week_start': tuesday.isoformat(), 'lunch': 'on', 'capacity': '15'})
+        self.client.post(self.url, {'add_week': '1', 'week_start': self.monday.isoformat(), 'capacity': '15'})
+        self.assertEqual(PickupSlot.objects.filter(pickup_point=self.point).count(), 3) #nothing added
+
+    def test_same_day_and_time_twice_is_rejected(self):
+        form = PickupSlotForm({'day': self.busy.day.isoformat(), 'start_time': '12:00', 'end_time': '12:30',
+                               'capacity': 10}, point=self.point)
+        self.assertFalse(form.is_valid())
+        self.assertIn('start_time', form.errors)
+
+    def test_edit_name_and_location(self):
+        url = reverse('dashboard:pickup_edit', args=[self.point.id])
+        self.client.post(url, {'name': 'Central Library', 'location': 'Main entrance', 'is_active': 'on'})
+        self.point.refresh_from_db()
+        self.assertEqual(self.point.name, 'Central Library')
+
+    def test_list_counts_upcoming_slots(self):
+        rows = self.client.get(reverse('dashboard:pickup_list')).context['rows']
+        self.assertEqual(rows[0]['point'].upcoming, 2) #the past slot isn't counted
+
+    def test_upcoming_slots_have_pages_of_20(self):
+        for n in range(23): #23 more upcoming slots, 25 in total
+            day = self.monday + timedelta(days=7 * (n // 5 + 1) + n % 5)
+            self.make_slot(day, time(12, 0))
+        self.assertEqual(len(self.client.get(self.url).context['upcoming']), 20)
+        self.assertEqual(len(self.client.get(self.url, {'page': 2}).context['upcoming']), 5)
+
+    def test_paging_through_past_slots_keeps_them_open(self):
+        response = self.client.get(self.url, {'past_page': 1})
+        self.assertTrue(response.context['show_past'])
+        self.assertContains(response, '<details class="mt-3 mb-4" open>')
+
+    def test_an_action_keeps_the_same_page(self):
+        response = self.client.post(self.url + '?page=1', {'capacity_id': self.busy.id, 'capacity': '30'})
+        self.assertRedirects(response, self.url + '?page=1')
+
+    def test_pickup_points_have_pages_of_20(self):
+        for n in range(24): #25 points in total
+            PickupPoint.objects.create(name=f'Point {n:02d}', location='Somewhere')
+        list_url = reverse('dashboard:pickup_list')
+        self.assertEqual(len(self.client.get(list_url).context['rows']), 20)
+        self.assertEqual(len(self.client.get(list_url, {'page': 2}).context['rows']), 5)
+

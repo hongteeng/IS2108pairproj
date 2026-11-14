@@ -1,3 +1,4 @@
+from datetime import time, timedelta
 from decimal import Decimal
 
 from django import forms
@@ -111,7 +112,13 @@ class PickupPointForm(forms.ModelForm):
         widgets = {
             'name': forms.TextInput(attrs={'class': 'form-control'}),
             'location': forms.TextInput(attrs={'class': 'form-control'}),
+            'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input', 'role': 'switch'}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['is_active'].label = 'Open for pickups'
+        self.fields['is_active'].help_text = 'Untick to hide this point and its slots from checkout.'
 
 
 class PickupSlotForm(forms.ModelForm):
@@ -125,13 +132,14 @@ class PickupSlotForm(forms.ModelForm):
             'capacity': forms.NumberInput(attrs={'class': 'form-control'}),
         }
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, point=None, **kwargs):
         super().__init__(*args, **kwargs)
+        self.point = point  #the pickup point the slot is for, used for the duplicate check
         self.fields['capacity'].validators.append(MinValueValidator(1))
         self.fields['capacity'].widget.attrs['min'] = 1
 
     def clean(self):
-        """A slot is on a weekday, not in the past, and ends after it starts."""
+        """A slot is on a weekday, not in the past, ends after it starts, and isn't there already."""
         cleaned_data = super().clean()
         day = cleaned_data.get('day')
         start_time = cleaned_data.get('start_time')
@@ -143,7 +151,55 @@ class PickupSlotForm(forms.ModelForm):
                 self.add_error('day', 'Pickups run Monday to Friday, like the menu.')
         if start_time and end_time and end_time <= start_time:
             self.add_error('end_time', 'The end time must be after the start time.')
+        if self.point and day and start_time and PickupSlot.objects.filter(
+                pickup_point=self.point, day=day, start_time=start_time).exists():
+            self.add_error('start_time', 'This point already has a slot at that day and time.')
         return cleaned_data
+
+
+SLOT_TIMES = {'lunch': (time(12, 0), time(13, 0)), 'dinner': (time(18, 0), time(19, 0))}
+
+
+class SlotWeekForm(forms.Form):
+    """Add Monday to Friday slots for one week in one go."""
+
+    week_start = forms.DateField(label='Week starting (Monday)',
+                                 widget=forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}))
+    lunch = forms.BooleanField(label='Lunch, 12:00–13:00', required=False, initial=True,
+                               widget=forms.CheckboxInput(attrs={'class': 'btn-check'}))
+    dinner = forms.BooleanField(label='Dinner, 18:00–19:00', required=False, initial=True,
+                                widget=forms.CheckboxInput(attrs={'class': 'btn-check'}))
+    capacity = forms.IntegerField(min_value=1, initial=20,
+                                  widget=forms.NumberInput(attrs={'class': 'form-control', 'min': 1}))
+
+    def clean(self):
+        cleaned_data = super().clean()
+        week_start = cleaned_data.get('week_start')
+        if week_start:
+            if week_start.weekday() != 0:
+                self.add_error('week_start', 'Pick a Monday.')
+            elif week_start + timedelta(days=4) < timezone.localdate():
+                self.add_error('week_start', 'That week is already over.')
+        if not cleaned_data.get('lunch') and not cleaned_data.get('dinner'):
+            self.add_error(None, 'Tick lunch, dinner or both.')
+        return cleaned_data
+
+    def new_slots(self, point):
+        """The slots to create: weekdays from today on, at the ticked times, skipping ones that exist."""
+        week_start = self.cleaned_data['week_start']
+        times = [SLOT_TIMES[name] for name in ('lunch', 'dinner') if self.cleaned_data.get(name)]
+        slots, skipped = [], 0
+        for offset in range(5):
+            day = week_start + timedelta(days=offset)
+            if day < timezone.localdate():
+                continue  #no slots in the past
+            for start, end in times:
+                if PickupSlot.objects.filter(pickup_point=point, day=day, start_time=start).exists():
+                    skipped += 1
+                else:
+                    slots.append(PickupSlot(pickup_point=point, day=day, start_time=start, end_time=end,
+                                            capacity=self.cleaned_data['capacity']))
+        return slots, skipped
 
 
 class StaffAccountForm(RegisterForm):
