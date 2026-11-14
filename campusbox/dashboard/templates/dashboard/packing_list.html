@@ -1,30 +1,112 @@
 {% extends "staff_base.html" %}
 
+{% block staff_title %}Packing list{% endblock %}
+
 {% block staff_content %}
-  <h1 class="h3 mb-3">Packing list</h1>
-  {% for group in groups %}
+  <style>
+    /* Each pickup slot is a <details>, so its header opens and closes it without JavaScript */
+    .slot-card summary { list-style: none; cursor: pointer; }
+    .slot-card summary::-webkit-details-marker { display: none; }
+    .slot-card details:not([open]) > summary { border-bottom: 0; border-radius: var(--bs-card-inner-border-radius); }
+    .slot-chevron {
+      display: inline-block; width: .45rem; height: .45rem; margin-right: .6rem;
+      border-right: 2px solid currentColor; border-bottom: 2px solid currentColor;
+      transform: rotate(-45deg); vertical-align: .15rem; color: #6c757d;
+    }
+    .slot-card details[open] .slot-chevron { transform: rotate(45deg); vertical-align: .25rem; }
+    /* Ctrl+P prints only the day's lists: the navbar, sidebar, day picker and buttons are d-print-none */
+    @media print {
+      .col-md-9 { width: 100%; }
+      tr { break-inside: avoid; }
+      .slot-card summary { break-after: avoid; }
+      /* Print every slot, even collapsed ones. This only changes the printout, not the open/closed state on screen */
+      .slot-card details::details-content { content-visibility: visible; display: block; }
+      .slot-card details:not([open]) > summary { border-bottom: var(--bs-card-border-width) solid var(--bs-card-border-color); }
+    }
+  </style>
+  <h1 class="h3 mb-1">Packing list{% if day %} · {{ day|date:"l j M" }}{% endif %}</h1>
+  <p class="text-muted small mb-3 d-print-none">Orders awaiting preparation (Confirmed and Preparing).</p>
+  {% if day %}
+    <div class="d-flex flex-wrap gap-2 mb-3 d-print-none">
+      {% for d in days %}
+        <a href="?day={{ d|date:'Y-m-d' }}" class="btn btn-sm {% if d == day %}btn-success{% else %}btn-outline-success{% endif %}">{{ d|date:"D j M" }}</a>
+      {% endfor %}
+    </div>
+
     <div class="card mb-3">
-      <div class="card-header">
-        <strong>{{ group.slot.pickup_point.name }}</strong>
-        · {{ group.slot.day|date:"D j M" }}, {{ group.slot.start_time|time:"H:i" }}–{{ group.slot.end_time|time:"H:i" }}
+      <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <strong>To cook</strong>
+        <span class="small"><span class="text-muted">{{ order_count }} order{{ order_count|pluralize }} ·</span> <span class="fw-semibold">{{ meal_count }} meal{{ meal_count|pluralize }}</span></span>
       </div>
-      <div class="card-body p-0">
-        <table class="table mb-0">
+      <div class="table-responsive">
+        <table class="table table-sm table-fixed mb-0" style="min-width: 28rem;">
+          <colgroup><col style="width: 58%"><col style="width: 14%"><col style="width: 14%"><col style="width: 14%"></colgroup>
           <thead>
-            <tr><th>Meal</th><th>Quantity</th></tr>
+            <tr><th class="ps-3">Meal</th><th class="text-end">Lunch</th><th class="text-end">Dinner</th><th class="text-end pe-3">Total</th></tr>
           </thead>
           <tbody>
-            {% for item in group.items %}
+            {% for row in cook %}
               <tr>
-                <td>{{ item.menu_item__meal__name }}</td>
-                <td>{{ item.total }}</td>
+                <td class="ps-3">{{ row.name }}</td>
+                <td class="text-end">{{ row.lunch|default:"–" }}</td>
+                <td class="text-end">{{ row.dinner|default:"–" }}</td>
+                <td class="text-end pe-3 fw-semibold">{{ row.total }}</td>
               </tr>
             {% endfor %}
           </tbody>
+          <tfoot class="table-group-divider fw-bold">
+            <tr>
+              <td class="ps-3">All meals</td>
+              <td class="text-end">{{ lunch_count }}</td>
+              <td class="text-end">{{ dinner_count }}</td>
+              <td class="text-end pe-3">{{ meal_count }}</td>
+            </tr>
+          </tfoot>
         </table>
       </div>
     </div>
-  {% empty %}
+
+    {% for card in cards %}
+      <div class="card mb-3 slot-card">
+        <details open>
+          <summary class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <span><span class="slot-chevron d-print-none" aria-hidden="true"></span><strong>{{ card.slot.pickup_point.name }}</strong> · {{ card.period }} {{ card.slot.start_time|time:"H:i" }}–{{ card.slot.end_time|time:"H:i" }}</span>
+            <span class="small"><span class="text-muted">{{ card.bags|length }} order{{ card.bags|length|pluralize }} ·</span> <span class="fw-semibold">{{ card.meal_count }} meal{{ card.meal_count|pluralize }}</span></span>
+          </summary>
+          <div class="table-responsive">
+            <table class="table table-fixed align-middle mb-0" style="min-width: 44rem;">
+              {# Bag stays the widest; Status and View sit side by side, both left-aligned so they line up on every row #}
+              <colgroup><col style="width: 18%"><col style="width: 60%"><col style="width: 13%"><col style="width: 9%"></colgroup>
+              <thead>
+                <tr><th class="ps-3">Order</th><th>Bag</th><th>Status</th><th></th></tr>
+              </thead>
+              <tbody>
+                {% for bag in card.bags %}
+                  <tr>
+                    <td class="ps-3">#{{ bag.order.id }}<div class="small text-muted">{{ bag.order.user.username }}</div></td>
+                    <td>
+                      {# One meal per line, quantity in its own column so the names line up #}
+                      {% for item in bag.items %}
+                        <div class="d-flex gap-2"><span class="fw-semibold text-end" style="min-width: 2rem;">{{ item.quantity }}×</span><span>{{ item.menu_item.meal.name }}</span></div>
+                      {% endfor %}
+                    </td>
+                    <td>{% include "order_status_badge.html" with order=bag.order %}</td>
+                    <td><a href="{% url 'dashboard:order_detail' bag.order.id %}" class="btn btn-sm btn-outline-success d-print-none">View</a></td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          <div class="card-footer py-2 d-flex flex-wrap align-items-center gap-1 small">
+            <span class="text-muted me-1">Slot total:</span>
+            {% for name, quantity in card.totals %}
+              <span class="border rounded-pill bg-body px-2"><span class="fw-semibold">{{ quantity }}×</span> {{ name }}</span>
+            {% endfor %}
+          </div>
+        </details>
+      </div>
+    {% endfor %}
+  {% else %}
     <div class="card"><div class="card-body text-center text-muted py-4">Nothing to pack right now.</div></div>
-  {% endfor %}
+  {% endif %}
 {% endblock %}

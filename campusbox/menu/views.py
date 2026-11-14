@@ -270,6 +270,7 @@ def meal_detail(request, meal_id):
         order__status='collected',
         menu_item__meal=meal,
     ).exists()
+    has_reviewed = can_review and meal.reviews.filter(user=request.user).exists()
     suggestions = suggest_for_meals([meal.name])
     mark_allergens(suggestions, profile)
 
@@ -284,6 +285,7 @@ def meal_detail(request, meal_id):
         'avg_rating': avg_rating,
         'review_count': review_count,
         'can_review': can_review,
+        'has_reviewed': has_reviewed,
         'suggestions': suggestions,
         'ordering_open': ordering_open(menu),
     })

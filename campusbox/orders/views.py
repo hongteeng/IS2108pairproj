@@ -146,8 +146,11 @@ def order_detail(request, order_id):
         "menu_item__meal",
         "menu_item__weekly_menu",
     )
+    # Meals this student has already reviewed get "Edit your review" instead of "Write a review".
+    reviewed = set(request.user.reviews.values_list("meal_id", flat=True))
     for item in items:
         item.subtotal_cents = item.price_at_purchase_cents * item.quantity
+        item.reviewed = item.menu_item.meal_id in reviewed
     # Steps up to and including the current status are done.
     tracker = []
     if order.status != "cancelled":

@@ -1,0 +1,26 @@
+{% extends "staff_base.html" %}
+{% block staff_title %}My account{% endblock %}
+{% block staff_content %}
+<div class="card" style="max-width: 32rem;">
+  <div class="card-body p-4">
+    <h1 class="h3 mb-3">My account</h1>
+    <dl class="row mb-4">
+      <dt class="col-5 text-muted fw-normal">Username</dt>
+      <dd class="col-7">{{ user.username }}</dd>
+      <dt class="col-5 text-muted fw-normal">Email</dt>
+      <dd class="col-7">{{ user.email|default:"Not set" }}</dd>
+      <dt class="col-5 text-muted fw-normal">Role</dt>
+      <dd class="col-7">{{ staff_role }}</dd>
+      <dt class="col-5 text-muted fw-normal">Member since</dt>
+      <dd class="col-7 mb-0">{{ user.date_joined|date:"j M Y" }}</dd>
+    </dl>
+    <a href="{% url 'accounts:change_password' %}" class="btn btn-outline-success">Change password</a>
+    {# Staff can't deactivate themselves: owners change any account but their own, HR only plain staff #}
+    <p class="small text-muted mt-3 mb-0">
+      {% if user.is_superuser %}Another owner can change your role or deactivate this account.
+      {% elif perms.dashboard.manage_staff %}Ask an owner to change your role or deactivate this account.
+      {% else %}Ask an owner or HR to change your role or deactivate this account.{% endif %}
+    </p>
+  </div>
+</div>
+{% endblock %}

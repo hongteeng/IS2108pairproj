@@ -35,4 +35,5 @@ urlpatterns = [
     path('packing/', views.packing_list, name='packing_list'),
     path('staff-accounts/', views.staff_accounts, name='staff_accounts'),
     path('staff-accounts/add/', views.staff_account_add, name='staff_account_add'),
+    path('account/', views.my_account, name='my_account'),
 ]

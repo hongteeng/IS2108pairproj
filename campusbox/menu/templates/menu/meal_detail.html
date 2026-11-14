@@ -64,7 +64,7 @@
         {% else %}
           <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
             <a href="{% url 'accounts:login' %}?next={{ request.path|urlencode }}" class="btn btn-success">Log in to order</a>
-            <span class="small text-muted">New here? <a href="{% url 'accounts:register' %}">Create an account</a></span>
+            <span class="small text-muted">New here? <a href="{% url 'accounts:register' %}">Sign up</a></span>
           </div>
         {% endif %}
       {% else %}
@@ -97,7 +97,7 @@
     <p><span class="text-warning">★</span> {{ avg_rating }} <span class="text-muted">({{ review_count }} review{{ review_count|pluralize }})</span></p>
   {% endif %}
   {% if can_review %}
-    <a href="{% url 'reviews:add_review' meal.id %}" class="btn btn-success btn-sm">Write a review</a>
+    <a href="{% url 'reviews:add_review' meal.id %}" class="btn btn-success btn-sm">{% if has_reviewed %}Edit your review{% else %}Write a review{% endif %}</a>
   {% endif %}
   <div class="list-group mt-3">
     {% for review in reviews %}

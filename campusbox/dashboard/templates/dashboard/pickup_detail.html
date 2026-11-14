@@ -1,5 +1,7 @@
 {% extends "staff_base.html" %}
 
+{% block staff_title %}{{ point.name }}{% endblock %}
+
 {% block staff_content %}
   {# Same header as the other staff pages: title on the left, page buttons on the right, details in a card below #}
   <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">

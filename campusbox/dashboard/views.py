@@ -7,7 +7,7 @@ from django.db.models import Count, F, Q, Sum, Value
 from django.db.models.functions import Coalesce
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
-from datetime import datetime, time, timedelta
+from datetime import date, datetime, time, timedelta
 from accounts.models import CustomerProfile
 from accounts.forms import LoginForm
 from django.db.models import ProtectedError
@@ -169,7 +169,7 @@ def menu_add(request):
             'week_start': next_monday,
             'order_cutoff': datetime.combine(next_monday - timedelta(days=1), time(23, 59)), #Sunday 23:59, the night before
         })
-    return render(request, 'dashboard/menu_form.html', {'form': form, 'title': 'New weekly menu'})
+    return render(request, 'dashboard/menu_form.html', {'form': form, 'title': 'Add weekly menu'})
 
 
 def menu_edit(request, menu_id):
@@ -212,7 +212,7 @@ def menu_detail(request, menu_id):
                     item.save()
                     form = MenuItemForm()
 
-    items = menu.items.all()
+    items = menu.items.select_related('meal').annotate(order_total=Count('order_items')) #Remove only without orders
     menu_dates, order_deadline = menu_labels(menu)
     return render(request, 'dashboard/menu_detail.html', {
         'menu': menu,
@@ -267,7 +267,7 @@ def pickup_add(request):
             return redirect('dashboard:pickup_detail', point_id=point.id)
     else:
         form = PickupPointForm()
-    return render(request, 'dashboard/pickup_form.html', {'form': form, 'title': 'New pickup point'})
+    return render(request, 'dashboard/pickup_form.html', {'form': form, 'title': 'Add pickup point'})
 
 
 def pickup_edit(request, point_id):
@@ -482,19 +482,58 @@ def inventory(request):
         'menu_dates': menu_labels(current)[0],
     })
 
-def packing_list(request): #runs when staff visit /dashboard/packing/ 
+TO_PACK = ['confirmed', 'preparing'] #orders that still need making, same as the To prepare filter
+
+
+def meal_period(slot): #slots starting before 3 pm count as lunch, the rest as dinner
+    return 'lunch' if slot.start_time.hour < 15 else 'dinner'
+
+
+def packing_list(request): #runs when staff visit /dashboard/packing/, shows one day at a time
     today = timezone.localdate()
-    slots = PickupSlot.objects.filter(day__gte=today).select_related('pickup_point').order_by('day', 'start_time')
-    groups = []
-    for slot in slots:
-        items = (OrderItem.objects
-                 .filter(order__pickup_slot=slot, order__status__in=['confirmed', 'preparing'])
-                 .values('menu_item__meal__name')
-                 .annotate(total=Sum('quantity'))
-                 .order_by('menu_item__meal__name'))
-        if items:
-            groups.append({'slot': slot, 'items': items})
-    return render(request, 'dashboard/packing_list.html', {'groups': groups})
+    days = list(Order.objects.filter(status__in=TO_PACK, pickup_slot__day__gte=today)
+                .values_list('pickup_slot__day', flat=True).distinct().order_by('pickup_slot__day'))
+    try:
+        day = date.fromisoformat(request.GET.get('day', ''))
+    except ValueError:
+        day = None
+    if day not in days: #no day picked, a bad date or a day with nothing to pack: open the first day that has orders
+        day = days[0] if days else None
+
+    #one query for the whole day: every item still to pack, with its order, customer, slot and meal
+    items = (OrderItem.objects
+             .filter(order__status__in=TO_PACK, order__pickup_slot__day=day)
+             .select_related('order__user', 'order__pickup_slot__pickup_point', 'menu_item__meal')
+             .order_by('order__pickup_slot__start_time', 'order__pickup_slot__pickup_point__name',
+                       'order_id', 'menu_item__meal__name'))
+
+    cook = {} #meal name -> lunch, dinner and total for the whole day
+    cards = {} #slot id -> that slot's meal totals and bags, in the order above
+    for item in items:
+        order, slot, name = item.order, item.order.pickup_slot, item.menu_item.meal.name
+        period = meal_period(slot)
+        row = cook.setdefault(name, {'name': name, 'lunch': 0, 'dinner': 0, 'total': 0})
+        row[period] += item.quantity
+        row['total'] += item.quantity
+        card = cards.setdefault(slot.id, {'slot': slot, 'period': period.capitalize(),
+                                          'totals': {}, 'bags': {}, 'meal_count': 0})
+        card['totals'][name] = card['totals'].get(name, 0) + item.quantity
+        card['meal_count'] += item.quantity
+        card['bags'].setdefault(order.id, {'order': order, 'items': []})['items'].append(item)
+    for card in cards.values(): #dicts to sorted lists for the template
+        card['totals'] = sorted(card['totals'].items())
+        card['bags'] = list(card['bags'].values())
+
+    return render(request, 'dashboard/packing_list.html', {
+        'days': days,
+        'day': day,
+        'cook': sorted(cook.values(), key=lambda row: row['name']),
+        'cards': list(cards.values()),
+        'lunch_count': sum(row['lunch'] for row in cook.values()), #for the All meals row under To cook
+        'dinner_count': sum(row['dinner'] for row in cook.values()),
+        'meal_count': sum(row['total'] for row in cook.values()),
+        'order_count': sum(len(card['bags']) for card in cards.values()),
+    })
 
 
 STAFF_FILTERS = [('', 'All'), (OWNER, 'Owners'), (HR, 'HR'), (STAFF, 'Staff'), ('inactive', 'Inactive')]
@@ -564,3 +603,7 @@ def staff_account_add(request): #runs when owners or HR open /dashboard/staff-ac
         messages.success(request, member.username + ' added as ' + ROLE_NAMES[role_of(member)] + '.')
         return redirect('dashboard:staff_accounts')
     return render(request, 'dashboard/staff_account_form.html', {'form': form, 'is_owner': is_owner})
+
+
+def my_account(request): #runs when staff open /dashboard/account/, the middleware already checked they are staff
+    return render(request, 'dashboard/my_account.html') #the role comes from the staff_role context processor

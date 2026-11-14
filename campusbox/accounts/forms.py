@@ -1,8 +1,26 @@
 from django import forms
+from django.contrib.auth.forms import PasswordChangeForm
 from django.contrib.auth.models import User
-from django.contrib.auth.password_validation import validate_password
+from django.contrib.auth.password_validation import get_default_password_validators
 
 from .models import CustomerProfile
+
+RULES_BROKEN = "Your password doesn't follow the rules marked ✗."
+
+
+def check_password_rules(password, user):
+    """Each password rule from settings, with whether the password passed it (None if no password was typed)."""
+    rules = []
+    for validator in get_default_password_validators():
+        passed = None
+        if password:
+            try:
+                validator.validate(password, user)
+                passed = True
+            except forms.ValidationError:
+                passed = False
+        rules.append({'text': validator.get_help_text(), 'passed': passed})
+    return rules
 
 
 class RegisterForm(forms.Form):
@@ -11,9 +29,7 @@ class RegisterForm(forms.Form):
     username = forms.CharField(max_length=50,
                                widget=forms.TextInput(attrs={'class': 'form-control'}))
     email = forms.EmailField(widget=forms.EmailInput(attrs={'class': 'form-control'}))
-    password = forms.CharField(min_length=8,
-                               help_text='At least 8 characters. Not all numbers or a common password.',
-                               widget=forms.PasswordInput(attrs={'class': 'form-control'}))
+    password = forms.CharField(widget=forms.PasswordInput(attrs={'class': 'form-control'}))  # rules come from password_rules()
     confirm_password = forms.CharField(label='Confirm password',
                                        widget=forms.PasswordInput(attrs={'class': 'form-control'}))
 
@@ -30,21 +46,46 @@ class RegisterForm(forms.Form):
         if User.objects.filter(email__iexact=email).exists():
             raise forms.ValidationError('An account with this email already exists.')
         return email
-    
-    def clean_password(self):
-        """Apply the password rules from settings (too common, all numbers)."""
-        password = self.cleaned_data['password']
-        validate_password(password)
-        return password
 
+    def password_rules(self):
+        """The password rules for the template, marked passed or broken once the form has been sent."""
+        data = self.data if self.is_bound else {}
+        # An unsaved User lets the rules compare the password with the username and email
+        user = User(username=data.get('username', ''), email=data.get('email', ''))
+        return check_password_rules(data.get('password'), user)
 
     def clean(self):
-        """Check that both passwords match."""
+        """Check the password rules from settings, then check that both passwords match."""
         cleaned_data = super().clean()
         password = cleaned_data.get('password')
         confirm = cleaned_data.get('confirm_password')
+        if password and any(rule['passed'] is False for rule in self.password_rules()):
+            self.add_error('password', RULES_BROKEN)  # the ✗ next to each rule says which one
         if password and confirm and password != confirm:
             raise forms.ValidationError('Passwords do not match.')
+        return cleaned_data
+
+
+class ChangePasswordForm(PasswordChangeForm):
+    """Django's change password form, with the rules marked the same way as on Sign up."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field in self.fields.values():
+            field.widget.attrs['class'] = 'form-control'  # same Bootstrap look as the other forms
+
+    def password_rules(self):
+        """The password rules for the template, marked passed or broken once the form has been sent."""
+        return check_password_rules(self.data.get('new_password1') if self.is_bound else None, self.user)
+
+    def clean(self):
+        """Show one message on the new password instead of Django's rule messages on the confirmation."""
+        cleaned_data = super().clean()
+        if self.data.get('new_password1') and any(rule['passed'] is False for rule in self.password_rules()):
+            self.add_error('new_password1', RULES_BROKEN)
+            # Django puts the rule messages on new_password2; keep it only for a mismatch or an empty box
+            if not (self.has_error('new_password2', 'password_mismatch') or self.has_error('new_password2', 'required')):
+                self.errors.pop('new_password2', None)
         return cleaned_data
 
 

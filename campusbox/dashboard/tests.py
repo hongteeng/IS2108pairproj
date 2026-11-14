@@ -1,7 +1,9 @@
 from datetime import time, timedelta
 
 from django.contrib.auth.models import User
+from django.db import connection
 from django.test import TestCase
+from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from django.utils import timezone
 
@@ -31,20 +33,65 @@ class PackingListTests(TestCase):
         self.make_order(customer, 'confirmed', 2)
         self.make_order(customer, 'preparing', 3)
         self.make_order(customer, 'cancelled', 5)
+        self.customer = customer
 
-    def make_order(self, user, status, quantity):
-        order = Order.objects.create(user=user, pickup_slot=self.slot, status=status, total_cents=500 * quantity)
+    def make_order(self, user, status, quantity, slot=None):
+        order = Order.objects.create(user=user, pickup_slot=slot or self.slot, status=status, total_cents=500 * quantity)
         OrderItem.objects.create(order=order, menu_item=self.item, quantity=quantity, price_at_purchase_cents=500)
 
-    def test_packing_list_adds_up_orders_and_skips_cancelled(self):
+    def make_slot(self, days_ahead, hour, name='Library'):
+        point = PickupPoint.objects.get_or_create(name=name, defaults={'location': 'Level 1'})[0]
+        return PickupSlot.objects.create(pickup_point=point, day=timezone.localdate() + timedelta(days=days_ahead),
+                                         start_time=time(hour, 0), end_time=time(hour + 1, 0), capacity=20)
+
+    def get(self, **params):
         self.client.login(username='staff1', password='Pass1234!')
-        response = self.client.get(reverse('dashboard:packing_list'))
+        return self.client.get(reverse('dashboard:packing_list'), params)
+
+    def test_packing_list_adds_up_orders_and_skips_cancelled(self):
+        response = self.get()
         self.assertEqual(response.status_code, 200)
-        groups = response.context['groups']
-        self.assertEqual(len(groups), 1)
-        rows = list(groups[0]['items'])
-        self.assertEqual(rows[0]['menu_item__meal__name'], 'Chicken Rice Box')
-        self.assertEqual(rows[0]['total'], 5) #2 confirmed + 3 preparing, the 5 cancelled are left out
+        cards = response.context['cards']
+        self.assertEqual(len(cards), 1)
+        self.assertEqual(cards[0]['totals'], [('Chicken Rice Box', 5)]) #2 confirmed + 3 preparing, the 5 cancelled are left out
+        self.assertEqual(len(cards[0]['bags']), 2) #one bag per order still to make
+
+    def test_opens_on_the_first_day_with_orders(self):
+        later = self.make_slot(3, 12)
+        self.make_order(self.customer, 'confirmed', 1, later)
+        response = self.get()
+        self.assertEqual(response.context['day'], self.slot.day)
+        self.assertEqual(response.context['days'], [self.slot.day, later.day])
+        self.assertEqual(self.get(day=later.day.isoformat()).context['day'], later.day)
+        self.assertEqual(self.get(day='not-a-date').context['day'], self.slot.day) #a bad date falls back
+
+    def test_cook_table_splits_lunch_and_dinner(self):
+        self.make_order(self.customer, 'confirmed', 4, self.make_slot(1, 18))
+        response = self.get()
+        row = response.context['cook'][0]
+        self.assertEqual((row['lunch'], row['dinner'], row['total']), (5, 4, 9))
+        totals = (response.context['lunch_count'], response.context['dinner_count'], response.context['meal_count'])
+        self.assertEqual(totals, (5, 4, 9)) #the All meals row
+        self.assertContains(response, 'All meals')
+
+    def test_slots_can_be_collapsed_and_start_open(self):
+        self.make_order(self.customer, 'confirmed', 1, self.make_slot(1, 18))
+        self.assertContains(self.get(), '<details open>', count=2) #lunch and dinner, both expanded
+
+    def test_more_slots_do_not_mean_more_queries(self):
+        self.client.login(username='staff1', password='Pass1234!')
+        with CaptureQueriesContext(connection) as one_slot:
+            self.client.get(reverse('dashboard:packing_list'))
+        for name in ('UTown', 'Sheares'): #two more pickup points on the same day
+            self.make_order(self.customer, 'confirmed', 1, self.make_slot(1, 12, name))
+        with CaptureQueriesContext(connection) as three_slots:
+            response = self.client.get(reverse('dashboard:packing_list'))
+        self.assertEqual(len(response.context['cards']), 3)
+        self.assertEqual(len(three_slots), len(one_slot)) #the whole day is fetched in one query
+
+    def test_nothing_to_pack(self):
+        Order.objects.update(status='collected')
+        self.assertContains(self.get(), 'Nothing to pack right now.')
 
 class StaffMiddlewareTests(TestCase): #create 2 fake users, staff and stuydent to test dashboard access
     def setUp(self):
@@ -139,6 +186,8 @@ class MealDeleteTests(TestCase):
         self.assertEqual(response.status_code, 200) #stays on the page, no redirect
         self.assertIn('cannot be deleted', response.context['error'])
         self.assertTrue(Meal.objects.filter(id=meal.id).exists())
+        self.assertNotContains(response, 'class="btn btn-danger"') #no Delete button once it has failed
+        self.assertContains(response, 'Edit meal')
 
 def next_monday():
     today = timezone.localdate()
@@ -587,3 +636,96 @@ class PickupPageTests(TestCase): #the revamped pickup point page
         self.assertEqual(len(self.client.get(list_url).context['rows']), 20)
         self.assertEqual(len(self.client.get(list_url, {'page': 2}).context['rows']), 5)
 
+
+class ConsistencyTests(TestCase): #labels, titles and badges that should look the same everywhere
+    def setUp(self):
+        self.owner = User.objects.create_user('owner1', password='Pass1234!', is_staff=True, is_superuser=True)
+        category = MealCategory.objects.create(name='Rice')
+        self.meal = Meal.objects.create(name='Chicken Rice Box', description='Test', price_cents=500, calories=500,
+                                        protein_g=30, carbs_g=60, fat_g=10, image_url='', category=category)
+        self.menu = WeeklyMenu.objects.create(week_start=timezone.localdate(), order_cutoff=timezone.now())
+        self.item = MenuItem.objects.create(weekly_menu=self.menu, meal=self.meal, quantity_available=10)
+        point = PickupPoint.objects.create(name='Library', location='Level 1')
+        self.slot = PickupSlot.objects.create(pickup_point=point, day=timezone.localdate() + timedelta(days=1),
+                                              start_time=time(12, 0), end_time=time(13, 0), capacity=20)
+        self.student = User.objects.create_user('student1', password='Pass1234!')
+
+    def order(self, status):
+        order = Order.objects.create(user=self.student, pickup_slot=self.slot, total_cents=500, status=status)
+        OrderItem.objects.create(order=order, menu_item=self.item, quantity=1, price_at_purchase_cents=500)
+        return order
+
+    def test_staff_pages_have_their_own_tab_title(self):
+        self.client.login(username='owner1', password='Pass1234!')
+        self.assertContains(self.client.get(reverse('dashboard:meal_list')), '<title>Meals · CampusBox Staff</title>')
+
+    def test_navbar_shows_the_staff_role(self):
+        self.client.login(username='owner1', password='Pass1234!')
+        self.assertContains(self.client.get(reverse('dashboard:home')), '>Owner</span>')
+        hr = User.objects.create_user('hr1', password='Pass1234!')
+        set_role(hr, HR)
+        self.client.login(username='hr1', password='Pass1234!')
+        self.assertContains(self.client.get(reverse('dashboard:home')), '>HR</span>')
+
+    def test_each_status_has_its_own_badge(self):
+        self.client.login(username='owner1', password='Pass1234!')
+        for status, css in [('confirmed', 'bg-info-subtle'), ('ready', 'text-bg-success'), ('cancelled', 'bg-secondary-subtle')]:
+            response = self.client.get(reverse('dashboard:order_detail', args=[self.order(status).id]))
+            self.assertContains(response, css)
+
+    def test_remove_is_disabled_for_a_meal_with_orders(self):
+        self.order('confirmed')
+        self.client.login(username='owner1', password='Pass1234!')
+        response = self.client.get(reverse('dashboard:menu_detail', args=[self.menu.id]))
+        self.assertContains(response, "This meal has orders, so it can't be removed.")
+        self.assertNotContains(response, 'name="remove_id"')
+
+    def test_staff_accounts_table_has_fixed_columns(self):
+        self.client.login(username='owner1', password='Pass1234!')
+        response = self.client.get(reverse('dashboard:staff_accounts'))
+        self.assertContains(response, 'table table-fixed')
+        self.assertContains(response, '<col style="width: 37%">')  #room for the role dropdown
+        hr = User.objects.create_user('hr1', password='Pass1234!')
+        set_role(hr, HR)
+        self.client.login(username='hr1', password='Pass1234!')
+        response = self.client.get(reverse('dashboard:staff_accounts'))
+        self.assertContains(response, '<col style="width: 18%">')  #only one button
+        self.assertNotContains(response, '{#')  #a {# #} comment only works on one line, or it shows on the page
+
+    def test_sign_up_has_one_name(self):
+        response = self.client.get(reverse('accounts:register'))
+        self.assertContains(response, '<title>Sign up · CampusBox</title>')
+        self.assertNotContains(response, 'Create an account')
+
+
+class StaffMyAccountTests(TestCase): #staff open My account from the avatar or the sidebar
+    def setUp(self):
+        self.staff = User.objects.create_user('staff1', email='staff1@example.com', password='Pass1234!', is_staff=True)
+        self.url = reverse('dashboard:my_account')
+
+    def test_customers_cannot_open_it(self):
+        User.objects.create_user('amy', password='Pass1234!')
+        self.client.login(username='amy', password='Pass1234!')
+        self.assertRedirects(self.client.get(self.url), reverse('dashboard:staff_login'), fetch_redirect_response=False)
+
+    def test_shows_details_and_change_password_but_no_deactivate(self):
+        self.client.login(username='staff1', password='Pass1234!')
+        response = self.client.get(self.url)
+        self.assertContains(response, '<title>My account · CampusBox Staff</title>')
+        self.assertContains(response, 'staff1@example.com')
+        self.assertContains(response, f'href="{reverse("accounts:change_password")}"')
+        self.assertNotContains(response, f'href="{reverse("accounts:deactivate_account")}"')
+        self.assertContains(response, 'Ask an owner or HR')
+
+    def test_role_is_shown(self):
+        set_role(self.staff, HR)
+        self.client.login(username='staff1', password='Pass1234!')
+        response = self.client.get(self.url)
+        self.assertContains(response, '<dd class="col-7">HR</dd>', html=True)
+        self.assertContains(response, 'Ask an owner to change')
+
+    def test_avatar_and_sidebar_link_to_it(self):
+        self.client.login(username='staff1', password='Pass1234!')
+        response = self.client.get(reverse('dashboard:home'))
+        self.assertContains(response, f'class="account-link d-inline-flex align-items-center gap-2" href="{self.url}"')
+        self.assertContains(response, f'href="{self.url}">My account</a>')

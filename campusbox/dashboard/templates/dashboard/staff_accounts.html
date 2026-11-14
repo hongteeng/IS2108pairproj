@@ -1,5 +1,7 @@
 {% extends "staff_base.html" %}
 
+{% block staff_title %}Staff accounts{% endblock %}
+
 {% block staff_content %}
   <div class="d-flex justify-content-between align-items-center mb-1">
     <h1 class="h3 mb-0">Staff accounts</h1>
@@ -27,7 +29,18 @@
     </div>
   </div></div>
   <div class="card"><div class="card-body p-0"><div class="table-responsive">
-  <table class="table align-middle mb-0">
+  <table class="table table-fixed align-middle mb-0" style="min-width: 52rem;">
+    {# Fixed column widths, so Active/Inactive or Deactivate/Reactivate don't resize the table #}
+    {# Owners also get the role dropdown, so their Actions column is wider #}
+    <colgroup>
+      {% if is_owner %}
+        <col style="width: 16%"><col style="width: 26%"><col style="width: 10%">
+        <col style="width: 11%"><col style="width: 37%">
+      {% else %}
+        <col style="width: 20%"><col style="width: 36%"><col style="width: 13%">
+        <col style="width: 13%"><col style="width: 18%">
+      {% endif %}
+    </colgroup>
     <thead>
       <tr>
         <th>Username</th>
