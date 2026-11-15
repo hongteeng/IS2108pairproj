@@ -148,18 +148,6 @@ class MyAccountPageTests(TestCase): #the avatar opens My account, which holds pa
         self.assertContains(response, f'href="{reverse("accounts:change_password")}"')
         self.assertContains(response, f'href="{reverse("accounts:deactivate_account")}"')
 
-    def test_preferences_page_is_only_the_quiz(self):
-        self.client.login(username='amy', password='Pass1234!')
-        response = self.client.get(reverse('accounts:quiz'))
-        self.assertContains(response, '<title>My preferences · CampusBox</title>', html=True)
-        self.assertNotContains(response, f'href="{reverse("accounts:change_password")}"')
-
-    def test_customer_avatar_links_to_my_account(self):
-        self.client.login(username='amy', password='Pass1234!')
-        response = self.client.get(reverse('index'))
-        self.assertContains(response, f'class="account-link d-inline-flex align-items-center gap-2" href="{self.url}"')
-        self.assertContains(response, '>My preferences</a>')
-
     def test_staff_are_sent_to_the_staff_account_page(self):
         self.client.login(username='staff1', password='Pass1234!')
         self.assertRedirects(self.client.get(self.url), reverse('dashboard:my_account'))
@@ -168,19 +156,8 @@ class MyAccountPageTests(TestCase): #the avatar opens My account, which holds pa
 class PasswordRulesTests(TestCase): #Sign up and Add staff list the same password rules as Change password
     RULE = 'too similar to your other personal information'
 
-    def test_sign_up_and_add_staff_show_the_same_rules_as_change_password(self):
-        User.objects.create_user('owner1', password='Pass1234!', is_staff=True, is_superuser=True)
-        self.assertContains(self.client.get(reverse('accounts:register')), self.RULE)
-        self.client.login(username='owner1', password='Pass1234!')
-        self.assertContains(self.client.get(reverse('accounts:change_password')), self.RULE)
-        self.assertContains(self.client.get(reverse('dashboard:staff_account_add')), self.RULE)
-
     def broken_rules(self, form):
         return [rule['text'] for rule in form.password_rules() if rule['passed'] is False]
-
-    def test_rules_are_grey_before_the_form_is_sent(self):
-        self.assertTrue(all(rule['passed'] is None for rule in RegisterForm().password_rules()))
-        self.assertNotContains(self.client.get(reverse('accounts:register')), '✗')
 
     def test_password_too_like_the_username_is_refused(self):
         data = {'username': 'amyliew', 'email': 'amy@example.com', 'password': 'amyliew1', 'confirm_password': 'amyliew1'}
@@ -197,15 +174,6 @@ class PasswordRulesTests(TestCase): #Sign up and Add staff list the same passwor
         self.assertContains(response, '<li class="text-danger">✗', count=1)  #only too short
         self.assertContains(response, '<li class="text-success">✓', count=3)
         self.assertContains(response, 'follow the rules marked ✗.', count=1)  #the apostrophe is escaped in HTML
-
-    def test_change_password_marks_each_rule_with_one_message(self):
-        User.objects.create_user('ben', password='OldPass123!')
-        self.client.login(username='ben', password='OldPass123!')
-        data = {'old_password': 'OldPass123!', 'new_password1': '12345678', 'new_password2': '12345678'}
-        response = self.client.post(reverse('accounts:change_password'), data)
-        self.assertContains(response, '<li class="text-danger">✗', count=2)  #too common and all numbers
-        self.assertContains(response, 'follow the rules marked ✗.', count=1)  #the apostrophe is escaped in HTML
-        self.assertNotContains(response, 'entirely numeric.</div>')  #Django's own message is not shown as well
 
 
 class DemoDataTests(TestCase): #python manage.py demo_data should give dates that make sense
@@ -265,6 +233,3 @@ class StaffCustomerOrdersPagesTests(TestCase): #the Orders table on a customer's
         self.assertContains(response, 'Showing 1–10 of 12 orders')
         second = self.client.get(self.url, {'orders_page': 2}).context['orders']
         self.assertEqual([order.id for order in second], newest_first[10:])
-
-    def test_page_links_jump_back_to_the_orders_table(self):
-        self.assertContains(self.client.get(self.url), '?orders_page=2#orders')

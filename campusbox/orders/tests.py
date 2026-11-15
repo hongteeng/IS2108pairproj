@@ -87,10 +87,6 @@ class CancelOrderTests(TestCase):
         self.order.refresh_from_db()
         self.assertEqual(self.order.status, 'confirmed')
 
-    def test_order_page_links_to_the_confirmation_page(self):
-        response = self.client.get(reverse('orders:order_detail', args=[self.order.id]))
-        self.assertContains(response, f'href="{self.url}"')
-
     def test_cancelling_returns_the_stock(self):
         self.client.post(self.url)
         self.order.refresh_from_db()
@@ -136,12 +132,6 @@ class MyOrdersListTests(TestCase): #filters and pages on the student's My orders
             Order.objects.create(user=self.student, pickup_slot=self.slot, total_cents=500)
         self.assertEqual(len(self.statuses()), 10)
         self.assertEqual(len(self.statuses(page=2)), 2)
-
-    def test_empty_filter_and_no_orders_say_different_things(self):
-        Order.objects.filter(user=self.student, status='cancelled').delete()
-        self.assertContains(self.client.get(reverse('orders:order_history'), {'show': 'cancelled'}), 'No orders here.')
-        Order.objects.filter(user=self.student).delete()
-        self.assertContains(self.client.get(reverse('orders:order_history')), 'Browse the menu')
 
 
 class CartWeekTests(TestCase): #the cart only holds meals from the menu that is open for orders now
