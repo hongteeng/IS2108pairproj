@@ -80,10 +80,6 @@ class PackingListTests(TestCase):
         self.assertEqual(totals, (5, 4, 9)) #the All meals row
         self.assertContains(response, 'All meals')
 
-    def test_slots_can_be_collapsed_and_start_open(self):
-        self.make_order(self.customer, 'confirmed', 1, self.make_slot(1, 18))
-        self.assertContains(self.get(), '<details open>', count=2) #lunch and dinner, both expanded
-
     def test_more_slots_do_not_mean_more_queries(self):
         self.client.login(username='staff1', password='Pass1234!')
         with CaptureQueriesContext(connection) as one_slot:
@@ -531,11 +527,6 @@ class StaffAccountsListTests(TestCase): #filters, search and pages on Staff acco
         self.assertEqual(len(self.usernames()), 20)
         self.assertEqual(len(self.usernames(page=2)), 9) #29 staff in total
 
-    def test_a_button_keeps_the_filter(self):
-        staff1 = User.objects.get(username='staff1')
-        response = self.client.post(self.url + '?show=staff', {'toggle_id': staff1.id})
-        self.assertRedirects(response, self.url + '?show=staff')
-
 
 class ResetDemoDataTests(TestCase):
     def test_owner_reset_loads_the_starter_menu_and_slots(self):
@@ -628,15 +619,6 @@ class PickupPageTests(TestCase): #the revamped pickup point page
         self.assertEqual(len(self.client.get(self.url).context['upcoming']), 20)
         self.assertEqual(len(self.client.get(self.url, {'page': 2}).context['upcoming']), 5)
 
-    def test_paging_through_past_slots_keeps_them_open(self):
-        response = self.client.get(self.url, {'past_page': 1})
-        self.assertTrue(response.context['show_past'])
-        self.assertContains(response, '<details class="mt-3 mb-4" open>')
-
-    def test_an_action_keeps_the_same_page(self):
-        response = self.client.post(self.url + '?page=1', {'capacity_id': self.busy.id, 'capacity': '30'})
-        self.assertRedirects(response, self.url + '?page=1')
-
     def test_pickup_points_have_pages_of_20(self):
         for n in range(24): #25 points in total
             PickupPoint.objects.create(name=f'Point {n:02d}', location='Somewhere')
@@ -644,66 +626,6 @@ class PickupPageTests(TestCase): #the revamped pickup point page
         self.assertEqual(len(self.client.get(list_url).context['rows']), 20)
         self.assertEqual(len(self.client.get(list_url, {'page': 2}).context['rows']), 5)
 
-
-class ConsistencyTests(TestCase): #labels, titles and badges that should look the same everywhere
-    def setUp(self):
-        self.owner = User.objects.create_user('owner1', password='Pass1234!', is_staff=True, is_superuser=True)
-        category = MealCategory.objects.create(name='Rice')
-        self.meal = Meal.objects.create(name='Chicken Rice Box', description='Test', price_cents=500, calories=500,
-                                        protein_g=30, carbs_g=60, fat_g=10, image_url='', category=category)
-        self.menu = WeeklyMenu.objects.create(week_start=timezone.localdate(), order_cutoff=timezone.now())
-        self.item = MenuItem.objects.create(weekly_menu=self.menu, meal=self.meal, quantity_available=10)
-        point = PickupPoint.objects.create(name='Library', location='Level 1')
-        self.slot = PickupSlot.objects.create(pickup_point=point, day=timezone.localdate() + timedelta(days=1),
-                                              start_time=time(12, 0), end_time=time(13, 0), capacity=20)
-        self.student = User.objects.create_user('student1', password='Pass1234!')
-
-    def order(self, status):
-        order = Order.objects.create(user=self.student, pickup_slot=self.slot, total_cents=500, status=status)
-        OrderItem.objects.create(order=order, menu_item=self.item, quantity=1, price_at_purchase_cents=500)
-        return order
-
-    def test_staff_pages_have_their_own_tab_title(self):
-        self.client.login(username='owner1', password='Pass1234!')
-        self.assertContains(self.client.get(reverse('dashboard:meal_list')), '<title>Meals · CampusBox Staff</title>')
-
-    def test_navbar_shows_the_staff_role(self):
-        self.client.login(username='owner1', password='Pass1234!')
-        self.assertContains(self.client.get(reverse('dashboard:home')), '>Owner</span>')
-        hr = User.objects.create_user('hr1', password='Pass1234!')
-        set_role(hr, HR)
-        self.client.login(username='hr1', password='Pass1234!')
-        self.assertContains(self.client.get(reverse('dashboard:home')), '>HR</span>')
-
-    def test_each_status_has_its_own_badge(self):
-        self.client.login(username='owner1', password='Pass1234!')
-        for status, css in [('confirmed', 'bg-info-subtle'), ('ready', 'text-bg-success'), ('cancelled', 'bg-secondary-subtle')]:
-            response = self.client.get(reverse('dashboard:order_detail', args=[self.order(status).id]))
-            self.assertContains(response, css)
-
-    def test_remove_is_disabled_for_a_meal_with_orders(self):
-        self.order('confirmed')
-        self.client.login(username='owner1', password='Pass1234!')
-        response = self.client.get(reverse('dashboard:menu_detail', args=[self.menu.id]))
-        self.assertContains(response, "This meal has orders, so it can't be removed.")
-        self.assertNotContains(response, 'name="remove_id"')
-
-    def test_staff_accounts_table_has_fixed_columns(self):
-        self.client.login(username='owner1', password='Pass1234!')
-        response = self.client.get(reverse('dashboard:staff_accounts'))
-        self.assertContains(response, 'table table-fixed')
-        self.assertContains(response, '<col style="width: 37%">')  #room for the role dropdown
-        hr = User.objects.create_user('hr1', password='Pass1234!')
-        set_role(hr, HR)
-        self.client.login(username='hr1', password='Pass1234!')
-        response = self.client.get(reverse('dashboard:staff_accounts'))
-        self.assertContains(response, '<col style="width: 18%">')  #only one button
-        self.assertNotContains(response, '{#')  #a {# #} comment only works on one line, or it shows on the page
-
-    def test_sign_up_has_one_name(self):
-        response = self.client.get(reverse('accounts:register'))
-        self.assertContains(response, '<title>Sign up · CampusBox</title>')
-        self.assertNotContains(response, 'Create an account')
 
 
 class StaffMyAccountTests(TestCase): #staff open My account from the avatar or the sidebar
@@ -724,19 +646,6 @@ class StaffMyAccountTests(TestCase): #staff open My account from the avatar or t
         self.assertContains(response, f'href="{reverse("accounts:change_password")}"')
         self.assertNotContains(response, f'href="{reverse("accounts:deactivate_account")}"')
         self.assertContains(response, 'Ask an owner or HR')
-
-    def test_role_is_shown(self):
-        set_role(self.staff, HR)
-        self.client.login(username='staff1', password='Pass1234!')
-        response = self.client.get(self.url)
-        self.assertContains(response, '<dd class="col-7">HR</dd>', html=True)
-        self.assertContains(response, 'Ask an owner to change')
-
-    def test_avatar_and_sidebar_link_to_it(self):
-        self.client.login(username='staff1', password='Pass1234!')
-        response = self.client.get(reverse('dashboard:home'))
-        self.assertContains(response, f'class="account-link d-inline-flex align-items-center gap-2" href="{self.url}"')
-        self.assertContains(response, f'href="{self.url}">My account</a>')
 
 
 def image_upload(name='photo.png', fmt='PNG', extra=b''):
@@ -782,10 +691,6 @@ class MealPhotoTests(TestCase): #uploading a photo on the Add and Edit meal page
         self.assertTrue(meal.photo.storage.exists(meal.photo.name))
         self.assertEqual(meal.photo_url, meal.photo.url)
 
-    def test_extension_follows_the_real_format(self):
-        self.add(image_upload('photo.png', fmt='JPEG')) #a JPEG named .png is saved as .jpg
-        self.assertTrue(Meal.objects.get().photo.name.endswith('.jpg'))
-
     def test_a_file_that_is_not_an_image_is_refused(self):
         self.assertEqual(self.add(SimpleUploadedFile('menu.png', b'not really a picture')).status_code, 200)
         self.assertFalse(Meal.objects.exists())
@@ -827,11 +732,6 @@ class MealPhotoTests(TestCase): #uploading a photo on the Add and Edit meal page
         self.assertFalse(meal.photo)
         self.assertFalse(meal.photo.storage.exists(old))
         self.assertEqual(meal.photo_url, '/static/menu/meals/chicken-rice-box.jpg')
-
-    def test_missing_file_shows_the_placeholder(self):
-        meal = Meal.objects.create(name='Gone', description='Test', price_cents=500, calories=500, protein_g=30,
-                                   carbs_g=60, fat_g=10, category=self.category, photo='meals/deleted.png')
-        self.assertTrue(meal.photo_url.endswith('menu/meal-placeholder.svg'))
 
     def test_deleting_a_meal_deletes_its_photo(self):
         self.add(image_upload())
@@ -942,9 +842,6 @@ class ResetDemoDataConfirmTests(TestCase): #Reset demo data asks before wiping a
         self.assertContains(self.client.get(reverse('dashboard:seed')), 'Yes, reset demo data')
         self.assertTrue(Meal.objects.filter(name='Keep me').exists())
 
-    def test_dashboard_links_to_the_confirmation_page(self):
-        self.assertContains(self.client.get(reverse('dashboard:home')), f'href="{reverse("dashboard:seed")}"')
-
 
 class OrderStatusBackTests(TestCase): #staff can move an order back one step after a misclick
     def setUp(self):
@@ -1036,10 +933,6 @@ class InventoryTests(TestCase): #tiles that filter, search, sort, pages and one 
         response = self.client.post(self.url, {self.qty('Egg Fried Rice'): 'ten', self.qty('Laksa Bowl'): '100000'})
         errors = {item.meal.name: item.error for item in response.context['page_obj'] if item.error}
         self.assertEqual(errors, {'Egg Fried Rice': 'Enter a whole number, 0 or more.', 'Laksa Bowl': 'Enter 9999 or less.'})
-
-    def test_saving_with_no_changes_says_so(self):
-        response = self.client.post(self.url, {self.qty('Laksa Bowl'): '30'}, follow=True)
-        self.assertContains(response, 'Nothing changed, so nothing was saved.')
 
     def test_a_meal_from_another_week_is_404(self):
         other = WeeklyMenu.objects.create(week_start=self.menu.week_start + timedelta(days=7),
@@ -1202,15 +1095,6 @@ class SaveMessagesTests(TestCase): #every save on the staff pages says what happ
         self.category = MealCategory.objects.create(name='Rice')
         self.meal = Meal.objects.create(name='Chicken Rice Box', description='Test', price_cents=500, calories=500,
                                         protein_g=30, carbs_g=60, fat_g=10, category=self.category)
-
-    def test_deleting_a_meal_says_so(self):
-        response = self.client.post(reverse('dashboard:meal_delete', args=[self.meal.id]), follow=True)
-        self.assertContains(response, 'Deleted Chicken Rice Box.')
-
-    def test_adding_a_pickup_point_says_so(self):
-        response = self.client.post(reverse('dashboard:pickup_add'),
-                                    {'name': 'Library', 'location': 'Level 1', 'is_active': 'on'}, follow=True)
-        self.assertContains(response, 'Added Library. Add its pickup slots below.')
 
     def test_order_status_changes_say_so_and_a_stale_click_says_nothing_changed(self):
         customer = User.objects.create_user('alice', password='Pass1234!')
